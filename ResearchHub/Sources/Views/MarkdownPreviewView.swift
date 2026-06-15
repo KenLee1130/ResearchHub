@@ -20,7 +20,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         context.coordinator.webView = webView
         context.coordinator.citationItems = citationItems
         context.coordinator.pendingText = text
-        webView.loadHTMLString(Self.template, baseURL: nil)
+        webView.loadHTMLString(Self.template, baseURL: WebAssets.baseURL)
         return webView
     }
 
@@ -128,15 +128,16 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
     // MARK: - HTML template
 
-    static let template = """
+    // 本地資源優先、否則退回 CDN（見 WebAssets）。因為要插入 WebAssets 標籤所以改為 computed。
+    static var template: String { """
     <!DOCTYPE html>
     <html>
     <head>
     <meta charset="utf-8">
     <meta name="color-scheme" content="light dark">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    \(WebAssets.katexCSSTag)
+    \(WebAssets.katexJSTag)
+    \(WebAssets.markedJSTag)
     <style>
       html, body { background: transparent; margin: 0; }
       body {
@@ -212,5 +213,5 @@ struct MarkdownPreviewView: NSViewRepresentable {
     </script>
     </body>
     </html>
-    """
+    """ }
 }
