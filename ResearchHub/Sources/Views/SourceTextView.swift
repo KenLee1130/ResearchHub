@@ -556,6 +556,12 @@ struct SourceTextView: NSViewRepresentable {
                 [.foregroundColor: Palette.task]
             }
 
+            // 長文字指令（\footnote/\title/\section…）的內容先整段上參數綠；大括號用計數配對，
+            // 所以巢狀（如 \frac{}{}）也不會壞。放在數學之前，數學區段稍後會被蓋回數學色。
+            for name in Self.proseArgCommands {
+                highlightBalancedArg("\\" + name, in: storage, color: Palette.argument)
+            }
+
             // 數學區域：內容紫 + 定界符橘
             for (regex, delim) in Self.mathPatterns {
                 regex.enumerateMatches(in: tv.string, range: full) { match, _, _ in
@@ -583,6 +589,9 @@ struct SourceTextView: NSViewRepresentable {
             // 指令第一個 {…} 參數內容綠（\begin{align}、\text{aff}、\label{...}）
             Self.argPattern.enumerateMatches(in: tv.string, range: full) { match, _, _ in
                 guard let m = match, m.numberOfRanges > 1 else { return }
+                // 長文字指令上面已用計數配對處理；這裡略過，免得蓋掉裡面的數學色。
+                let name = String(ns.substring(with: m.range).dropFirst().prefix { $0.isLetter })
+                if Self.proseArgCommands.contains(name) { return }
                 let argRange = m.range(at: 1)
                 if argRange.length > 0 {
                     storage.addAttribute(.foregroundColor, value: Palette.argument, range: argRange)
@@ -590,6 +599,43 @@ struct SourceTextView: NSViewRepresentable {
             }
 
             storage.endEditing()
+        }
+
+        /// 長文字指令（內容可能含巢狀大括號或數學）的清單。
+        private static let proseArgCommands: Set<String> =
+            ["footnote", "title", "subtitle", "author", "date",
+             "section", "subsection", "subsubsection"]
+
+        /// 把 \command{...} 的內容上色，大括號用計數配對，巢狀（\frac{}{} 等）也不會壞。
+        private func highlightBalancedArg(
+            _ command: String, in storage: NSTextStorage, color: NSColor
+        ) {
+            let ns = storage.string as NSString
+            let needle = command + "{"
+            let n = ns.length
+            let open = UInt16(UnicodeScalar("{").value)
+            let close = UInt16(UnicodeScalar("}").value)
+            var i = 0
+            while i < n {
+                let found = ns.range(of: needle, range: NSRange(location: i, length: n - i))
+                if found.location == NSNotFound { break }
+                var depth = 1
+                var j = found.location + found.length
+                let contentStart = j
+                while j < n, depth > 0 {
+                    let c = ns.character(at: j)
+                    if c == open { depth += 1 } else if c == close { depth -= 1 }
+                    j += 1
+                }
+                if depth == 0 {
+                    let len = (j - 1) - contentStart
+                    if len > 0 {
+                        storage.addAttribute(.foregroundColor, value: color,
+                                             range: NSRange(location: contentStart, length: len))
+                    }
+                    i = j
+                } else { break }
+            }
         }
 
         private func apply(
