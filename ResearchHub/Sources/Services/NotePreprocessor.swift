@@ -10,8 +10,37 @@ import Foundation
 /// 因此預覽與「輸出 PDF」都會自動套用。
 enum NotePreprocessor {
 
-    static func process(_ markdown: String, zoteroItems: [ZoteroItem]) -> String {
+    static func process(
+        _ markdown: String,
+        zoteroItems: [ZoteroItem],
+        noteLinks: [NoteLink] = []
+    ) -> String {
         var text = markdown
+
+        // 0. 筆記互相引用：[[筆記]] 或 [[資料夾/筆記|顯示文字]]
+        //    → 解析得到 → 可點擊連結（researchhub://note，由預覽攔截開啟）
+        //    → 解析不到 → 紅色虛線標記（提醒筆記名稱可能打錯或尚未建立）
+        //    放在最前面處理，這樣連結文字之後仍會正常被 marked 解析。
+        text = replace(text, pattern: #"\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]"#) { g in
+            let target = g[1].trimmingCharacters(in: .whitespaces)
+            let display = g[2].trimmingCharacters(in: .whitespaces).isEmpty
+                ? target
+                : g[2].trimmingCharacters(in: .whitespaces)
+            guard !target.isEmpty else { return g[0] }
+            if let link = NoteLinkIndex.resolve(target, in: noteLinks) {
+                let allowed = CharacterSet.urlQueryAllowed
+                    .subtracting(CharacterSet(charactersIn: "&=+?#"))
+                let encoded = link.relativePath
+                    .addingPercentEncoding(withAllowedCharacters: allowed)
+                    ?? link.relativePath
+                return "[\(display)](researchhub://note?path=\(encoded))"
+            } else {
+                let safe = display
+                    .replacingOccurrences(of: "<", with: "&lt;")
+                    .replacingOccurrences(of: ">", with: "&gt;")
+                return "<span class=\"rh-deadlink\" title=\"找不到筆記：\(target)\">\(safe)</span>"
+            }
+        }
 
         // 1. 方程式編號（仿 LaTeX）：
         //    - \label 不顯示任何東西，只記錄該式的編號供 \eqref 使用。

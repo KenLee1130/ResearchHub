@@ -14,8 +14,10 @@ final class PDFExporter: NSObject, WKNavigationDelegate {
     func export(noteURL: URL) {
         guard let content = try? String(contentsOf: noteURL, encoding: .utf8) else { return }
         suggestedName = noteURL.deletingPathExtension().lastPathComponent
-        // 先處理 \cite / \footnote / \eqref / \label，再把本地圖片轉成 data URI。
-        let pre = NotePreprocessor.process(content, zoteroItems: ZoteroStore.shared.items)
+        // 先處理 [[筆記]] / \cite / \footnote / \eqref / \label，再把本地圖片轉成 data URI。
+        let pre = NotePreprocessor.process(
+            content, zoteroItems: ZoteroStore.shared.items,
+            noteLinks: NoteLinkIndex.shared.entries())
         markdown = Self.resolveLocalImages(
             in: pre, baseDir: noteURL.deletingLastPathComponent())
 

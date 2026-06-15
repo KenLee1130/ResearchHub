@@ -86,6 +86,11 @@ final class PastingTextView: NSTextView {
             let len = (String(before[r].dropFirst(6)) as NSString).length     // 去掉 "\cite{"
             return (.cite, NSRange(location: caret - len, length: len))
         }
+        // [[ 之內 → 提示要連到的其他筆記
+        if let r = before.range(of: #"\[\[([^\]\n|]*)$"#, options: .regularExpression) {
+            let len = (String(before[r].dropFirst(2)) as NSString).length     // 去掉 "[["
+            return (.noteLink, NSRange(location: caret - len, length: len))
+        }
         // \eqref{ 或 \ref{ 內 → 提示本檔已定義的 \label
         if let r = before.range(of: #"\\(?:eq)?ref\{[^}]*$"#, options: .regularExpression) {
             let m = String(before[r])
@@ -117,7 +122,29 @@ final class PastingTextView: NSTextView {
             return citeItems(prefix: partial)
         case .eqref:
             return labelItems(prefix: partial)
+        case .noteLink:
+            return noteLinkItems(prefix: partial)
         }
+    }
+
+    /// [[ 自動補全：列出所有其他筆記（依名稱／路徑過濾）。
+    private func noteLinkItems(prefix: String) -> [CompletionItem] {
+        let q = prefix.trimmingCharacters(in: .whitespaces).lowercased()
+        let all = NoteLinkIndex.shared.entries()
+        // 名稱若不唯一就插入含資料夾的路徑，避免引用對象有歧義。
+        var nameCount: [String: Int] = [:]
+        for e in all { nameCount[e.name.lowercased(), default: 0] += 1 }
+        var result: [CompletionItem] = []
+        for e in all {
+            guard q.isEmpty
+                || e.name.lowercased().contains(q)
+                || e.displayPath.lowercased().contains(q) else { continue }
+            let insert = (nameCount[e.name.lowercased()] ?? 0) > 1 ? e.displayPath : e.name
+            let display = e.name == e.displayPath ? e.name : "\(e.name)  —  \(e.displayPath)"
+            result.append(CompletionItem(display: display, insert: insert, kind: .noteLink))
+            if result.count >= 50 { break }
+        }
+        return result
     }
 
     /// 掃描整份筆記裡已定義的 \label{...}，供 \eqref/\ref 補全。
@@ -189,6 +216,20 @@ final class PastingTextView: NSTextView {
             if loc < ns.length, ns.substring(with: NSRange(location: loc, length: 1)) == "}" {
                 setSelectedRange(NSRange(location: loc + 1, length: 0))   // 跳過 } 避免又跳清單
             }
+        case .noteLink:
+            insertText(item.insert, replacementRange: completionRange)
+            let loc = selectedRange().location
+            let ns = string as NSString
+            // 補上結尾 ]]（若使用者尚未自行輸入），游標移到 ]] 之後。
+            let tail = String(ns.substring(from: loc).prefix(2))
+            if tail == "]]" {
+                setSelectedRange(NSRange(location: min(loc + 2, ns.length), length: 0))
+            } else if tail.hasPrefix("]") {
+                insertText("]", replacementRange: NSRange(location: loc, length: 0))
+            } else {
+                insertText("]]", replacementRange: NSRange(location: loc, length: 0))
+            }
+            suppressCompletionOnce = true
         case .env:
             acceptEnvironment(item.insert)
         }
@@ -516,6 +557,8 @@ struct SourceTextView: NSViewRepresentable {
         private static let headerPattern = try! NSRegularExpression(
             pattern: #"^#{1,6}[^\n]*$"#, options: [.anchorsMatchLines])
         private static let boldPattern = try! NSRegularExpression(pattern: #"\*\*[^*\n]+\*\*"#)
+        /// [[筆記]] 互相引用標記
+        private static let wikiLinkPattern = try! NSRegularExpression(pattern: #"\[\[[^\]\n]+\]\]"#)
         private static let taskPattern = try! NSRegularExpression(
             pattern: #"^\s*- \[[ xX]\]"#, options: [.anchorsMatchLines])
 
@@ -527,6 +570,7 @@ struct SourceTextView: NSViewRepresentable {
             static let command = NSColor.systemBlue
             static let argument = NSColor.systemGreen
             static let task = NSColor.systemOrange
+            static let wikiLink = NSColor.systemTeal
         }
 
         // MARK: - Highlighting
@@ -554,6 +598,9 @@ struct SourceTextView: NSViewRepresentable {
             }
             apply(Self.taskPattern, in: storage, range: full) {
                 [.foregroundColor: Palette.task]
+            }
+            apply(Self.wikiLinkPattern, in: storage, range: full) {
+                [.foregroundColor: Palette.wikiLink]
             }
 
             // 長文字指令（\footnote/\title/\section…）的內容先整段上參數綠；大括號用計數配對，
