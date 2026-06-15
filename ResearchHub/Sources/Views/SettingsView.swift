@@ -20,7 +20,7 @@ enum AppAppearance: String, CaseIterable, Identifiable {
     case system, light, dark
     var id: String { rawValue }
 
-    var label: String {
+    var label: LocalizedStringKey {
         switch self {
         case .system: return "跟隨系統"
         case .light: return "淺色"
@@ -37,10 +37,55 @@ enum AppAppearance: String, CaseIterable, Identifiable {
     }
 }
 
+/// 介面語言。寫進 UserDefaults 的 AppleLanguages，下次啟動套用；
+/// 同時提供 Locale 供日期/數字格式即時切換。
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case system
+    case zhHant = "zh-Hant"
+    case en
+    var id: String { rawValue }
+
+    var label: LocalizedStringKey {
+        switch self {
+        case .system: return "跟隨系統"
+        case .zhHant: return "繁體中文"
+        case .en: return "English"
+        }
+    }
+
+    /// 要寫進 AppleLanguages 的語言碼；system → nil（清掉設定 = 跟隨系統）。
+    var appleLanguages: [String]? {
+        switch self {
+        case .system: return nil
+        case .zhHant: return ["zh-Hant"]
+        case .en: return ["en"]
+        }
+    }
+
+    var locale: Locale? {
+        switch self {
+        case .system: return nil
+        case .zhHant: return Locale(identifier: "zh-Hant")
+        case .en: return Locale(identifier: "en")
+        }
+    }
+
+    /// 套用語言設定到 UserDefaults（字串完整套用需重啟）。
+    func apply() {
+        if let codes = appleLanguages {
+            UserDefaults.standard.set(codes, forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        }
+    }
+}
+
 struct GeneralSettingsView: View {
     @EnvironmentObject private var store: FileSystemStore
     @AppStorage("settings.appearance") private var appearance = AppAppearance.system.rawValue
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
+    @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
+    @AppStorage("settings.userName") private var userName = ""
     @State private var showFolderPicker = false
 
     var body: some View {
@@ -51,6 +96,25 @@ struct GeneralSettingsView: View {
                 }
             }
             .pickerStyle(.segmented)
+
+            Picker("語言", selection: $language) {
+                ForEach(AppLanguage.allCases) { l in
+                    Text(l.label).tag(l.rawValue)
+                }
+            }
+            .onChange(of: language) { _, newValue in
+                (AppLanguage(rawValue: newValue) ?? .system).apply()
+            }
+
+            Text("變更語言後需重新啟動 App 才會完全套用。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            LabeledContent("你的名字") {
+                TextField("", text: $userName)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 200)
+            }
 
             LabeledContent("編輯器字級") {
                 HStack {

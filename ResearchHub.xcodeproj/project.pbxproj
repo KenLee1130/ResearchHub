@@ -86,11 +86,12 @@
 				};
 			};
 			buildConfigurationList = 73B5158A2FDA6DC200E2640B /* Build configuration list for PBXProject "ResearchHub" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hant";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hant",
 			);
 			mainGroup = 73B515862FDA6DC200E2640B;
 			minimizedProjectReferenceProxies = 1;

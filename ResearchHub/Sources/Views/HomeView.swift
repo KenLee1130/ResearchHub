@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var pomodoro: PomodoroModel
     @EnvironmentObject private var eventStore: EventStore
+    @AppStorage("settings.userName") private var userName = ""
 
     @State private var recentNotes: [FileItem] = []
     @State private var todos: [FileSystemStore.TodoItem] = []
@@ -65,7 +66,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(Date.now, format: .dateTime.month().day().weekday(.wide))
                 .font(.system(size: 32, weight: .semibold, design: .rounded))
-            Text("\(greeting)，ShaoCheng。")
+            greetingLine
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
@@ -92,7 +93,14 @@ struct HomeView: View {
         .glassEffect(.regular, in: .capsule)
     }
 
-    private var greeting: String {
+    /// 問候語 +（可選）使用者在設定填的名字。名字留空就只顯示問候語。
+    private var greetingLine: Text {
+        let g = Text(greeting)
+        let trimmed = userName.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? g : g + Text(verbatim: " \(trimmed)")
+    }
+
+    private var greeting: LocalizedStringKey {
         switch Calendar.current.component(.hour, from: .now) {
         case 5..<12: return "早安"
         case 12..<18: return "午安"
