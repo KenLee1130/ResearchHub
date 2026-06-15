@@ -1,0 +1,386 @@
+import SwiftUI
+import Combine
+
+/// 管理 Research Hub 的根資料夾與目前瀏覽位置。
+/// 筆記就是磁碟上的真實檔案：資料夾 = 目錄、筆記 = .md 檔。
+@MainActor
+final class FileSystemStore: ObservableObject {
+
+    @Published private(set) var rootURL: URL?
+    /// 從 Notes/ 開始的導航堆疊，最後一個是目前所在目錄。
+    @Published private(set) var stack: [URL] = []
+    @Published private(set) var items: [FileItem] = []
+    @Published var errorMessage: String?
+
+    // 跨分頁導航與全域搜尋
+    @Published var requestedTab: AppTab?
+    @Published var pendingOpenNote: URL?
+    @Published var searchPresented = false
+
+    private static let bookmarkKey = "researchHub.rootBookmark"
+    private let fm = FileManager.default
+
+    init() {
+        restoreRoot()
+    }
+
+    // MARK: - Root folder
+
+    var notesURL: URL? {
+        rootURL?.appendingPathComponent("Notes", isDirectory: true)
+    }
+
+    var journalURL: URL? {
+        rootURL?.appendingPathComponent("Journal", isDirectory: true)
+    }
+
+    var currentURL: URL? { stack.last }
+
+    /// 麵包屑：相對於 root 的路徑名稱。
+    var breadcrumb: [(name: String, index: Int)] {
+        stack.enumerated().map { (i, url) in (url.lastPathComponent, i) }
+    }
+
+    func setRoot(_ url: URL) {
+        _ = url.startAccessingSecurityScopedResource()
+        do {
+            let data = try url.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            UserDefaults.standard.set(data, forKey: Self.bookmarkKey)
+        } catch {
+            errorMessage = "無法儲存資料夾權限：\(error.localizedDescription)"
+        }
+        adopt(root: url)
+    }
+
+    private func restoreRoot() {
+        guard let data = UserDefaults.standard.data(forKey: Self.bookmarkKey) else { return }
+        var stale = false
+        guard let url = try? URL(
+            resolvingBookmarkData: data,
+            options: .withSecurityScope,
+            relativeTo: nil,
+            bookmarkDataIsStale: &stale
+        ), !stale else { return }
+        _ = url.startAccessingSecurityScopedResource()
+        adopt(root: url)
+    }
+
+    private func adopt(root url: URL) {
+        rootURL = url
+        ensureLayout()
+        if let notes = notesURL {
+            stack = [notes]
+        }
+        refresh()
+    }
+
+    /// 確保 Notes/ 與 Journal/ 存在。
+    private func ensureLayout() {
+        for url in [notesURL, journalURL].compactMap({ $0 }) {
+            if !fm.fileExists(atPath: url.path) {
+                try? fm.createDirectory(at: url, withIntermediateDirectories: true)
+            }
+        }
+    }
+
+    // MARK: - Listing & navigation
+
+    func refresh() {
+        guard let current = currentURL else {
+            items = []
+            return
+        }
+        do {
+            let urls = try fm.contentsOfDirectory(
+                at: current,
+                includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            )
+            items = urls.compactMap { url in
+                let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .contentModificationDateKey])
+                let isFolder = values?.isDirectory ?? false
+                if !isFolder && url.pathExtension.lowercased() != "md" { return nil }
+                // 貼圖附件資料夾不顯示在網格中
+                if isFolder && url.lastPathComponent == "assets" { return nil }
+                return FileItem(
+                    url: url,
+                    isFolder: isFolder,
+                    modified: values?.contentModificationDate ?? .distantPast
+                )
+            }
+            .sorted { a, b in
+                if a.isFolder != b.isFolder { return a.isFolder }
+                return a.name.localizedStandardCompare(b.name) == .orderedAscending
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            items = []
+        }
+    }
+
+    func open(_ folder: FileItem) {
+        guard folder.isFolder else { return }
+        stack.append(folder.url)
+        refresh()
+    }
+
+    func navigate(toBreadcrumbIndex index: Int) {
+        guard index < stack.count else { return }
+        stack = Array(stack.prefix(index + 1))
+        refresh()
+    }
+
+    // MARK: - File operations
+
+    func createFolder(named name: String) {
+        guard let current = currentURL else { return }
+        let url = uniqueURL(in: current, baseName: name.isEmpty ? "新資料夾" : name, ext: nil)
+        do {
+            try fm.createDirectory(at: url, withIntermediateDirectories: false)
+            refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func createNote(named name: String) {
+        guard let current = currentURL else { return }
+        let base = name.isEmpty ? "未命名筆記" : name
+        let url = uniqueURL(in: current, baseName: base, ext: "md")
+        let content = "# \(base)\n\n"
+        do {
+            try content.write(to: url, atomically: true, encoding: .utf8)
+            refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func rename(_ item: FileItem, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed != item.name else { return }
+        let dir = item.url.deletingLastPathComponent()
+        let dest = item.isFolder
+            ? dir.appendingPathComponent(trimmed, isDirectory: true)
+            : dir.appendingPathComponent(trimmed).appendingPathExtension(item.url.pathExtension)
+        do {
+            try fm.moveItem(at: item.url, to: dest)
+            refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func trash(_ item: FileItem) {
+        do {
+            try fm.trashItem(at: item.url, resultingItemURL: nil)
+            refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// 拖拉移動：把 sourceURL 移進 folder。
+    func move(_ sourceURL: URL, into folder: FileItem) {
+        guard folder.isFolder else { return }
+        move(sourceURL, intoDirectory: folder.url)
+    }
+
+    /// 拖拉移動：把 sourceURL 移進任意目錄（資料夾圖示或麵包屑）。
+    func move(_ sourceURL: URL, intoDirectory dir: URL) {
+        guard sourceURL != dir else { return }
+        // 不允許把資料夾移進自己的子目錄，也不需要移到原地
+        if dir.path.hasPrefix(sourceURL.path + "/") { return }
+        if sourceURL.deletingLastPathComponent().path == dir.path { return }
+        let dest = dir.appendingPathComponent(sourceURL.lastPathComponent)
+        guard !fm.fileExists(atPath: dest.path) else {
+            errorMessage = "「\(dir.lastPathComponent)」內已有同名項目"
+            return
+        }
+        do {
+            try fm.moveItem(at: sourceURL, to: dest)
+            refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - 跨分頁開啟筆記
+
+    /// 切到筆記分頁並導航到指定目錄。
+    func reveal(directory: URL) {
+        if let notes = notesURL {
+            var chain: [URL] = [notes]
+            if directory.path != notes.path, directory.path.hasPrefix(notes.path + "/") {
+                var current = notes
+                for comp in directory.path.dropFirst(notes.path.count + 1).split(separator: "/") {
+                    current = current.appendingPathComponent(String(comp), isDirectory: true)
+                    chain.append(current)
+                }
+            }
+            stack = chain
+            refresh()
+        }
+        requestedTab = .notes
+    }
+
+    /// 從任何分頁開啟筆記：切到筆記分頁、導航到所在資料夾、打開編輯器。
+    func openNote(_ url: URL) {
+        reveal(directory: url.deletingLastPathComponent())
+        pendingOpenNote = url
+    }
+
+    // MARK: - 側欄檔案樹
+
+    struct TreeNode: Identifiable, Hashable {
+        let url: URL
+        let isFolder: Bool
+        var children: [TreeNode]?
+
+        var id: URL { url }
+        var name: String {
+            isFolder ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
+        }
+    }
+
+    /// Notes/ 的完整樹狀結構（資料夾在前、排除 assets）
+    func noteTree() -> [TreeNode] {
+        guard let notes = notesURL else { return [] }
+        return treeChildren(of: notes, depth: 0)
+    }
+
+    private func treeChildren(of dir: URL, depth: Int) -> [TreeNode] {
+        guard depth < 8,
+              let urls = try? fm.contentsOfDirectory(
+                at: dir,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles])
+        else { return [] }
+
+        var nodes: [TreeNode] = []
+        for url in urls {
+            let isFolder = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            if isFolder {
+                guard url.lastPathComponent != "assets" else { continue }
+                nodes.append(TreeNode(
+                    url: url, isFolder: true,
+                    children: treeChildren(of: url, depth: depth + 1)))
+            } else if url.pathExtension.lowercased() == "md" {
+                nodes.append(TreeNode(url: url, isFolder: false, children: nil))
+            }
+        }
+        return nodes.sorted { a, b in
+            if a.isFolder != b.isFolder { return a.isFolder }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+    }
+
+    // MARK: - 全域掃描（首頁 / 搜尋用）
+
+    /// 所有筆記檔（排除 assets/）
+    func allNoteURLs() -> [URL] {
+        guard let notes = notesURL,
+              let enumerator = fm.enumerator(
+                at: notes,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles])
+        else { return [] }
+        var urls: [URL] = []
+        for case let url as URL in enumerator {
+            guard url.pathExtension.lowercased() == "md" else { continue }
+            guard url.deletingLastPathComponent().lastPathComponent != "assets" else { continue }
+            urls.append(url)
+        }
+        return urls
+    }
+
+    /// 最近修改的筆記
+    func recentNotes(limit: Int = 5) -> [FileItem] {
+        allNoteURLs()
+            .map { url in
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey])
+                    .contentModificationDate) ?? .distantPast
+                return FileItem(url: url, isFolder: false, modified: modified)
+            }
+            .sorted { $0.modified > $1.modified }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    struct TodoItem: Identifiable, Hashable {
+        let noteURL: URL
+        let lineIndex: Int
+        let text: String
+        let done: Bool
+
+        var id: String { "\(noteURL.path)#\(lineIndex)" }
+        var noteName: String { noteURL.deletingPathExtension().lastPathComponent }
+    }
+
+    /// 彙整所有筆記中的 - [ ] / - [x]
+    func scanTodos(includeDone: Bool = false) -> [TodoItem] {
+        var result: [TodoItem] = []
+        for url in allNoteURLs() {
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            for (i, line) in content.components(separatedBy: "\n").enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                let done: Bool
+                if trimmed.hasPrefix("- [ ]") { done = false }
+                else if trimmed.lowercased().hasPrefix("- [x]") { done = true }
+                else { continue }
+                if done && !includeDone { continue }
+                let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                guard !text.isEmpty else { continue }
+                result.append(TodoItem(noteURL: url, lineIndex: i, text: text, done: done))
+            }
+        }
+        return result
+    }
+
+    /// 在原檔打勾 / 取消打勾
+    func toggleTodo(_ item: TodoItem) {
+        guard let content = try? String(contentsOf: item.noteURL, encoding: .utf8) else { return }
+        var lines = content.components(separatedBy: "\n")
+        guard item.lineIndex < lines.count else { return }
+        let line = lines[item.lineIndex]
+        if item.done {
+            lines[item.lineIndex] = line
+                .replacingOccurrences(of: "- [x]", with: "- [ ]")
+                .replacingOccurrences(of: "- [X]", with: "- [ ]")
+        } else {
+            lines[item.lineIndex] = line.replacingOccurrences(of: "- [ ]", with: "- [x]")
+        }
+        try? lines.joined(separator: "\n")
+            .write(to: item.noteURL, atomically: true, encoding: .utf8)
+    }
+
+    /// 某日的日記檔路徑
+    func journalURL(for date: Date) -> URL? {
+        guard let base = journalURL else { return nil }
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        let comps = Calendar.current.dateComponents([.year, .month], from: date)
+        return base
+            .appendingPathComponent(String(format: "%04d", comps.year ?? 0), isDirectory: true)
+            .appendingPathComponent(String(format: "%02d", comps.month ?? 0), isDirectory: true)
+            .appendingPathComponent("\(f.string(from: date)).md")
+    }
+
+    // MARK: - Helpers
+
+    private func uniqueURL(in dir: URL, baseName: String, ext: String?) -> URL {
+        func candidate(_ n: Int) -> URL {
+            let name = n == 0 ? baseName : "\(baseName) \(n)"
+            var url = dir.appendingPathComponent(name, isDirectory: ext == nil)
+            if let ext { url = url.appendingPathExtension(ext) }
+            return url
+        }
+        var n = 0
+        while fm.fileExists(atPath: candidate(n).path) { n += 1 }
+        return candidate(n)
+    }
+}
