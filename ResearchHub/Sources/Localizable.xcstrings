@@ -628,7 +628,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stop"
+            "value": "End"
           }
         }
       }
@@ -1369,6 +1369,286 @@
           "stringUnit": {
             "state": "translated",
             "value": "e.g. derive the crossing equation"
+          }
+        }
+      }
+    },
+    "搜尋標題、作者、標籤…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search title, author, tags…"
+          }
+        }
+      }
+    },
+    "PDF 暗色模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF dark mode"
+          }
+        }
+      }
+    },
+    "選取文字後按此加上螢光標記；選取已標記的文字再按一次 = 取消": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select text and click to highlight; click highlighted text again to remove"
+          }
+        }
+      }
+    },
+    "建立筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create note"
+          }
+        }
+      }
+    },
+    "這篇有 PDF，但需要授權讀取 Zotero 資料夾\n（通常在 ~/Zotero）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This has a PDF, but reading the Zotero folder needs permission\n(usually ~/Zotero)"
+          }
+        }
+      }
+    },
+    "選擇 Zotero 資料夾…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Zotero folder…"
+          }
+        }
+      }
+    },
+    "讀不到 PDF 檔案——確認該篇附件已下載到本機（Zotero 中可開啟）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t read the PDF — make sure the attachment is downloaded locally (openable in Zotero)"
+          }
+        }
+      }
+    },
+    "這筆文獻沒有 PDF 附件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This reference has no PDF attachment"
+          }
+        }
+      }
+    },
+    "選擇 Zotero 資料夾（預設位置是家目錄下的 Zotero）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the Zotero folder (default: Zotero in your home folder)"
+          }
+        }
+      }
+    },
+    "**作者**": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Authors**"
+          }
+        }
+      }
+    },
+    "**年份**": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Year**"
+          }
+        }
+      }
+    },
+    "**期刊**": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Journal**"
+          }
+        }
+      }
+    },
+    "關閉（Esc）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close (Esc)"
+          }
+        }
+      }
+    },
+    "筆記會以真實檔案存放在這個資料夾內，\n會自動建立 Notes/ 與 Journal/ 兩個子目錄。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes are stored as real files in this folder.\nNotes/ and Journal/ subfolders are created automatically."
+          }
+        }
+      }
+    },
+    "🍅 完成一顆蕃茄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🍅 Pomodoro complete"
+          }
+        }
+      }
+    },
+    "☕ 休息結束": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "☕ Break over"
+          }
+        }
+      }
+    },
+    "記一下這顆做了什麼，再決定下一步。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note what you did, then decide what’s next."
+          }
+        }
+      }
+    },
+    "這顆完成了什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What did you finish?"
+          }
+        }
+      }
+    },
+    "這顆完成了什麼（可留空）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What did you finish? (optional)"
+          }
+        }
+      }
+    },
+    "例如：算完 free boson 的 IRCFT 部分": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. finished the IRCFT part of the free boson"
+          }
+        }
+      }
+    },
+    "幾分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes"
+          }
+        }
+      }
+    },
+    "幾分鐘（留空=預設）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes (blank = default)"
+          }
+        }
+      }
+    },
+    "下一顆要做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s next?"
+          }
+        }
+      }
+    },
+    "下一顆要做什麼（可留空）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s next? (optional)"
+          }
+        }
+      }
+    },
+    "這顆要做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s this one for?"
+          }
+        }
+      }
+    },
+    "這顆要做什麼（可留空）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s this one for? (optional)"
+          }
+        }
+      }
+    },
+    "還要休息幾分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More break minutes"
+          }
+        }
+      }
+    },
+    "還要休息幾分鐘（留空=預設）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More break minutes (blank = default)"
           }
         }
       }
