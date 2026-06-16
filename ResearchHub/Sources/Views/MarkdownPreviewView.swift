@@ -6,7 +6,7 @@ import AppKit
 /// 數學段落先以 placeholder 保護再交給 marked，避免 $、反斜線被當成 Markdown 處理。
 struct MarkdownPreviewView: NSViewRepresentable {
     var text: String
-    var scrollFraction: CGFloat
+    var scrollSync: ScrollSync = ScrollSync()
     var baseDir: URL?
     /// 供 \cite 解析用的 Zotero 文獻（載入後變動時會觸發重新渲染）。
     var citationItems: [ZoteroItem] = []
@@ -31,7 +31,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         context.coordinator.baseDir = baseDir
         context.coordinator.onOpenNote = onOpenNote
         context.coordinator.update(text: text, items: citationItems)
-        context.coordinator.scroll(to: scrollFraction)
+        context.coordinator.scroll(sync: scrollSync)
     }
 
     // MARK: - Coordinator
@@ -46,7 +46,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         private var isLoaded = false
         private var lastText: String?
         private var lastCiteSig = -1
-        private var lastFraction: CGFloat = -1
+        private var lastSync: ScrollSync?
         /// 圖片 base64 快取（path → data URI），避免每次按鍵重讀檔案
         private var imageCache: [String: String] = [:]
 
@@ -103,10 +103,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
             }
         }
 
-        func scroll(to fraction: CGFloat) {
-            guard isLoaded, abs(fraction - lastFraction) > 0.001 else { return }
-            lastFraction = fraction
-            webView?.evaluateJavaScript("window.scrollToFraction(\(fraction))")
+        func scroll(sync: ScrollSync) {
+            guard isLoaded, sync != lastSync else { return }
+            lastSync = sync
+            webView?.evaluateJavaScript(
+                "window.scrollSync(\(sync.anchor),\(sync.local),\(sync.global),\(sync.count))")
         }
 
         private func push(_ text: String) {
@@ -118,7 +119,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 let data = try? JSONEncoder().encode([resolved]),
                 let json = String(data: data, encoding: .utf8)
             else { return }
-            // 以單元素陣列編碼再在 JS 端取 [0]，避免字串跳脫問題
+            // 以單元素陣列編碼再在 JS 端取 [0]，避免字串跳脫問題。
+            // 打字重繪後「不」重新套用捲動位置 → 右邊維持原處、不會跳。
             webView?.evaluateJavaScript("window.update(\(json)[0])")
         }
 
@@ -247,6 +249,29 @@ struct MarkdownPreviewView: NSViewRepresentable {
       window.scrollToFraction = function (f) {
         const max = document.body.scrollHeight - window.innerHeight;
         window.scrollTo(0, Math.max(0, max * f));
+      };
+
+      // 以「標題 + 顯示型公式」為錨點的捲動同步：左邊在第 k 個錨點之後、段內比例 local，
+      // 右邊就對到對應錨點之間的同樣比例；錨點數對不上時退回整份比例 global。
+      // 公式也是錨點 → 公式多的段落不會因為原始碼很長、渲染後很短而整段偏掉。
+      window.scrollSync = function (k, local, global, srcCount) {
+        const anchors = Array.from(document.querySelectorAll(
+          "#content h1, #content h2, #content h3, #content h4, #content h5, #content h6, #content .rh-head, #content .katex-display"));
+        if (anchors.length === 0 || anchors.length !== srcCount) {
+          window.scrollToFraction(global);
+          return;
+        }
+        const ys = anchors.map(el => el.getBoundingClientRect().top + window.scrollY);
+        const maxScroll = Math.max(0, document.body.scrollHeight - window.innerHeight);
+        let target;
+        if (k < 0) {
+          target = local * ys[0];
+        } else if (k >= ys.length - 1) {
+          target = ys[ys.length - 1] + local * Math.max(0, maxScroll - ys[ys.length - 1]);
+        } else {
+          target = ys[k] + local * (ys[k + 1] - ys[k]);
+        }
+        window.scrollTo(0, Math.max(0, Math.min(maxScroll, target)));
       };
     </script>
     </body>

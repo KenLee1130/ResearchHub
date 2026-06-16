@@ -93,16 +93,16 @@ enum NotePreprocessor {
         //（前後一定要留空行，否則 marked 會把 <div> 當成 HTML 區塊，把後面的內容
         //  整段當原始 HTML 吞掉、不再解析 markdown／連結。）
         text = replaceBalancedCommand(text, "\\title") { inner in
-            "\n\n<div style=\"text-align:center;font-size:1.9em;font-weight:700;margin:.3em 0 .1em;\">\(inner)</div>\n\n"
+            "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:1.9em;font-weight:700;margin:.3em 0 .1em;\">\(inner)</div>\n\n"
         }
         text = replaceBalancedCommand(text, "\\subtitle") { inner in
-            "\n\n<div style=\"text-align:center;font-size:1.25em;font-weight:500;opacity:.8;margin:0 0 .4em;\">\(inner)</div>\n\n"
+            "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:1.25em;font-weight:500;opacity:.8;margin:0 0 .4em;\">\(inner)</div>\n\n"
         }
         text = replaceBalancedCommand(text, "\\author") { inner in
-            "\n\n<div style=\"text-align:center;opacity:.85;margin:.1em 0;\">\(inner)</div>\n\n"
+            "\n\n<div class=\"rh-head\" style=\"text-align:center;opacity:.85;margin:.1em 0;\">\(inner)</div>\n\n"
         }
         text = replaceBalancedCommand(text, "\\date") { inner in
-            "\n\n<div style=\"text-align:center;font-size:.9em;opacity:.7;margin:0 0 .6em;\">\(inner)</div>\n\n"
+            "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:.9em;opacity:.7;margin:0 0 .6em;\">\(inner)</div>\n\n"
         }
 
         // 3.6 章節：\section / \subsection / \subsubsection → 自動編號標題 + 錨點，並收集目錄。

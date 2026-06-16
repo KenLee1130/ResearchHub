@@ -56,7 +56,7 @@ struct EditorCore: View {
     @State private var text = ""
     @State private var initialText = ""
     @State private var fileExisted = false
-    @State private var scrollFraction: CGFloat = 0
+    @State private var scrollSync = ScrollSync()
     @State private var saveTask: Task<Void, Never>?
 
     private var fileDir: URL { fileURL.deletingLastPathComponent() }
@@ -85,14 +85,14 @@ struct EditorCore: View {
                 SourceTextView(
                     text: $text,
                     fontSize: CGFloat(editorFontSize),
-                    onScroll: { fraction in scrollFraction = fraction },
+                    onScroll: { scrollSync = $0 },
                     onPasteImage: saveImage
                 )
                 // minWidth 壓低:窄視窗時雙欄仍能縮進可用寬度,不會把側欄擠歪、
                 // 造成選單位置與首頁/日記不一致。
                 .frame(minWidth: 150)
                 MarkdownPreviewView(
-                    text: text, scrollFraction: scrollFraction, baseDir: fileDir,
+                    text: text, scrollSync: scrollSync, baseDir: fileDir,
                     citationItems: zotero.items, onOpenNote: { store.openNote($0) })
                     .frame(minWidth: 150)
             }
@@ -105,7 +105,7 @@ struct EditorCore: View {
             )
         case .preview:
             MarkdownPreviewView(
-                text: text, scrollFraction: 0, baseDir: fileDir,
+                text: text, scrollSync: ScrollSync(), baseDir: fileDir,
                 citationItems: zotero.items, onOpenNote: { store.openNote($0) })
         }
     }

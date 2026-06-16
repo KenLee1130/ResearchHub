@@ -421,10 +421,19 @@ final class PastingTextView: NSTextView {
     }
 }
 
+/// 編輯區捲動位置 → 預覽的對應資訊。以「標題」為錨點分段，段內線性內插，
+/// 避免長公式(原始碼很多行、渲染很短)造成左右逐漸對不上。
+struct ScrollSync: Equatable {
+    var anchor: Int = -1     // 視窗頂端上方最近的標題索引(-1 = 在第一個標題之前)
+    var local: CGFloat = 0   // 在「該標題→下一個標題」這一段內的比例(0...1)
+    var global: CGFloat = 0  // 後備:整份的捲動比例(標題數對不上時用)
+    var count: Int = 0       // 來源端標題總數
+}
+
 struct SourceTextView: NSViewRepresentable {
     @Binding var text: String
     var fontSize: CGFloat = 14
-    var onScroll: ((CGFloat) -> Void)?
+    var onScroll: ((ScrollSync) -> Void)?
     var onPasteImage: ((NSImage) -> String?)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -501,6 +510,8 @@ struct SourceTextView: NSViewRepresentable {
         weak var textView: NSTextView?
         var isEditing = false
         var lastFontSize: CGFloat
+        /// 各「標題」行的字元起點（供捲動同步；隨文字變動由 applyHighlighting 重算）。
+        private var anchorCharIndices: [Int] = []
 
         init(_ parent: SourceTextView) {
             self.parent = parent
@@ -522,10 +533,48 @@ struct SourceTextView: NSViewRepresentable {
         }
 
         @objc func scrolled() {
-            guard let tv = textView, let sv = tv.enclosingScrollView else { return }
-            let maxOffset = max(1, tv.bounds.height - sv.contentView.bounds.height)
-            let fraction = max(0, min(1, sv.contentView.bounds.origin.y / maxOffset))
-            parent.onScroll?(fraction)
+            guard let tv = textView, let sv = tv.enclosingScrollView,
+                  let lm = tv.layoutManager else { return }
+            let topY = sv.contentView.bounds.origin.y
+            let contentH = tv.bounds.height
+            let maxOffset = max(1, contentH - sv.contentView.bounds.height)
+            let global = max(0, min(1, topY / maxOffset))
+            let inset = tv.textContainerInset.height
+            let ns = tv.string as NSString
+
+            // 各標題行目前的 Y（用當前版面算，所以縮放/改寬度也對）
+            var ys: [CGFloat] = []
+            for ci in anchorCharIndices where ci < ns.length {
+                let gi = lm.glyphIndexForCharacter(at: ci)
+                let r = lm.lineFragmentRect(forGlyphAt: gi, effectiveRange: nil)
+                ys.append(r.minY + inset)
+            }
+            // 視窗頂端上方最近的標題
+            var k = -1
+            for (i, y) in ys.enumerated() {
+                if y <= topY + 0.5 { k = i } else { break }
+            }
+            let segStart = k >= 0 ? ys[k] : 0
+            let segEnd = (k + 1 < ys.count) ? ys[k + 1] : maxOffset
+            let local = max(0, min(1, (topY - segStart) / max(1, segEnd - segStart)))
+            parent.onScroll?(ScrollSync(anchor: k, local: local, global: global, count: ys.count))
+        }
+
+        /// 掃描捲動同步的錨點：各「標題」(\title/\subtitle/\author/\date/\section… 與 markdown #)
+        /// 的行起點，外加每個「顯示型數學區塊」($$…$$ / \[…\] / \begin{env}…\end{env}) 的起點。
+        /// 公式多的長段落（例如一段裡夾好幾條方程式）也因此有細錨點，左右才對得準。
+        private func recomputeAnchors() {
+            guard let tv = textView else { anchorCharIndices = []; return }
+            let ns = tv.string as NSString
+            let full = NSRange(location: 0, length: ns.length)
+            var idx: [Int] = []
+            Self.anchorLineRegex.enumerateMatches(in: tv.string, range: full) { m, _, _ in
+                if let m { idx.append(m.range.location) }
+            }
+            Self.mathBlockRegex.enumerateMatches(in: tv.string, range: full) { m, _, _ in
+                if let m { idx.append(m.range.location) }
+            }
+            anchorCharIndices = idx.sorted()
         }
 
         // MARK: - Patterns
@@ -561,6 +610,13 @@ struct SourceTextView: NSViewRepresentable {
         private static let wikiLinkPattern = try! NSRegularExpression(pattern: #"\[\[[^\]\n]+\]\]"#)
         private static let taskPattern = try! NSRegularExpression(
             pattern: #"^\s*- \[[ xX]\]"#, options: [.anchorsMatchLines])
+        /// 捲動同步的「標題」錨點：markdown # 或 \title/\subtitle/\author/\date/\section…
+        private static let anchorLineRegex = try! NSRegularExpression(
+            pattern: #"^[ \t]*(?:#{1,6}\s|\\(?:title|subtitle|author|date|subsubsection|subsection|section)\{)"#,
+            options: [.anchorsMatchLines])
+        /// 顯示型數學區塊（每塊對到預覽裡一個 .katex-display），當作捲動同步的細錨點。
+        private static let mathBlockRegex = try! NSRegularExpression(
+            pattern: #"\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
 
         // MARK: - Colors (Overleaf-ish, adapts to dark mode)
 
@@ -646,6 +702,7 @@ struct SourceTextView: NSViewRepresentable {
             }
 
             storage.endEditing()
+            recomputeAnchors()   // 文字/版面變了 → 更新捲動同步的標題位置
         }
 
         /// 長文字指令（內容可能含巢狀大括號或數學）的清單。
