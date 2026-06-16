@@ -50,6 +50,7 @@ struct EditorCore: View {
     let fileURL: URL
     @Binding var mode: EditorMode
 
+    @EnvironmentObject private var store: FileSystemStore
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
     @ObservedObject private var zotero = ZoteroStore.shared
     @State private var text = ""
@@ -92,7 +93,7 @@ struct EditorCore: View {
                 .frame(minWidth: 150)
                 MarkdownPreviewView(
                     text: text, scrollFraction: scrollFraction, baseDir: fileDir,
-                    citationItems: zotero.items)
+                    citationItems: zotero.items, onOpenNote: { store.openNote($0) })
                     .frame(minWidth: 150)
             }
         case .source:
@@ -105,7 +106,7 @@ struct EditorCore: View {
         case .preview:
             MarkdownPreviewView(
                 text: text, scrollFraction: 0, baseDir: fileDir,
-                citationItems: zotero.items)
+                citationItems: zotero.items, onOpenNote: { store.openNote($0) })
         }
     }
 

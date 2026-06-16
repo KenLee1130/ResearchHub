@@ -27,6 +27,18 @@ struct ResearchHubApp: App {
             }
         }
 
+        // 把單一筆記彈到獨立視窗：方便同時編輯兩份筆記。
+        // 以筆記 URL 為值，重複開同一份會聚焦既有視窗、不會重複開。
+        WindowGroup(id: "note", for: URL.self) { $url in
+            NoteWindowView(noteURL: url)
+                .environmentObject(store)
+                .environmentObject(pomodoro)
+                .environmentObject(eventStore)
+                .frame(minWidth: 460, minHeight: 380)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified(showsTitle: false))
+
         Settings {
             SettingsView()
                 .environmentObject(store)

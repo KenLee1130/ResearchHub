@@ -72,6 +72,8 @@ final class FileSystemStore: ObservableObject {
     private func adopt(root url: URL) {
         rootURL = url
         ensureLayout()
+        // 讓 [[...]] 筆記引用知道要從哪裡掃描筆記
+        NoteLinkIndex.shared.notesRoot = notesURL
         if let notes = notesURL {
             stack = [notes]
         }
@@ -90,6 +92,8 @@ final class FileSystemStore: ObservableObject {
     // MARK: - Listing & navigation
 
     func refresh() {
+        // 筆記檔可能有增刪改名 → 讓 [[...]] 引用索引下次取用時重掃。
+        NoteLinkIndex.shared.invalidate()
         guard let current = currentURL else {
             items = []
             return

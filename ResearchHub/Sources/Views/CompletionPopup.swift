@@ -4,7 +4,7 @@ import AppKit
 struct CompletionItem {
     let display: String
     let insert: String
-    enum Kind { case command, cite, env, eqref }
+    enum Kind { case command, cite, env, eqref, noteLink }
     let kind: Kind
 }
 

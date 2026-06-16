@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import AppKit
 
 /// 右欄即時預覽：WKWebView + marked（Markdown）+ KaTeX（LaTeX 數學與環境）。
 /// 數學段落先以 placeholder 保護再交給 marked，避免 $、反斜線被當成 Markdown 處理。
@@ -9,6 +10,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var baseDir: URL?
     /// 供 \cite 解析用的 Zotero 文獻（載入後變動時會觸發重新渲染）。
     var citationItems: [ZoteroItem] = []
+    /// 點擊 [[筆記]] 引用時開啟對應筆記。
+    var onOpenNote: ((URL) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -26,6 +29,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.baseDir = baseDir
+        context.coordinator.onOpenNote = onOpenNote
         context.coordinator.update(text: text, items: citationItems)
         context.coordinator.scroll(to: scrollFraction)
     }
@@ -38,6 +42,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         var pendingText: String?
         var baseDir: URL?
         var citationItems: [ZoteroItem] = []
+        var onOpenNote: ((URL) -> Void)?
         private var isLoaded = false
         private var lastText: String?
         private var lastCiteSig = -1
@@ -51,6 +56,38 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 pendingText = nil
                 push(pending)
             }
+        }
+
+        /// 攔截連結點擊：
+        ///   • researchhub://note?path=… → 開啟對應筆記（[[筆記]] 引用）。
+        ///   • 文件內錨點（\eqref/\ref/目錄）→ 放行，讓網頁自行捲動。
+        ///   • 其餘外部連結（http/https/zotero/mailto…）→ 用系統預設程式開啟，不取代預覽。
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            guard navigationAction.navigationType == .linkActivated,
+                  let url = navigationAction.request.url else {
+                decisionHandler(.allow)
+                return
+            }
+            if url.scheme == "researchhub", url.host == "note" {
+                if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                   let rel = comps.queryItems?.first(where: { $0.name == "path" })?.value,
+                   let fileURL = NoteLinkIndex.shared.url(forRelativePath: rel) {
+                    onOpenNote?(fileURL)
+                }
+                decisionHandler(.cancel)
+                return
+            }
+            // 文件內錨點（baseURL 為 nil 時 scheme 會是 about/applewebdata，或沒有 scheme）
+            if url.scheme == nil || url.scheme == "about" || url.scheme == "applewebdata" {
+                decisionHandler(.allow)
+                return
+            }
+            NSWorkspace.shared.open(url)
+            decisionHandler(.cancel)
         }
 
         func update(text: String, items: [ZoteroItem]) {
@@ -73,8 +110,9 @@ struct MarkdownPreviewView: NSViewRepresentable {
         }
 
         private func push(_ text: String) {
-            // 先處理 \cite / \footnote / \eqref / \label，再把本地圖片轉成 data URI。
-            let pre = NotePreprocessor.process(text, zoteroItems: citationItems)
+            // 先處理 [[筆記]] / \cite / \footnote / \eqref / \label，再把本地圖片轉成 data URI。
+            let pre = NotePreprocessor.process(
+                text, zoteroItems: citationItems, noteLinks: NoteLinkIndex.shared.entries())
             let resolved = resolveLocalImages(in: pre)
             guard
                 let data = try? JSONEncoder().encode([resolved]),
@@ -157,6 +195,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
       li.task { list-style: none; margin-left: -1.2em; }
       hr { border: none; border-top: 1px solid rgba(127,127,127,0.3); }
       .err { color: #c33; font-family: ui-monospace, monospace; font-size: 0.85em; }
+      .rh-deadlink { color: #c33; border-bottom: 1px dashed #c33; cursor: help; }
     </style>
     </head>
     <body>
