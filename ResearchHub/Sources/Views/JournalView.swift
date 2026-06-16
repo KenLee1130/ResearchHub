@@ -48,13 +48,8 @@ struct JournalView: View {
         AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent
     }
 
-    /// 依目前語系顯示星期縮寫（週一開頭）。
-    private var weekdaySymbols: [String] {
-        var c = Calendar.current
-        c.locale = appLocale
-        let s = c.veryShortWeekdaySymbols                  // 週日開頭
-        return Array(s.dropFirst()) + [s[0]]               // 轉成週一開頭
-    }
+    /// 星期列：固定用數字 1–7（週一=1 … 週日=7），不分語言、不會有英文重複字母的歧義。
+    private let weekdaySymbols = ["1", "2", "3", "4", "5", "6", "7"]
 
     var body: some View {
         Group {
