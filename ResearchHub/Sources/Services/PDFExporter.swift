@@ -26,7 +26,7 @@ final class PDFExporter: NSObject, WKNavigationDelegate {
         wv.appearance = NSAppearance(named: .aqua) // 強制淺色，PDF 白底
         wv.navigationDelegate = self
         webView = wv
-        wv.loadHTMLString(MarkdownPreviewView.template, baseURL: nil)
+        wv.loadHTMLString(MarkdownPreviewView.template, baseURL: WebAssets.baseURL)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
