@@ -80,7 +80,7 @@ struct HomeView: View {
         }
     }
 
-    private func statChip(_ icon: String, _ text: String, _ color: Color) -> some View {
+    private func statChip(_ icon: String, _ text: LocalizedStringKey, _ color: Color) -> some View {
         Label {
             Text(text)
                 .font(.callout.weight(.medium))
@@ -115,7 +115,7 @@ struct HomeView: View {
     // MARK: - Card 容器
 
     private func card<Content: View>(
-        _ icon: String, _ title: String,
+        _ icon: String, _ title: LocalizedStringKey,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -224,9 +224,13 @@ struct HomeView: View {
                                     Text(event.title)
                                         .font(.callout)
                                         .lineLimit(1)
-                                    Text(event.isAllDay
-                                         ? "全天"
-                                         : "\(event.start.formatted(date: .omitted, time: .shortened))–\(event.end.formatted(date: .omitted, time: .shortened))")
+                                    Group {
+                                        if event.isAllDay {
+                                            Text("全天")
+                                        } else {
+                                            Text(verbatim: "\(event.start.formatted(date: .omitted, time: .shortened))–\(event.end.formatted(date: .omitted, time: .shortened))")
+                                        }
+                                    }
                                         .font(.caption)
                                         .foregroundStyle(.tertiary)
                                 }
@@ -309,7 +313,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Picker("", selection: $statsPeriod) {
                     ForEach(PomodoroStatsPeriod.allCases) { p in
-                        Text(p.label).tag(p)
+                        Text(LocalizedStringKey(p.label)).tag(p)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -389,7 +393,7 @@ struct HomeView: View {
 
     // MARK: - Helpers
 
-    private func emptyHint(_ text: String) -> some View {
+    private func emptyHint(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.caption)
             .foregroundStyle(.tertiary)

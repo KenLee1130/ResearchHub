@@ -62,7 +62,7 @@ struct RootView: View {
                                 }
                             }
                         } label: {
-                            Label(item.rawValue, systemImage: item.icon)
+                            Label(item.title, systemImage: item.icon)
                                 .tag(item)
                         }
                     } else {

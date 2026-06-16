@@ -749,7 +749,7 @@ extension BlockEditorView {
           MathBlock,
           ToggleSummary,
           ToggleList,
-          Placeholder.configure({ placeholder: "輸入文字，或打「/」插入區塊" }),
+          Placeholder.configure({ placeholder: "\#(String(localized: "輸入文字，或打「/」插入區塊"))" }),
           Markdown.configure({ html: false, breaks: false, transformPastedText: true })
         ],
         onUpdate() { scheduleSend(); refreshSlash(); },

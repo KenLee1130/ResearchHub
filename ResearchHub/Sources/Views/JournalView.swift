@@ -41,7 +41,11 @@ struct JournalView: View {
     private static let maxLanes = 2
 
     private let calendar = Calendar.current
-    private let weekdaySymbols = ["一", "二", "三", "四", "五", "六", "日"]
+    // 依目前語系顯示星期縮寫（週一開頭）。切換語言重啟後 Locale.current 會跟著變。
+    private var weekdaySymbols: [String] {
+        let s = Calendar.current.veryShortWeekdaySymbols   // 週日開頭
+        return Array(s.dropFirst()) + [s[0]]               // 轉成週一開頭
+    }
 
     var body: some View {
         Group {
@@ -121,7 +125,7 @@ struct JournalView: View {
             Divider()
 
             HStack {
-                Text(selectedDayShortTitle + " 事件")
+                Text("\(selectedDayShortTitle) 事件")
                     .font(.subheadline.weight(.medium))
                 Spacer()
                 Button {
@@ -220,7 +224,7 @@ struct JournalView: View {
         .buttonStyle(.plain)
     }
 
-    private func legendDot(_ color: Color, _ label: String) -> some View {
+    private func legendDot(_ color: Color, _ label: LocalizedStringKey) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 5, height: 5)
             Text(label)
@@ -312,9 +316,10 @@ struct JournalView: View {
         day.dateFormat = "M/d"
 
         if event.isAllDay {
+            let allDay = String(localized: "全天")
             return sameDay
-                ? "全天"
-                : "\(day.string(from: event.start))–\(day.string(from: event.end)) 全天"
+                ? allDay
+                : "\(day.string(from: event.start))–\(day.string(from: event.end)) \(allDay)"
         }
         if sameDay {
             return "\(time.string(from: event.start))–\(time.string(from: event.end))"
@@ -327,15 +332,15 @@ struct JournalView: View {
 
     private var monthTitle: String {
         let f = DateFormatter()
-        f.dateFormat = "yyyy 年 M 月"
+        // 依目前語系顯示「年 月」（中文：2026年6月；英文：June 2026）。
+        f.setLocalizedDateFormatFromTemplate("yMMMM")
         return f.string(from: displayedMonth)
     }
 
     private var dayTitle: String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "zh_Hant")
-        f.dateFormat = "M 月 d 日（EEEEE）"
-        return f.string(from: selectedDay) + " 日記"
+        f.setLocalizedDateFormatFromTemplate("MMMMdEEEE")
+        return f.string(from: selectedDay) + " " + String(localized: "日記")
     }
 
     private var daysInMonth: Int {

@@ -1,340 +1,1378 @@
 {
-  "sourceLanguage" : "zh-Hant",
-  "strings" : {
-    "English" : {
-      "comment" : "Language name — kept verbatim across locales",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "English" } }
+  "sourceLanguage": "zh-Hant",
+  "strings": {
+    "English": {
+      "comment": "Language name — kept verbatim across locales",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English"
+          }
+        }
       }
     },
-    "一般" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "General" } } }
-    },
-    "事件名稱" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Event name" } } }
-    },
-    "今日事件" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Today’s events" } } }
-    },
-    "今日日記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Today’s journal" } } }
-    },
-    "個人" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Personal" } } }
-    },
-    "全天" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "All day" } } }
-    },
-    "全部完成了 🎉" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "All done 🎉" } } }
-    },
-    "兩天" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Two days" } } }
-    },
-    "取消" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } } }
-    },
-    "名稱" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } } }
-    },
-    "回到今天" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Back to today" } } }
-    },
-    "在 Zotero 開啟" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Open in Zotero" } } }
-    },
-    "在新視窗開啟（可同時編輯兩份筆記）" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Open in a new window (edit two notes at once)" } } }
-    },
-    "外觀" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Appearance" } } }
-    },
-    "好" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "OK" } } }
-    },
-    "完成" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Done" } } }
-    },
-    "尚未選擇" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Not selected" } } }
-    },
-    "工作結束 → 繼續工作：還要工作多久" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Work ends → keep working: how much longer" } } }
-    },
-    "工作結束 → 開始休息：上一輪做了什麼" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Work ends → start break: what you just did" } } }
-    },
-    "休息結束 → 繼續工作：預計做什麼" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Break ends → keep working: what you plan to do" } } }
-    },
-    "休息結束 → 繼續休息：還要休息多久" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Break ends → keep resting: how much longer" } } }
-    },
-    "引用" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Cite" } } }
-    },
-    "引用其他筆記 [[…]]" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Reference another note [[…]]" } } }
-    },
-    "待辦事項" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "To-dos" } } }
-    },
-    "待辦清單" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "To-do list" } } }
-    },
-    "快速搜尋…" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Quick search…" } } }
-    },
-    "找不到其他筆記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "No other notes found" } } }
-    },
-    "找不到這份筆記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Note not found" } } }
-    },
-    "插入 Zotero 引用 \\cite{}" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Insert Zotero citation \\cite{}" } } }
-    },
-    "教學" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Teaching" } } }
-    },
-    "新增" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Add" } } }
-    },
-    "新增事件" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "New event" } } }
-    },
-    "新增筆記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "New note" } } }
-    },
-    "新增資料夾" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "New folder" } } }
-    },
-    "新標籤名稱" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "New tag name" } } }
-    },
-    "會議" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Meeting" } } }
-    },
-    "最近的蕃茄鐘" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Recent pomodoros" } } }
-    },
-    "最近筆記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Recent notes" } } }
-    },
-    "標籤" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Tags" } } }
-    },
-    "檢視模式" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "View mode" } } }
-    },
-    "沒有事件" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "No events" } } }
-    },
-    "沒有結果" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "No results" } } }
-    },
-    "浮動面板（置頂於其他視窗）" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Floating panel (always on top)" } } }
-    },
-    "深色" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark" } } }
-    },
-    "淺色" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Light" } } }
-    },
-    "準備好了嗎？" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Ready?" } } }
-    },
-    "無" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "None" } } }
-    },
-    "管理標籤" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Manage tags" } } }
-    },
-    "繁體中文" : {
-      "comment" : "Language name — kept verbatim across locales",
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "繁體中文" } } }
-    },
-    "編輯" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit" } } }
-    },
-    "編輯事件" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit event" } } }
-    },
-    "編輯器字級" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Editor font size" } } }
-    },
-    "短休息" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Short break" } } }
-    },
-    "確定" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "OK" } } }
-    },
-    "移到垃圾桶" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Move to Trash" } } }
-    },
-    "管理" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Manage" } } }
-    },
-    "研究" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Research" } } }
-    },
-    "稍後再說（先關掉，待會自己開始）" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Later (dismiss and start on your own)" } } }
-    },
-    "筆記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Notes" } } }
-    },
-    "筆記根資料夾" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Notes root folder" } } }
-    },
-    "管理標籤…" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Manage tags…" } } }
-    },
-    "結束" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Stop" } } }
-    },
-    "編號清單" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Numbered list" } } }
-    },
-    "繼續休息" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Keep resting" } } }
-    },
-    "繼續工作" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Keep working" } } }
-    },
-    "蕃茄鐘" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Pomodoro" } } }
-    },
-    "蕃茄鐘統計" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Pomodoro stats" } } }
-    },
-    "論文" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Papers" } } }
-    },
-    "設定" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } } }
-    },
-    "請先在「筆記」分頁選擇根資料夾" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose a root folder in the Notes tab first" } } }
-    },
-    "變更…" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Change…" } } }
-    },
-    "跟隨系統" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Follow system" } } }
-    },
-    "載入 PDF…" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading PDF…" } } }
-    },
-    "載入編輯器…" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading editor…" } } }
-    },
-    "輸入關鍵字開始搜尋" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Type a keyword to start searching" } } }
-    },
-    "輸出 PDF" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Export PDF" } } }
-    },
-    "選擇 Research Hub 的根資料夾" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose the Research Hub root folder" } } }
-    },
-    "選擇一篇論文" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Select a paper" } } }
-    },
-    "選擇資料夾…" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose folder…" } } }
-    },
-    "重新命名" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Rename" } } }
-    },
-    "重新整理" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Refresh" } } }
-    },
-    "重試" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Retry" } } }
-    },
-    "長休息" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Long break" } } }
-    },
-    "開始" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Start" } } }
-    },
-    "開始休息" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Start break" } } }
-    },
-    "開啟" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Open" } } }
-    },
-    "雙欄" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Split" } } }
-    },
-    "預覽" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Preview" } } }
-    },
-    "顯示／隱藏側邊欄" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Show / hide sidebar" } } }
-    },
-    "首頁" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Home" } } }
-    },
-    "區塊" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Blocks" } } }
-    },
-    "源碼" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Source" } } }
-    },
-    "儲存" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } } }
-    },
-    "刪除" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } } }
-    },
-    "授權" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Authorize" } } }
-    },
-    "截止日" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Due date" } } }
-    },
-    "專注中" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Focusing" } } }
-    },
-    "還沒有筆記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "No notes yet" } } }
-    },
-    "還沒有完成紀錄" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "No completed records yet" } } }
-    },
-    "整個循環歸零" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset the whole cycle" } } }
-    },
-    "日記" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Journal" } } }
-    },
-    "早安" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Good morning" } } }
-    },
-    "午安" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Good afternoon" } } }
-    },
-    "晚安" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Good evening" } } }
-    },
-    "完成時的輸入欄位（必填／可留空）" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Required fields on completion (required / optional)" } } }
-    },
-    "打開＝該欄位必填（沒填就不能按該按鈕）；關閉＝可留空。" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "On = the field is required (the button is disabled until filled); Off = optional." } } }
-    },
-    "語言" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Language" } } }
-    },
-    "你的名字" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Your name" } } }
-    },
-    "變更語言後需重新啟動 App 才會完全套用。" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Restart the app for a language change to fully apply." } } }
+    "一般": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
+    "事件名稱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Event name"
+          }
+        }
+      }
+    },
+    "今日事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today’s events"
+          }
+        }
+      }
+    },
+    "今日日記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today’s diary"
+          }
+        }
+      }
+    },
+    "個人": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal"
+          }
+        }
+      }
+    },
+    "全天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All day"
+          }
+        }
+      }
+    },
+    "全部完成了 🎉": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All done 🎉"
+          }
+        }
+      }
+    },
+    "兩天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Two days"
+          }
+        }
+      }
+    },
+    "取消": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "名稱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "回到今天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to today"
+          }
+        }
+      }
+    },
+    "在 Zotero 開啟": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in Zotero"
+          }
+        }
+      }
+    },
+    "在新視窗開啟（可同時編輯兩份筆記）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in a new window (edit two notes at once)"
+          }
+        }
+      }
+    },
+    "外觀": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        }
+      }
+    },
+    "好": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "尚未選擇": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not selected"
+          }
+        }
+      }
+    },
+    "工作結束 → 繼續工作：還要工作多久": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work ends → keep working: how much longer"
+          }
+        }
+      }
+    },
+    "工作結束 → 開始休息：上一輪做了什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work ends → start break: what you just did"
+          }
+        }
+      }
+    },
+    "休息結束 → 繼續工作：預計做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Break ends → keep working: what you plan to do"
+          }
+        }
+      }
+    },
+    "休息結束 → 繼續休息：還要休息多久": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Break ends → keep resting: how much longer"
+          }
+        }
+      }
+    },
+    "引用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cite"
+          }
+        }
+      }
+    },
+    "引用其他筆記 [[…]]": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference another note [[…]]"
+          }
+        }
+      }
+    },
+    "待辦事項": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To-dos"
+          }
+        }
+      }
+    },
+    "待辦清單": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To-do list"
+          }
+        }
+      }
+    },
+    "快速搜尋…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick search…"
+          }
+        }
+      }
+    },
+    "找不到其他筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No other notes found"
+          }
+        }
+      }
+    },
+    "找不到這份筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note not found"
+          }
+        }
+      }
+    },
+    "插入 Zotero 引用 \\cite{}": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insert Zotero citation \\cite{}"
+          }
+        }
+      }
+    },
+    "教學": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teaching"
+          }
+        }
+      }
+    },
+    "新增": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
+    "新增事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New event"
+          }
+        }
+      }
+    },
+    "新增筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New note"
+          }
+        }
+      }
+    },
+    "新增資料夾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New folder"
+          }
+        }
+      }
+    },
+    "新標籤名稱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New tag name"
+          }
+        }
+      }
+    },
+    "會議": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeting"
+          }
+        }
+      }
+    },
+    "最近的蕃茄鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent pomodoros"
+          }
+        }
+      }
+    },
+    "最近筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent notes"
+          }
+        }
+      }
+    },
+    "標籤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tags"
+          }
+        }
+      }
+    },
+    "檢視模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View mode"
+          }
+        }
+      }
+    },
+    "沒有事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No events"
+          }
+        }
+      }
+    },
+    "沒有結果": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No results"
+          }
+        }
+      }
+    },
+    "浮動面板（置頂於其他視窗）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Floating panel (always on top)"
+          }
+        }
+      }
+    },
+    "深色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
+          }
+        }
+      }
+    },
+    "淺色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        }
+      }
+    },
+    "準備好了嗎？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready?"
+          }
+        }
+      }
+    },
+    "無": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        }
+      }
+    },
+    "管理標籤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage tags"
+          }
+        }
+      }
+    },
+    "繁體中文": {
+      "comment": "Language name — kept verbatim across locales",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "繁體中文"
+          }
+        }
+      }
+    },
+    "編輯": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "編輯事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit event"
+          }
+        }
+      }
+    },
+    "編輯器字級": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor font size"
+          }
+        }
+      }
+    },
+    "短休息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short break"
+          }
+        }
+      }
+    },
+    "確定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "移到垃圾桶": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to Trash"
+          }
+        }
+      }
+    },
+    "管理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage"
+          }
+        }
+      }
+    },
+    "研究": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Research"
+          }
+        }
+      }
+    },
+    "稍後再說（先關掉，待會自己開始）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later (dismiss and start on your own)"
+          }
+        }
+      }
+    },
+    "筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes"
+          }
+        }
+      }
+    },
+    "筆記根資料夾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes root folder"
+          }
+        }
+      }
+    },
+    "管理標籤…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage tags…"
+          }
+        }
+      }
+    },
+    "結束": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop"
+          }
+        }
+      }
+    },
+    "編號清單": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numbered list"
+          }
+        }
+      }
+    },
+    "繼續休息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep resting"
+          }
+        }
+      }
+    },
+    "繼續工作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep working"
+          }
+        }
+      }
+    },
+    "蕃茄鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomodoro"
+          }
+        }
+      }
+    },
+    "蕃茄鐘統計": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomodoro stats"
+          }
+        }
+      }
+    },
+    "論文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papers"
+          }
+        }
+      }
+    },
+    "設定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
+    },
+    "請先在「筆記」分頁選擇根資料夾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a root folder in the Notes tab first"
+          }
+        }
+      }
+    },
+    "變更…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change…"
+          }
+        }
+      }
+    },
+    "跟隨系統": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow system"
+          }
+        }
+      }
+    },
+    "載入 PDF…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading PDF…"
+          }
+        }
+      }
+    },
+    "載入編輯器…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading editor…"
+          }
+        }
+      }
+    },
+    "輸入關鍵字開始搜尋": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a keyword to start searching"
+          }
+        }
+      }
+    },
+    "輸出 PDF": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export PDF"
+          }
+        }
+      }
+    },
+    "選擇 Research Hub 的根資料夾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the Research Hub root folder"
+          }
+        }
+      }
+    },
+    "選擇一篇論文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a paper"
+          }
+        }
+      }
+    },
+    "選擇資料夾…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose folder…"
+          }
+        }
+      }
+    },
+    "重新命名": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename"
+          }
+        }
+      }
+    },
+    "重新整理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh"
+          }
+        }
+      }
+    },
+    "重試": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "長休息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long break"
+          }
+        }
+      }
+    },
+    "開始": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        }
+      }
+    },
+    "開始休息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start break"
+          }
+        }
+      }
+    },
+    "開啟": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        }
+      }
+    },
+    "雙欄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split"
+          }
+        }
+      }
+    },
+    "預覽": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
+          }
+        }
+      }
+    },
+    "顯示／隱藏側邊欄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show / hide sidebar"
+          }
+        }
+      }
+    },
+    "首頁": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Home"
+          }
+        }
+      }
+    },
+    "區塊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocks"
+          }
+        }
+      }
+    },
+    "源碼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        }
+      }
+    },
+    "儲存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "刪除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "授權": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authorize"
+          }
+        }
+      }
+    },
+    "截止日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due date"
+          }
+        }
+      }
+    },
+    "專注中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focusing"
+          }
+        }
+      }
+    },
+    "還沒有筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No notes yet"
+          }
+        }
+      }
+    },
+    "還沒有完成紀錄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No completed records yet"
+          }
+        }
+      }
+    },
+    "整個循環歸零": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset the whole cycle"
+          }
+        }
+      }
+    },
+    "日記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diary"
+          }
+        }
+      }
+    },
+    "早安": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good morning"
+          }
+        }
+      }
+    },
+    "午安": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good afternoon"
+          }
+        }
+      }
+    },
+    "晚安": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good evening"
+          }
+        }
+      }
+    },
+    "完成時的輸入欄位（必填／可留空）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required fields on completion (required / optional)"
+          }
+        }
+      }
+    },
+    "打開＝該欄位必填（沒填就不能按該按鈕）；關閉＝可留空。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On = the field is required (the button is disabled until filled); Off = optional."
+          }
+        }
+      }
+    },
+    "語言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
+    "你的名字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your name"
+          }
+        }
+      }
+    },
+    "變更語言後需重新啟動 App 才會完全套用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart the app for a language change to fully apply."
+          }
+        }
+      }
+    },
+    "今日 %lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld today"
+          }
+        }
+      }
+    },
+    "本週 %lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld this week"
+          }
+        }
+      }
+    },
+    "%lld 篇筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld notes"
+          }
+        }
+      }
+    },
+    "%lld 項待辦": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld to-dos"
+          }
+        }
+      }
+    },
+    "還有 %lld 項…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld more…"
+          }
+        }
+      }
+    },
+    "%lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pomodoros"
+          }
+        }
+      }
+    },
+    "計畫：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan: %@"
+          }
+        }
+      }
+    },
+    "第 %lld / %lld 顆 · 今日 %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld · %lld today"
+          }
+        }
+      }
+    },
+    "%@ 事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Events"
+          }
+        }
+      }
+    },
+    "當日筆記更新：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes updated: %@"
+          }
+        }
+      }
+    },
+    "專注時長：%lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focus length: %lld min"
+          }
+        }
+      }
+    },
+    "短休息：%lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short break: %lld min"
+          }
+        }
+      }
+    },
+    "長休息：%lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long break: %lld min"
+          }
+        }
+      }
+    },
+    "一輪顆數：%lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomodoros per cycle: %lld"
+          }
+        }
+      }
+    },
+    "完成一輪 %lld 顆後進入長休息。設定在目前的鐘尚未開始時立即生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After %lld pomodoros, a long break begins. Changes apply when the current timer hasn’t started yet."
+          }
+        }
+      }
+    },
+    "本週": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week"
+          }
+        }
+      }
+    },
+    "上週": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last week"
+          }
+        }
+      }
+    },
+    "本月": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This month"
+          }
+        }
+      }
+    },
+    "今年": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This year"
+          }
+        }
+      }
+    },
+    "這顆要做什麼？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s this one for?"
+          }
+        }
+      }
+    },
+    "這顆蕃茄鐘要做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What is this pomodoro for?"
+          }
+        }
+      }
+    },
+    "重設目前這顆；右鍵可將整個循環歸零": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset this one; right-click to reset the whole cycle"
+          }
+        }
+      }
+    },
+    "筆記更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note updates"
+          }
+        }
+      }
+    },
+    "還沒寫，點擊開始今天的記錄…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing yet — tap to start today’s entry…"
+          }
+        }
+      }
+    },
+    "（未記錄內容）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(no details recorded)"
+          }
+        }
+      }
+    },
+    "輸入文字，或打「/」插入區塊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type, or press “/” to insert a block"
+          }
+        }
+      }
+    },
+    "例如：推導 crossing equation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. derive the crossing equation"
+          }
+        }
+      }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }
