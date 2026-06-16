@@ -34,7 +34,7 @@ struct EditorModePicker: View {
         Picker("檢視模式", selection: $mode) {
             ForEach(available) { m in
                 Image(systemName: m.icon)
-                    .help(m.label)
+                    .help(LocalizedStringKey(m.label))
                     .tag(m)
             }
         }

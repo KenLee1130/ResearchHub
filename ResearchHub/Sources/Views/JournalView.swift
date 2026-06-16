@@ -40,8 +40,16 @@ struct JournalView: View {
 
     private static let maxLanes = 2
 
+    @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     private let calendar = Calendar.current
-    private let weekdaySymbols = ["一", "二", "三", "四", "五", "六", "日"]
+
+    /// 目前 App 語系對應的 Locale（供日曆星期/月份/日期文字跟著語言切換）。
+    private var appLocale: Locale {
+        AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent
+    }
+
+    /// 星期列：固定用數字 1–7（週一=1 … 週日=7），不分語言、不會有英文重複字母的歧義。
+    private let weekdaySymbols = ["1", "2", "3", "4", "5", "6", "7"]
 
     var body: some View {
         Group {
@@ -92,7 +100,7 @@ struct JournalView: View {
             .foregroundStyle(.secondary)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
-                ForEach(weekdaySymbols, id: \.self) { s in
+                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, s in
                     Text(s)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -121,7 +129,7 @@ struct JournalView: View {
             Divider()
 
             HStack {
-                Text(selectedDayShortTitle + " 事件")
+                Text("\(selectedDayShortTitle) 事件")
                     .font(.subheadline.weight(.medium))
                 Spacer()
                 Button {
@@ -220,7 +228,7 @@ struct JournalView: View {
         .buttonStyle(.plain)
     }
 
-    private func legendDot(_ color: Color, _ label: String) -> some View {
+    private func legendDot(_ color: Color, _ label: LocalizedStringKey) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 5, height: 5)
             Text(label)
@@ -312,9 +320,10 @@ struct JournalView: View {
         day.dateFormat = "M/d"
 
         if event.isAllDay {
+            let allDay = String(localized: "全天")
             return sameDay
-                ? "全天"
-                : "\(day.string(from: event.start))–\(day.string(from: event.end)) 全天"
+                ? allDay
+                : "\(day.string(from: event.start))–\(day.string(from: event.end)) \(allDay)"
         }
         if sameDay {
             return "\(time.string(from: event.start))–\(time.string(from: event.end))"
@@ -327,15 +336,17 @@ struct JournalView: View {
 
     private var monthTitle: String {
         let f = DateFormatter()
-        f.dateFormat = "yyyy 年 M 月"
+        f.locale = appLocale
+        // 依目前語系顯示「年 月」（中文：2026年6月；英文：June 2026）。
+        f.setLocalizedDateFormatFromTemplate("yMMMM")
         return f.string(from: displayedMonth)
     }
 
     private var dayTitle: String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "zh_Hant")
-        f.dateFormat = "M 月 d 日（EEEEE）"
-        return f.string(from: selectedDay) + " 日記"
+        f.locale = appLocale
+        f.setLocalizedDateFormatFromTemplate("MMMMdEEEE")
+        return f.string(from: selectedDay) + " " + String(localized: "日記")
     }
 
     private var daysInMonth: Int {

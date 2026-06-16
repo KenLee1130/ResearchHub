@@ -252,8 +252,8 @@ struct PapersView: View {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.message = "選擇 Zotero 資料夾（預設位置是家目錄下的 Zotero）"
-        panel.prompt = "授權"
+        panel.message = String(localized: "選擇 Zotero 資料夾（預設位置是家目錄下的 Zotero）")
+        panel.prompt = String(localized: "授權")
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             zotero.setZoteroDir(url)
@@ -276,15 +276,15 @@ struct PapersView: View {
 
         if !FileManager.default.fileExists(atPath: url.path) {
             var lines = ["# \(item.title)", ""]
-            if !item.authors.isEmpty { lines.append("**作者**：\(item.authors)") }
-            if !item.year.isEmpty { lines.append("**年份**：\(item.year)") }
+            if !item.authors.isEmpty { lines.append("\(String(localized: "**作者**"))：\(item.authors)") }
+            if !item.year.isEmpty { lines.append("\(String(localized: "**年份**"))：\(item.year)") }
             if let venue = item.data.publicationTitle, !venue.isEmpty {
-                lines.append("**期刊**：\(venue)")
+                lines.append("\(String(localized: "**期刊**"))：\(venue)")
             }
             if let doi = item.data.DOI, !doi.isEmpty { lines.append("**DOI**：\(doi)") }
             lines.append("**Zotero**：zotero://select/library/items/\(item.key)")
             lines.append("")
-            lines.append("## 筆記")
+            lines.append("## \(String(localized: "筆記"))")
             lines.append("")
             try? lines.joined(separator: "\n")
                 .write(to: url, atomically: true, encoding: .utf8)

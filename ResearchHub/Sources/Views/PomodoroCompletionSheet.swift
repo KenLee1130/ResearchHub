@@ -53,7 +53,7 @@ struct PomodoroCompletionSheet: View {
     private var workContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("這顆完成了什麼\(reqLastWork ? "" : "（可留空）")")
+                Text(reqLastWork ? "這顆完成了什麼" : "這顆完成了什麼（可留空）")
                     .font(.subheadline.weight(.medium))
                 TextField("例如：算完 free boson 的 IRCFT 部分", text: $doneText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
@@ -64,8 +64,8 @@ struct PomodoroCompletionSheet: View {
 
             twoFieldCard(
                 title: "繼續工作", tint: .accentColor,
-                numberLabel: "幾分鐘\(reqContinueWork ? "" : "（留空=預設）")", numberText: $extraWorkMin,
-                descLabel: "下一顆要做什麼\(reqPlanned ? "" : "（可留空）")", descText: $nextPlanText,
+                numberLabel: reqContinueWork ? "幾分鐘" : "幾分鐘（留空=預設）", numberText: $extraWorkMin,
+                descLabel: reqPlanned ? "下一顆要做什麼" : "下一顆要做什麼（可留空）", descText: $nextPlanText,
                 buttonTitle: "繼續工作",
                 disabled: (reqContinueWork && parsedInt(extraWorkMin) == nil)
                     || (reqPlanned && trimmedOrNil(nextPlanText) == nil)
@@ -92,7 +92,7 @@ struct PomodoroCompletionSheet: View {
             twoFieldCard(
                 title: "繼續工作", tint: .accentColor,
                 numberLabel: "幾分鐘（留空=預設）", numberText: $afterBreakMin,
-                descLabel: "這顆要做什麼\(reqPlanned ? "" : "（可留空）")", descText: $afterBreakPlan,
+                descLabel: reqPlanned ? "這顆要做什麼" : "這顆要做什麼（可留空）", descText: $afterBreakPlan,
                 buttonTitle: "繼續工作",
                 disabled: reqPlanned && trimmedOrNil(afterBreakPlan) == nil
             ) {
@@ -103,7 +103,7 @@ struct PomodoroCompletionSheet: View {
 
             oneNumberCard(
                 title: "繼續休息", tint: .green,
-                numberLabel: "還要休息幾分鐘\(reqExtendBreak ? "" : "（留空=預設）")",
+                numberLabel: reqExtendBreak ? "還要休息幾分鐘" : "還要休息幾分鐘（留空=預設）",
                 numberText: $extendBreakMin, buttonTitle: "繼續休息",
                 disabled: reqExtendBreak && parsedInt(extendBreakMin) == nil
             ) {
@@ -117,10 +117,10 @@ struct PomodoroCompletionSheet: View {
     // MARK: - 卡片元件
 
     private func twoFieldCard(
-        title: String, tint: Color,
-        numberLabel: String, numberText: Binding<String>,
-        descLabel: String, descText: Binding<String>,
-        buttonTitle: String, disabled: Bool, action: @escaping () -> Void
+        title: LocalizedStringKey, tint: Color,
+        numberLabel: LocalizedStringKey, numberText: Binding<String>,
+        descLabel: LocalizedStringKey, descText: Binding<String>,
+        buttonTitle: LocalizedStringKey, disabled: Bool, action: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline)
@@ -143,9 +143,9 @@ struct PomodoroCompletionSheet: View {
     }
 
     private func oneNumberCard(
-        title: String, tint: Color,
-        numberLabel: String, numberText: Binding<String>,
-        buttonTitle: String, disabled: Bool, action: @escaping () -> Void
+        title: LocalizedStringKey, tint: Color,
+        numberLabel: LocalizedStringKey, numberText: Binding<String>,
+        buttonTitle: LocalizedStringKey, disabled: Bool, action: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline)
@@ -164,7 +164,7 @@ struct PomodoroCompletionSheet: View {
     }
 
     private func actionCard(
-        title: String, tint: Color, buttonTitle: String,
+        title: LocalizedStringKey, tint: Color, buttonTitle: LocalizedStringKey,
         disabled: Bool, action: @escaping () -> Void
     ) -> some View {
         HStack {

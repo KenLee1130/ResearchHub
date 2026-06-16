@@ -663,7 +663,13 @@ struct PomodoroPlanRow: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "target").font(.caption2)
-                    Text(pomodoro.currentPlan.isEmpty ? "這顆要做什麼？" : pomodoro.currentPlan)
+                    Group {
+                        if pomodoro.currentPlan.isEmpty {
+                            Text("這顆要做什麼？")
+                        } else {
+                            Text(pomodoro.currentPlan)
+                        }
+                    }
                         .font(.caption2)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -706,7 +712,7 @@ struct PomodoroMiniView: View {
         VStack(spacing: 6) {
             Text(pomodoro.timeString)
                 .font(.system(size: 20, weight: .medium, design: .monospaced))
-            Text(pomodoro.phase.label)
+            Text(LocalizedStringKey(pomodoro.phase.label))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

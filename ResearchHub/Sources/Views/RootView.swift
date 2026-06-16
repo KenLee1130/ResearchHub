@@ -9,6 +9,9 @@ enum AppTab: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// 顯示名稱（會走本地化；rawValue 仍是中文，作為字串目錄的 key）。
+    var title: LocalizedStringKey { LocalizedStringKey(rawValue) }
+
     var icon: String {
         switch self {
         case .home: return "house"
@@ -24,6 +27,7 @@ struct RootView: View {
     @EnvironmentObject private var eventStore: EventStore
     @EnvironmentObject private var pomodoro: PomodoroModel
     @AppStorage("settings.appearance") private var appearance = AppAppearance.system.rawValue
+    @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @State private var tab: AppTab? = .home
     @State private var noteTree: [FileSystemStore.TreeNode] = []
     @State private var notesExpanded = false
@@ -58,11 +62,11 @@ struct RootView: View {
                                 }
                             }
                         } label: {
-                            Label(item.rawValue, systemImage: item.icon)
+                            Label(item.title, systemImage: item.icon)
                                 .tag(item)
                         }
                     } else {
-                        Label(item.rawValue, systemImage: item.icon)
+                        Label(item.title, systemImage: item.icon)
                             .tag(item)
                     }
                 }
@@ -122,6 +126,10 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme)
+        // 即時套用語言到日期/數字格式。
+        .environment(\.locale, AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent)
+        // 語言改變時強制整棵重建，讓所有子畫面的字串即時重新解析。
+        .id(language)
         .background(WindowMinSizeSetter(minWidth: 700, minHeight: 560))
         .onAppear {
             eventStore.configure(rootURL: store.rootURL)

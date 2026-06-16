@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var pomodoro: PomodoroModel
     @EnvironmentObject private var eventStore: EventStore
+    @AppStorage("settings.userName") private var userName = ""
 
     @State private var recentNotes: [FileItem] = []
     @State private var todos: [FileSystemStore.TodoItem] = []
@@ -65,7 +66,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(Date.now, format: .dateTime.month().day().weekday(.wide))
                 .font(.system(size: 32, weight: .semibold, design: .rounded))
-            Text("\(greeting)，ShaoCheng。")
+            greetingLine
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
@@ -79,7 +80,7 @@ struct HomeView: View {
         }
     }
 
-    private func statChip(_ icon: String, _ text: String, _ color: Color) -> some View {
+    private func statChip(_ icon: String, _ text: LocalizedStringKey, _ color: Color) -> some View {
         Label {
             Text(text)
                 .font(.callout.weight(.medium))
@@ -92,7 +93,14 @@ struct HomeView: View {
         .glassEffect(.regular, in: .capsule)
     }
 
-    private var greeting: String {
+    /// 問候語 +（可選）使用者在設定填的名字。名字留空就只顯示問候語。
+    private var greetingLine: Text {
+        let g = Text(greeting)
+        let trimmed = userName.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? g : g + Text(verbatim: " \(trimmed)")
+    }
+
+    private var greeting: LocalizedStringKey {
         switch Calendar.current.component(.hour, from: .now) {
         case 5..<12: return "早安"
         case 12..<18: return "午安"
@@ -107,7 +115,7 @@ struct HomeView: View {
     // MARK: - Card 容器
 
     private func card<Content: View>(
-        _ icon: String, _ title: String,
+        _ icon: String, _ title: LocalizedStringKey,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -216,9 +224,13 @@ struct HomeView: View {
                                     Text(event.title)
                                         .font(.callout)
                                         .lineLimit(1)
-                                    Text(event.isAllDay
-                                         ? "全天"
-                                         : "\(event.start.formatted(date: .omitted, time: .shortened))–\(event.end.formatted(date: .omitted, time: .shortened))")
+                                    Group {
+                                        if event.isAllDay {
+                                            Text("全天")
+                                        } else {
+                                            Text(verbatim: "\(event.start.formatted(date: .omitted, time: .shortened))–\(event.end.formatted(date: .omitted, time: .shortened))")
+                                        }
+                                    }
                                         .font(.caption)
                                         .foregroundStyle(.tertiary)
                                 }
@@ -301,7 +313,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Picker("", selection: $statsPeriod) {
                     ForEach(PomodoroStatsPeriod.allCases) { p in
-                        Text(p.label).tag(p)
+                        Text(LocalizedStringKey(p.label)).tag(p)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -381,7 +393,7 @@ struct HomeView: View {
 
     // MARK: - Helpers
 
-    private func emptyHint(_ text: String) -> some View {
+    private func emptyHint(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.caption)
             .foregroundStyle(.tertiary)
