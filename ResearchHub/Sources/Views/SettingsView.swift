@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 /// 設定視窗（Cmd+, 或側欄齒輪開啟）。
 struct SettingsView: View {
+    @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
+
     var body: some View {
         TabView {
             GeneralSettingsView()
@@ -11,6 +13,9 @@ struct SettingsView: View {
                 .tabItem { Label("蕃茄鐘", systemImage: "timer") }
         }
         .frame(width: 440)
+        .environment(\.locale, AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent)
+        // 語言改變時整個重建，讓兩個分頁的字串都即時更新。
+        .id(language)
     }
 }
 
@@ -70,8 +75,9 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 套用語言設定到 UserDefaults（字串完整套用需重啟）。
+    /// 套用語言：即時切換介面字串（LanguageManager），並寫入 AppleLanguages 以利下次啟動一致。
     func apply() {
+        LanguageManager.apply(self == .system ? nil : rawValue)
         if let codes = appleLanguages {
             UserDefaults.standard.set(codes, forKey: "AppleLanguages")
         } else {
@@ -106,7 +112,7 @@ struct GeneralSettingsView: View {
                 (AppLanguage(rawValue: newValue) ?? .system).apply()
             }
 
-            Text("變更語言後需重新啟動 App 才會完全套用。")
+            Text("語言切換會即時套用。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

@@ -126,8 +126,10 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme)
-        // 即時套用語言到日期/數字格式；介面字串的完整切換需重新啟動（見設定說明）。
+        // 即時套用語言到日期/數字格式。
         .environment(\.locale, AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent)
+        // 語言改變時強制整棵重建，讓所有子畫面的字串即時重新解析。
+        .id(language)
         .background(WindowMinSizeSetter(minWidth: 700, minHeight: 560))
         .onAppear {
             eventStore.configure(rootURL: store.rootURL)

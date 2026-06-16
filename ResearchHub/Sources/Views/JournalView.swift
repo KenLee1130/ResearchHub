@@ -40,10 +40,19 @@ struct JournalView: View {
 
     private static let maxLanes = 2
 
+    @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     private let calendar = Calendar.current
-    // 依目前語系顯示星期縮寫（週一開頭）。切換語言重啟後 Locale.current 會跟著變。
+
+    /// 目前 App 語系對應的 Locale（供日曆星期/月份/日期文字跟著語言切換）。
+    private var appLocale: Locale {
+        AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent
+    }
+
+    /// 依目前語系顯示星期縮寫（週一開頭）。
     private var weekdaySymbols: [String] {
-        let s = Calendar.current.veryShortWeekdaySymbols   // 週日開頭
+        var c = Calendar.current
+        c.locale = appLocale
+        let s = c.veryShortWeekdaySymbols                  // 週日開頭
         return Array(s.dropFirst()) + [s[0]]               // 轉成週一開頭
     }
 
@@ -96,7 +105,7 @@ struct JournalView: View {
             .foregroundStyle(.secondary)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
-                ForEach(weekdaySymbols, id: \.self) { s in
+                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, s in
                     Text(s)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -332,6 +341,7 @@ struct JournalView: View {
 
     private var monthTitle: String {
         let f = DateFormatter()
+        f.locale = appLocale
         // 依目前語系顯示「年 月」（中文：2026年6月；英文：June 2026）。
         f.setLocalizedDateFormatFromTemplate("yMMMM")
         return f.string(from: displayedMonth)
@@ -339,6 +349,7 @@ struct JournalView: View {
 
     private var dayTitle: String {
         let f = DateFormatter()
+        f.locale = appLocale
         f.setLocalizedDateFormatFromTemplate("MMMMdEEEE")
         return f.string(from: selectedDay) + " " + String(localized: "日記")
     }

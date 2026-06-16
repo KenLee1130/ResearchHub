@@ -1652,6 +1652,16 @@
           }
         }
       }
+    },
+    "語言切換會即時套用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language changes apply immediately."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

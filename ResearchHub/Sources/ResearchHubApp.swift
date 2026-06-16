@@ -6,6 +6,12 @@ struct ResearchHubApp: App {
     @StateObject private var pomodoro = PomodoroModel()
     @StateObject private var eventStore = EventStore()
 
+    init() {
+        // 啟用即時語系切換，並套用上次選擇的語言。
+        LanguageManager.activate()
+        LanguageManager.apply(UserDefaults.standard.string(forKey: "settings.language"))
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
