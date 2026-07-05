@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 /// 首頁 v2：今天的工作台。
@@ -1037,3 +1038,4 @@ struct HoverRow: ViewModifier {
             .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
+#endif

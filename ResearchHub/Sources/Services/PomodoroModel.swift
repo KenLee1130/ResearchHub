@@ -1,7 +1,9 @@
 import SwiftUI
-import AppKit
 import Combine
 import UserNotifications
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// 一顆已完成的蕃茄鐘紀錄(存進 <root>/Pomodoro/pomodoro.json)。
 struct PomodoroSession: Codable, Identifiable, Equatable {
@@ -343,7 +345,9 @@ final class PomodoroModel: ObservableObject {
 
     /// 把 app 帶到前景並要求彈出完成小視窗。
     private func present(_ prompt: CompletionPrompt) {
+        #if os(macOS)
         NSApp.activate(ignoringOtherApps: true)
+        #endif
         completionPrompt = prompt
     }
 
@@ -658,7 +662,9 @@ final class PomodoroModel: ObservableObject {
     }
 
     private func notify(_ title: String, _ body: String) {
+        #if os(macOS)
         NSSound.beep() // 即時音效（通知被拒絕時仍有提示）
+        #endif
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -681,6 +687,7 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
+#if os(macOS)
 // MARK: - 浮動面板（置頂於所有 app 之上的玻璃小窗）
 
 @MainActor
@@ -914,3 +921,4 @@ struct PomodoroMiniView: View {
         return .primary.opacity(0.15)
     }
 }
+#endif

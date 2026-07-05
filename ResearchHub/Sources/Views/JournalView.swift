@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
@@ -611,11 +612,5 @@ struct JournalView: View {
     }
 }
 
-// MARK: - Calendar helper
-
-extension Calendar {
-    func startOfMonth(for date: Date) -> Date {
-        let comps = dateComponents([.year, .month], from: date)
-        return self.date(from: comps) ?? date
-    }
-}
+// （Calendar.startOfMonth 移到 Models/AppEnums.swift，跨平台共用）
+#endif

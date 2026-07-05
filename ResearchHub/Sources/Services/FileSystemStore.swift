@@ -43,11 +43,21 @@ final class FileSystemStore: ObservableObject {
         stack.enumerated().map { (i, url) in (url.lastPathComponent, i) }
     }
 
+    // security-scoped bookmark 的選項是 macOS 專屬；iOS 用預設選項即可
+    // （文件挑選器給的 URL 同樣要 startAccessingSecurityScopedResource）。
+    #if os(macOS)
+    private static let bookmarkCreationOptions: URL.BookmarkCreationOptions = .withSecurityScope
+    private static let bookmarkResolutionOptions: URL.BookmarkResolutionOptions = .withSecurityScope
+    #else
+    private static let bookmarkCreationOptions: URL.BookmarkCreationOptions = []
+    private static let bookmarkResolutionOptions: URL.BookmarkResolutionOptions = []
+    #endif
+
     func setRoot(_ url: URL) {
         _ = url.startAccessingSecurityScopedResource()
         do {
             let data = try url.bookmarkData(
-                options: .withSecurityScope,
+                options: Self.bookmarkCreationOptions,
                 includingResourceValuesForKeys: nil,
                 relativeTo: nil
             )
@@ -63,7 +73,7 @@ final class FileSystemStore: ObservableObject {
         var stale = false
         guard let url = try? URL(
             resolvingBookmarkData: data,
-            options: .withSecurityScope,
+            options: Self.bookmarkResolutionOptions,
             relativeTo: nil,
             bookmarkDataIsStale: &stale
         ), !stale else { return }

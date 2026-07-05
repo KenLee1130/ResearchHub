@@ -155,7 +155,9 @@ final class ZoteroStore: ObservableObject {
     @Published private(set) var hasZoteroDir = false
     private var zoteroDir: URL?
 
+    // Zotero storage/ 授權只在 macOS 有意義（手機連不到桌機的 Zotero 資料夾）。
     func restoreZoteroDir() {
+        #if os(macOS)
         guard zoteroDir == nil,
               let data = UserDefaults.standard.data(forKey: Self.dirBookmarkKey)
         else { return }
@@ -167,9 +169,11 @@ final class ZoteroStore: ObservableObject {
             zoteroDir = url
             hasZoteroDir = true
         }
+        #endif
     }
 
     func setZoteroDir(_ url: URL) {
+        #if os(macOS)
         _ = url.startAccessingSecurityScopedResource()
         if let data = try? url.bookmarkData(
             options: .withSecurityScope,
@@ -178,5 +182,6 @@ final class ZoteroStore: ObservableObject {
         }
         zoteroDir = url
         hasZoteroDir = true
+        #endif
     }
 }

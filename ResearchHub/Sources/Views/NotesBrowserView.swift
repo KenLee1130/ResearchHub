@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -284,3 +285,4 @@ struct ChooseRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+#endif

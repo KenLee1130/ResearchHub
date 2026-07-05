@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import PDFKit
 import CoreImage
@@ -405,3 +406,4 @@ struct PDFKitView: NSViewRepresentable {
         init(data: Data) { lastData = data }
     }
 }
+#endif

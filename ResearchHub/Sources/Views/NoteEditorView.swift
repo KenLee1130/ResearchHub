@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 /// 筆記編輯器：標題列（返回、檔名、模式切換）+ 共用編輯器核心。
@@ -126,3 +127,4 @@ struct NoteWindowView: View {
         .background(WindowMinSizeSetter(minWidth: 460, minHeight: 380))
     }
 }
+#endif

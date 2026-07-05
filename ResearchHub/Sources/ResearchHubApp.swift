@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 @main
@@ -55,3 +56,4 @@ struct ResearchHubApp: App {
         }
     }
 }
+#endif

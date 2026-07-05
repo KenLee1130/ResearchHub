@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import WebKit
 import UniformTypeIdentifiers
@@ -102,3 +103,4 @@ final class PDFExporter: NSObject, WKNavigationDelegate {
         return result
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import WebKit
 import Combine
@@ -1072,3 +1073,4 @@ extension BlockEditorView {
     """#
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 /// 從 Zotero 文獻庫挑一篇，插入 \cite{key} 到目前作用中的編輯器游標處。
@@ -79,3 +80,4 @@ struct CitationPickerView: View {
         dismiss()
     }
 }
+#endif

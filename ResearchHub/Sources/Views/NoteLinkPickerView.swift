@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 /// 從目前 Notes/ 裡挑一份筆記，插入 `[[筆記]]` 引用到作用中的編輯器游標處。
@@ -82,3 +83,4 @@ struct NoteLinkPickerView: View {
         dismiss()
     }
 }
+#endif

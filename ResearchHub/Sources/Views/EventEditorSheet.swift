@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 /// 新增 / 編輯事件的表單，含標籤管理（增刪、調色）。
@@ -131,3 +132,4 @@ struct EventEditorSheet: View {
         )
     }
 }
+#endif

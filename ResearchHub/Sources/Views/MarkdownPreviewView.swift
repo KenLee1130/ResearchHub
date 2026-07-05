@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import WebKit
 import AppKit
@@ -280,3 +281,4 @@ struct MarkdownPreviewView: NSViewRepresentable {
     </html>
     """
 }
+#endif

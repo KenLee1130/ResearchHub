@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 /// Cmd+K 全域搜尋：搜筆記檔名與內文，點擊或 Enter 開啟。
@@ -128,3 +129,4 @@ struct SearchPaletteView: View {
         store.openNote(result.url)
     }
 }
+#endif

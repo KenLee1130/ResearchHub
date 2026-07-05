@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 /// 工作 / 休息結束時跳出的小視窗。
@@ -202,3 +203,4 @@ struct PomodoroCompletionSheet: View {
         return v
     }
 }
+#endif

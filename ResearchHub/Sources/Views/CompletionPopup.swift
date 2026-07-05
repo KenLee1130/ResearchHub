@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 
 /// 一筆補全建議。display = 清單上顯示的文字；insert = 接受時實際插入（cite 是 Zotero key）。
@@ -139,3 +140,4 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
         return field
     }
 }
+#endif

@@ -1,6 +1,10 @@
 import SwiftUI
-import AppKit
 import Combine
+#if canImport(AppKit)
+import AppKit
+#else
+import UIKit
+#endif
 
 // MARK: - Models
 
@@ -259,10 +263,19 @@ extension Color {
     }
 
     var hexString: String {
+        #if canImport(AppKit)
         guard let rgb = NSColor(self).usingColorSpace(.sRGB) else { return "#888888" }
         let r = Int(round(rgb.redComponent * 255))
         let g = Int(round(rgb.greenComponent * 255))
         let b = Int(round(rgb.blueComponent * 255))
+        #else
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        guard UIColor(self).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        else { return "#888888" }
+        let r = Int(round(red * 255))
+        let g = Int(round(green * 255))
+        let b = Int(round(blue * 255))
+        #endif
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 }

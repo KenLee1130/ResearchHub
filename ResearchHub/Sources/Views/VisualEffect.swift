@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -51,3 +52,4 @@ struct AmbientBackground: View {
         .ignoresSafeArea()
     }
 }
+#endif

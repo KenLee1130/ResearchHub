@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -761,3 +762,4 @@ struct SourceTextView: NSViewRepresentable {
         }
     }
 }
+#endif

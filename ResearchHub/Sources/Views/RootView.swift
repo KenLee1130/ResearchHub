@@ -1,26 +1,6 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
-
-enum AppTab: String, CaseIterable, Identifiable {
-    case home = "首頁"
-    case notes = "筆記"
-    case papers = "論文"
-    case journal = "日記"
-
-    var id: String { rawValue }
-
-    /// 顯示名稱（會走本地化；rawValue 仍是中文，作為字串目錄的 key）。
-    var title: LocalizedStringKey { LocalizedStringKey(rawValue) }
-
-    var icon: String {
-        switch self {
-        case .home: return "house"
-        case .notes: return "folder"
-        case .papers: return "books.vertical"
-        case .journal: return "book"
-        }
-    }
-}
 
 struct RootView: View {
     @EnvironmentObject private var store: FileSystemStore
@@ -230,3 +210,4 @@ struct SidebarResizeHandle: View {
             )
     }
 }
+#endif
