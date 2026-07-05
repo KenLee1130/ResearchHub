@@ -94,6 +94,7 @@ struct MobileTodayView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var eventStore: EventStore
     @EnvironmentObject private var generalTodos: GeneralTodoStore
+    @ObservedObject private var editorHost = BlockEditorHost.shared
 
     @State private var journalText = ""
     @State private var loadedText = ""
@@ -152,21 +153,28 @@ struct MobileTodayView: View {
                         .background(RoundedRectangle(cornerRadius: 12).fill(.gray.opacity(0.08)))
                     }
 
-                    // 今日日記（純文字快速記錄；完整 block 編輯在 Mac 版）
+                    // 今日日記：與 Mac 版同一套 block 編輯器（tiptap，離線 bundle）
                     VStack(alignment: .leading, spacing: 6) {
                         Label("今日日記", systemImage: "book")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        TextEditor(text: $journalText)
-                            .font(.body)
-                            .frame(minHeight: 260)
-                            .scrollContentBackground(.hidden)
-                            .overlay(alignment: .topLeading) {
-                                if journalText.isEmpty {
-                                    Text("- [ ] 明天要做的事…")
-                                        .foregroundStyle(.tertiary)
-                                        .padding(.top, 8)
-                                        .allowsHitTesting(false)
+                        BlockEditorView(
+                            text: $journalText,
+                            baseDir: journalURL?.deletingLastPathComponent(),
+                            documentID: journalURL)
+                            .frame(minHeight: 420)
+                            .overlay {
+                                if let error = editorHost.loadError {
+                                    VStack(spacing: 8) {
+                                        Text(error)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .multilineTextAlignment(.center)
+                                        Button("重試") { editorHost.retry() }
+                                    }
+                                    .padding(16)
+                                } else if !editorHost.isReady {
+                                    ProgressView()
                                 }
                             }
                     }

@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import WebKit
 import Combine
@@ -6,23 +5,11 @@ import Combine
 /// Notion 式 block 編輯器（日記用）：WKWebView + Tiptap。
 /// markdown 仍是唯一真實來源——載入時 markdown → blocks，編輯時 blocks → markdown 回傳 binding。
 /// 支援：/ 選單、markdown 快捷輸入、$...$ / $$...$$ KaTeX 數學節點（點擊編輯）、Cmd+V 貼圖。
-struct BlockEditorView: NSViewRepresentable {
+struct BlockEditorView {
     @Binding var text: String
     var baseDir: URL?
     /// 文件身分（換日記/換檔案時用來重置宿主狀態）
     var documentID: URL?
-
-    func makeNSView(context: Context) -> WebViewContainer {
-        let container = WebViewContainer()
-        attachWebView(to: container)
-        sync()
-        return container
-    }
-
-    func updateNSView(_ container: WebViewContainer, context: Context) {
-        attachWebView(to: container)
-        sync()
-    }
 
     /// 共用 webView 永遠掛在「最新的」容器上；舊容器被 SwiftUI 回收時不會帶走它。
     private func attachWebView(to container: WebViewContainer) {
@@ -30,7 +17,11 @@ struct BlockEditorView: NSViewRepresentable {
         guard webView.superview !== container else { return }
         webView.removeFromSuperview()
         container.addSubview(webView)
+        #if os(macOS)
         container.needsLayout = true
+        #else
+        container.setNeedsLayout()
+        #endif
     }
 
     private func sync() {
@@ -46,6 +37,21 @@ struct BlockEditorView: NSViewRepresentable {
     }
 }
 
+#if os(macOS)
+extension BlockEditorView: NSViewRepresentable {
+    func makeNSView(context: Context) -> WebViewContainer {
+        let container = WebViewContainer()
+        attachWebView(to: container)
+        sync()
+        return container
+    }
+
+    func updateNSView(_ container: WebViewContainer, context: Context) {
+        attachWebView(to: container)
+        sync()
+    }
+}
+
 /// 容器自己負責把 webView 撐滿（比 autoresizing 從零尺寸起算可靠）。
 final class WebViewContainer: NSView {
     override func layout() {
@@ -53,6 +59,29 @@ final class WebViewContainer: NSView {
         subviews.first?.frame = bounds
     }
 }
+#else
+extension BlockEditorView: UIViewRepresentable {
+    func makeUIView(context: Context) -> WebViewContainer {
+        let container = WebViewContainer()
+        attachWebView(to: container)
+        sync()
+        return container
+    }
+
+    func updateUIView(_ container: WebViewContainer, context: Context) {
+        attachWebView(to: container)
+        sync()
+    }
+}
+
+/// 容器自己負責把 webView 撐滿（比 autoresizing 從零尺寸起算可靠）。
+final class WebViewContainer: UIView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        subviews.first?.frame = bounds
+    }
+}
+#endif
 
 /// 常駐的 block 編輯器宿主：WKWebView 只建立並載入一次（app 啟動即預載），
 /// 之後切到日記分頁是即時顯示，只推送新的 markdown 內容。
@@ -90,7 +119,13 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
         webView.navigationDelegate = self
+        #if os(macOS)
         webView.setValue(false, forKey: "drawsBackground")
+        #else
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
+        #endif
         webView.underPageBackgroundColor = .clear
         startLoad()
     }
@@ -263,6 +298,8 @@ extension BlockEditorView {
     <head>
     <meta charset="utf-8">
     <meta name="color-scheme" content="light dark">
+    <!-- 手機必要：沒有 viewport 會以 980px 桌面寬渲染；鎖縮放避免 iOS 聚焦輸入時自動放大 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <link rel="stylesheet" href="katex.min.css">
     <style>
       html, body { background: transparent; margin: 0; }
@@ -1073,4 +1110,3 @@ extension BlockEditorView {
     """#
     }
 }
-#endif
