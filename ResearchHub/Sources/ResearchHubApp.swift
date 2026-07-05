@@ -5,6 +5,7 @@ struct ResearchHubApp: App {
     @StateObject private var store = FileSystemStore()
     @StateObject private var pomodoro = PomodoroModel()
     @StateObject private var eventStore = EventStore()
+    @StateObject private var generalTodos = GeneralTodoStore()
 
     init() {
         // 啟用即時語系切換，並套用上次選擇的語言。
@@ -18,6 +19,7 @@ struct ResearchHubApp: App {
                 .environmentObject(store)
                 .environmentObject(pomodoro)
                 .environmentObject(eventStore)
+                .environmentObject(generalTodos)
                 .frame(minWidth: 700, minHeight: 560)
         }
         .windowStyle(.hiddenTitleBar)
@@ -40,6 +42,7 @@ struct ResearchHubApp: App {
                 .environmentObject(store)
                 .environmentObject(pomodoro)
                 .environmentObject(eventStore)
+                .environmentObject(generalTodos)
                 .frame(minWidth: 460, minHeight: 380)
         }
         .windowStyle(.hiddenTitleBar)

@@ -21,6 +21,22 @@ struct EventEditorSheet: View {
             Form {
                 TextField("事件名稱", text: $draft.title)
 
+                Section("內容") {
+                    TextEditor(text: $draft.notes)
+                        .font(.body)
+                        .frame(minHeight: 140)
+                        .scrollContentBackground(.hidden)
+                        .overlay(alignment: .topLeading) {
+                            if draft.notes.isEmpty {
+                                Text("這件事具體要做什麼？")
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.top, 8)
+                                    .padding(.leading, 5)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                }
+
                 Toggle("全天", isOn: $draft.isAllDay)
 
                 DatePicker(
@@ -104,7 +120,7 @@ struct EventEditorSheet: View {
             }
             .padding(14)
         }
-        .frame(width: 380)
+        .frame(width: 440, height: 620)
     }
 
     /// EventTag.colorHex ↔ ColorPicker 的 Color 轉接

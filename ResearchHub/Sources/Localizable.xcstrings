@@ -1,6 +1,152 @@
 {
   "sourceLanguage": "zh-Hant",
   "strings": {
+    "": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          }
+        }
+      }
+    },
+    "%@ 事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Events"
+          }
+        }
+      }
+    },
+    "%@ 完成最多": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Most done on %@"
+          }
+        }
+      }
+    },
+    "%@近 60 天完成 %lld 顆。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$lld sessions in the last 60 days."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@近 60 天完成 %2$lld 顆。"
+          }
+        }
+      }
+    },
+    "%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        }
+      }
+    },
+    "%lld pt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pt"
+          }
+        }
+      }
+    },
+    "%lld 篇筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld notes"
+          }
+        }
+      }
+    },
+    "%lld 項待辦": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld to-dos"
+          }
+        }
+      }
+    },
+    "%lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pomodoros"
+          }
+        }
+      }
+    },
+    "**作者**": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Authors**"
+          }
+        }
+      }
+    },
+    "**年份**": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Year**"
+          }
+        }
+      }
+    },
+    "**期刊**": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Journal**"
+          }
+        }
+      }
+    },
+    "Claude 建議": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Suggests"
+          }
+        }
+      }
+    },
+    "Claude 觀察": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Insights"
+          }
+        }
+      }
+    },
     "English": {
       "comment": "Language name — kept verbatim across locales",
       "localizations": {
@@ -8,6 +154,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "English"
+          }
+        }
+      }
+    },
+    "LaTeX，例如": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX, e.g."
+          }
+        }
+      }
+    },
+    "PDF 暗色模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF dark mode"
+          }
+        }
+      }
+    },
+    "Zotero 本地 API 埠": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zotero local API port"
+          }
+        }
+      }
+    },
+    "— Claude · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "— Claude · %@"
+          }
+        }
+      }
+    },
+    "☕ 休息結束": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "☕ Break over"
           }
         }
       }
@@ -22,12 +218,114 @@
         }
       }
     },
+    "一般待辦": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox Tasks"
+          }
+        }
+      }
+    },
+    "一輪顆數：%lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomodoros per cycle: %lld"
+          }
+        }
+      }
+    },
+    "上週": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last week"
+          }
+        }
+      }
+    },
+    "下一顆要做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s next?"
+          }
+        }
+      }
+    },
+    "下一顆要做什麼（可留空）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s next? (optional)"
+          }
+        }
+      }
+    },
     "事件名稱": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Event name"
+          }
+        }
+      }
+    },
+    "事件都已存在": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Events already exist"
+          }
+        }
+      }
+    },
+    "今天全部做完了 🎉": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything done today 🎉"
+          }
+        }
+      }
+    },
+    "今天沒做完的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unfinished today"
+          }
+        }
+      }
+    },
+    "今年": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This year"
+          }
+        }
+      }
+    },
+    "今日 %lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld today"
           }
         }
       }
@@ -42,6 +340,16 @@
         }
       }
     },
+    "今日排程建議": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today's Schedule Suggestion"
+          }
+        }
+      }
+    },
     "今日日記": {
       "localizations": {
         "en": {
@@ -52,12 +360,113 @@
         }
       }
     },
+    "休息結束 → 繼續休息：還要休息多久": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Break ends → keep resting: how much longer"
+          }
+        }
+      }
+    },
+    "休息結束 → 繼續工作：預計做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Break ends → keep working: what you plan to do"
+          }
+        }
+      }
+    },
+    "低優先": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low priority"
+          }
+        }
+      }
+    },
+    "你的名字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your name"
+          }
+        }
+      }
+    },
+    "你的節奏": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Rhythm"
+          }
+        }
+      }
+    },
+    "來自 Claude 排程建議": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From Claude's schedule suggestion"
+          }
+        }
+      }
+    },
+    "例如：推導 crossing equation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. derive the crossing equation"
+          }
+        }
+      }
+    },
+    "例如：算完 free boson 的 IRCFT 部分": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. finished the IRCFT part of the free boson"
+          }
+        }
+      }
+    },
     "個人": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Personal"
+          }
+        }
+      }
+    },
+    "儲存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "內容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
           }
         }
       }
@@ -82,12 +491,104 @@
         }
       }
     },
+    "全部搬過去": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move all"
+          }
+        }
+      }
+    },
     "兩天": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Two days"
+          }
+        }
+      }
+    },
+    "分隔線": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divider"
+          }
+        }
+      }
+    },
+    "刪除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "前一天（⌘⌥←）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous day (⌘⌥←)"
+          }
+        }
+      }
+    },
+    "加入 %lld 次未完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added %lld times, never finished"
+          }
+        }
+      }
+    },
+    "加入行事曆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Calendar"
+          }
+        }
+      }
+    },
+    "匯出全部事件為 .ics（可匯入系統行事曆／Google 日曆）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export all events as .ics (importable into Apple/Google Calendar)"
+          }
+        }
+      }
+    },
+    "區塊": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocks"
+          }
+        }
+      }
+    },
+    "午安": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good afternoon"
           }
         }
       }
@@ -142,12 +643,42 @@
         }
       }
     },
+    "垃圾桶是空的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trash is empty"
+          }
+        }
+      }
+    },
+    "垃圾桶（%lld）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trash (%lld)"
+          }
+        }
+      }
+    },
     "外觀": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Appearance"
+          }
+        }
+      }
+    },
+    "外部工具可用 researchhub://note?path=… 或 researchhub://journal?date=YYYY-MM-DD 開啟本 app；資料接口說明在根資料夾的 .hub/README.md。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "External tools can open this app via researchhub://note?path=… or researchhub://journal?date=YYYY-MM-DD; the data contract lives in .hub/README.md inside your library folder."
           }
         }
       }
@@ -172,7 +703,49 @@
         }
       }
     },
+    "完成一輪 %lld 顆後進入長休息。設定在目前的鐘尚未開始時立即生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After %lld pomodoros, a long break begins. Changes apply when the current timer hasn’t started yet."
+          }
+        }
+      }
+    },
+    "完成時的輸入欄位（必填／可留空）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required fields on completion (required / optional)"
+          }
+        }
+      }
+    },
+    "專注中": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focusing"
+          }
+        }
+      }
+    },
+    "專注時長：%lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focus length: %lld min"
+          }
+        }
+      }
+    },
     "尚未選擇": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -202,22 +775,72 @@
         }
       }
     },
-    "休息結束 → 繼續工作：預計做什麼": {
+    "已加入 %lld 件事件 ✓": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Break ends → keep working: what you plan to do"
+            "value": "Added %lld events ✓"
           }
         }
       }
     },
-    "休息結束 → 繼續休息：還要休息多久": {
+    "已加入 %lld 次": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Break ends → keep resting: how much longer"
+            "value": "Added %lld times"
+          }
+        }
+      }
+    },
+    "已加入 %lld 次都沒完成——放下它，或今天就做掉": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added %lld times without finishing — let it go, or do it today"
+          }
+        }
+      }
+    },
+    "平均第一顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avg. first session"
+          }
+        }
+      }
+    },
+    "幾分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes"
+          }
+        }
+      }
+    },
+    "幾分鐘（留空=預設）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes (blank = default)"
+          }
+        }
+      }
+    },
+    "建立筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create note"
           }
         }
       }
@@ -243,11 +866,22 @@
       }
     },
     "待辦事項": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "To-dos"
+          }
+        }
+      }
+    },
+    "待辦垃圾桶": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task Trash"
           }
         }
       }
@@ -262,12 +896,63 @@
         }
       }
     },
+    "後一天（⌘⌥→）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next day (⌘⌥→)"
+          }
+        }
+      }
+    },
     "快速搜尋…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Quick search…"
+          }
+        }
+      }
+    },
+    "想到但還沒排時間的事…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something on your mind, not yet scheduled…"
+          }
+        }
+      }
+    },
+    "截止日": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due date"
+          }
+        }
+      }
+    },
+    "手動放棄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dropped manually"
+          }
+        }
+      }
+    },
+    "打開＝該欄位必填（沒填就不能按該按鈕）；關閉＝可留空。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On = the field is required (the button is disabled until filled); Off = optional."
           }
         }
       }
@@ -292,6 +977,26 @@
         }
       }
     },
+    "把每一行建成今天的行事曆事件（已存在的不重複加）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create today's calendar events from each line (existing ones are skipped)"
+          }
+        }
+      }
+    },
+    "授權": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authorize"
+          }
+        }
+      }
+    },
     "插入 Zotero 引用 \\cite{}": {
       "localizations": {
         "en": {
@@ -302,12 +1007,153 @@
         }
       }
     },
+    "搜尋標題、作者、年份…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search title, author, year…"
+          }
+        }
+      }
+    },
+    "搜尋標題、作者、標籤…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search title, author, tags…"
+          }
+        }
+      }
+    },
+    "搜尋筆記名稱或路徑…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search note name or path…"
+          }
+        }
+      }
+    },
+    "搜尋筆記（檔名或內文）…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search notes (filename or content)…"
+          }
+        }
+      }
+    },
+    "搬到明天的日記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to tomorrow's journal"
+          }
+        }
+      }
+    },
+    "摺疊清單": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle list"
+          }
+        }
+      }
+    },
+    "收進一般待辦（日記裡的複本標為已放棄）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to inbox (journal copies marked as dropped)"
+          }
+        }
+      }
+    },
+    "放棄不是失敗——是把時間留給更重要的事。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letting go is not failure — it frees time for what matters more."
+          }
+        }
+      }
+    },
+    "放棄，移到垃圾桶": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop and move to trash"
+          }
+        }
+      }
+    },
+    "救回到一般待辦": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore to inbox"
+          }
+        }
+      }
+    },
     "教學": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Teaching"
+          }
+        }
+      }
+    },
+    "整個循環歸零": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset the whole cycle"
+          }
+        }
+      }
+    },
+    "整合": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integrations"
+          }
+        }
+      }
+    },
+    "數學公式（區塊）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Math block"
+          }
+        }
+      }
+    },
+    "文字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
           }
         }
       }
@@ -362,12 +1208,126 @@
         }
       }
     },
-    "會議": {
+    "日記": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Meeting"
+            "value": "Diary"
+          }
+        }
+      }
+    },
+    "早安": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good morning"
+          }
+        }
+      }
+    },
+    "明天是%@——你最高產的一天（近 60 天 %lld 顆），可以排重的。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomorrow is %1$@ — your most productive day (%2$lld sessions in 60 days). Schedule the heavy stuff."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "new",
+            "value": "明天是%1$@——你最高產的一天（近 60 天 %2$lld 顆），可以排重的。"
+          }
+        }
+      }
+    },
+    "明天是%@，歷史上偏低產（近 60 天 %lld 顆），排 2–3 件就好。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomorrow is %1$@, historically a light day (%2$lld sessions in 60 days). Plan just 2–3 things."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "new",
+            "value": "明天是%1$@，歷史上偏低產（近 60 天 %2$lld 顆），排 2–3 件就好。"
+          }
+        }
+      }
+    },
+    "晚安": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good evening"
+          }
+        }
+      }
+    },
+    "晚間儀式：規劃明天要做的事": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evening ritual: plan tomorrow"
+          }
+        }
+      }
+    },
+    "曾加入 %lld 次": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was added %lld times"
+          }
+        }
+      }
+    },
+    "最專注時段 %lld:00–%lld:00": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peak focus %lld:00–%lld:00"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "new",
+            "value": "最專注時段 %1$lld:00–%2$lld:00"
+          }
+        }
+      }
+    },
+    "最專注時段：%lld:00–%lld:00": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peak focus: %lld:00–%lld:00"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "new",
+            "value": "最專注時段：%1$lld:00–%2$lld:00"
+          }
+        }
+      }
+    },
+    "最近 60 天 · %lld 顆（依開始時刻統計）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last 60 days · %lld sessions (by start time)"
           }
         }
       }
@@ -392,6 +1352,59 @@
         }
       }
     },
+    "會議": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeting"
+          }
+        }
+      }
+    },
+    "有 %lld 件事在日記裡重複出現。太重要就拆小一點今天做一步；不重要就放心丟掉——丟掉也是一種完成。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tasks keep reappearing in your journal. If one matters, break it down and take a step today; if not, let it go — dropping is also done."
+          }
+        }
+      }
+    },
+    "本月": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This month"
+          }
+        }
+      }
+    },
+    "本週": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week"
+          }
+        }
+      }
+    },
+    "本週 %lld 顆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld this week"
+          }
+        }
+      }
+    },
     "標籤": {
       "localizations": {
         "en": {
@@ -402,12 +1415,52 @@
         }
       }
     },
+    "標題 1": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heading 1"
+          }
+        }
+      }
+    },
+    "標題 2": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heading 2"
+          }
+        }
+      }
+    },
+    "標題 3": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heading 3"
+          }
+        }
+      }
+    },
     "檢視模式": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "View mode"
+          }
+        }
+      }
+    },
+    "永久刪除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete permanently"
           }
         }
       }
@@ -462,6 +1515,27 @@
         }
       }
     },
+    "清空": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empty"
+          }
+        }
+      }
+    },
+    "源碼": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        }
+      }
+    },
     "準備好了嗎？": {
       "localizations": {
         "en": {
@@ -482,6 +1556,199 @@
         }
       }
     },
+    "照計畫完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done as planned"
+          }
+        }
+      }
+    },
+    "生產力分析": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Productivity Insights"
+          }
+        }
+      }
+    },
+    "當日筆記更新：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes updated: %@"
+          }
+        }
+      }
+    },
+    "發生錯誤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error"
+          }
+        }
+      }
+    },
+    "目前沒有一直被往後推的事，狀態很好，繼續保持！": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing keeps getting pushed back right now — great state, keep it up!"
+          }
+        }
+      }
+    },
+    "短休息": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short break"
+          }
+        }
+      }
+    },
+    "短休息：%lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short break: %lld min"
+          }
+        }
+      }
+    },
+    "研究": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Research"
+          }
+        }
+      }
+    },
+    "確定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "移到垃圾桶": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to Trash"
+          }
+        }
+      }
+    },
+    "程式碼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code"
+          }
+        }
+      }
+    },
+    "稍後再說（先關掉，待會自己開始）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later (dismiss and start on your own)"
+          }
+        }
+      }
+    },
+    "第 %lld / %lld 顆 · 今日 %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld · %lld today"
+          }
+        }
+      }
+    },
+    "筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes"
+          }
+        }
+      }
+    },
+    "筆記待辦": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note Tasks"
+          }
+        }
+      }
+    },
+    "筆記更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note updates"
+          }
+        }
+      }
+    },
+    "筆記會以真實檔案存放在這個資料夾內，\n會自動建立 Notes/ 與 Journal/ 兩個子目錄。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes are stored as real files in this folder.\nNotes/ and Journal/ subfolders are created automatically."
+          }
+        }
+      }
+    },
+    "筆記根資料夾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes root folder"
+          }
+        }
+      }
+    },
+    "管理": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage"
+          }
+        }
+      }
+    },
     "管理標籤": {
       "localizations": {
         "en": {
@@ -492,13 +1759,33 @@
         }
       }
     },
-    "繁體中文": {
-      "comment": "Language name — kept verbatim across locales",
+    "管理標籤…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "繁體中文"
+            "value": "Manage tags…"
+          }
+        }
+      }
+    },
+    "結束": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End"
+          }
+        }
+      }
+    },
+    "編號清單": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numbered list"
           }
         }
       }
@@ -533,112 +1820,13 @@
         }
       }
     },
-    "短休息": {
+    "繁體中文": {
+      "comment": "Language name — kept verbatim across locales",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Short break"
-          }
-        }
-      }
-    },
-    "確定": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "OK"
-          }
-        }
-      }
-    },
-    "移到垃圾桶": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Move to Trash"
-          }
-        }
-      }
-    },
-    "管理": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Manage"
-          }
-        }
-      }
-    },
-    "研究": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Research"
-          }
-        }
-      }
-    },
-    "稍後再說（先關掉，待會自己開始）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Later (dismiss and start on your own)"
-          }
-        }
-      }
-    },
-    "筆記": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notes"
-          }
-        }
-      }
-    },
-    "筆記根資料夾": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notes root folder"
-          }
-        }
-      }
-    },
-    "管理標籤…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Manage tags…"
-          }
-        }
-      }
-    },
-    "結束": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "End"
-          }
-        }
-      }
-    },
-    "編號清單": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Numbered list"
+            "value": "繁體中文"
           }
         }
       }
@@ -663,12 +1851,32 @@
         }
       }
     },
+    "腦袋清空了，想到什麼就丟進來": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mind clear — drop anything in here"
+          }
+        }
+      }
+    },
     "蕃茄鐘": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Pomodoro"
+          }
+        }
+      }
+    },
+    "蕃茄鐘紀錄還不夠，先累積幾天吧。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough pomodoro history yet — give it a few days."
           }
         }
       }
@@ -683,12 +1891,62 @@
         }
       }
     },
-    "論文": {
+    "行內公式": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Papers"
+            "value": "Inline math"
+          }
+        }
+      }
+    },
+    "規劃明天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan Tomorrow"
+          }
+        }
+      }
+    },
+    "規劃明天 — %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan Tomorrow — %@"
+          }
+        }
+      }
+    },
+    "計畫：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan: %@"
+          }
+        }
+      }
+    },
+    "記一下這顆做了什麼，再決定下一步。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note what you did, then decide what’s next."
+          }
+        }
+      }
+    },
+    "訣竅：最難的排進高峰時段，雜務排低谷。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: hardest work in peak hours, chores in the dips."
           }
         }
       }
@@ -703,6 +1961,26 @@
         }
       }
     },
+    "語言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
+    "語言切換會即時套用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language changes apply immediately."
+          }
+        }
+      }
+    },
     "請先在「筆記」分頁選擇根資料夾": {
       "localizations": {
         "en": {
@@ -713,12 +1991,43 @@
         }
       }
     },
+    "論文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papers"
+          }
+        }
+      }
+    },
+    "讀不到 PDF 檔案——確認該篇附件已下載到本機（Zotero 中可開啟）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t read the PDF — make sure the attachment is downloaded locally (openable in Zotero)"
+          }
+        }
+      }
+    },
     "變更…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Change…"
+          }
+        }
+      }
+    },
+    "變更語言後需重新啟動 App 才會完全套用。": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart the app for a language change to fully apply."
           }
         }
       }
@@ -753,6 +2062,16 @@
         }
       }
     },
+    "輸入文字，或打「/」插入區塊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type, or press “/” to insert a block"
+          }
+        }
+      }
+    },
     "輸入關鍵字開始搜尋": {
       "localizations": {
         "en": {
@@ -773,672 +2092,12 @@
         }
       }
     },
-    "選擇 Research Hub 的根資料夾": {
+    "這件事具體要做什麼？": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose the Research Hub root folder"
-          }
-        }
-      }
-    },
-    "選擇一篇論文": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select a paper"
-          }
-        }
-      }
-    },
-    "選擇資料夾…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose folder…"
-          }
-        }
-      }
-    },
-    "重新命名": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rename"
-          }
-        }
-      }
-    },
-    "重新整理": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Refresh"
-          }
-        }
-      }
-    },
-    "重試": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retry"
-          }
-        }
-      }
-    },
-    "長休息": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Long break"
-          }
-        }
-      }
-    },
-    "開始": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start"
-          }
-        }
-      }
-    },
-    "開始休息": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start break"
-          }
-        }
-      }
-    },
-    "開啟": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open"
-          }
-        }
-      }
-    },
-    "雙欄": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Split"
-          }
-        }
-      }
-    },
-    "預覽": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview"
-          }
-        }
-      }
-    },
-    "顯示／隱藏側邊欄": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show / hide sidebar"
-          }
-        }
-      }
-    },
-    "首頁": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Home"
-          }
-        }
-      }
-    },
-    "區塊": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Blocks"
-          }
-        }
-      }
-    },
-    "源碼": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Source"
-          }
-        }
-      }
-    },
-    "儲存": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save"
-          }
-        }
-      }
-    },
-    "刪除": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete"
-          }
-        }
-      }
-    },
-    "授權": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Authorize"
-          }
-        }
-      }
-    },
-    "截止日": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Due date"
-          }
-        }
-      }
-    },
-    "專注中": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Focusing"
-          }
-        }
-      }
-    },
-    "還沒有筆記": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No notes yet"
-          }
-        }
-      }
-    },
-    "還沒有完成紀錄": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No completed records yet"
-          }
-        }
-      }
-    },
-    "整個循環歸零": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset the whole cycle"
-          }
-        }
-      }
-    },
-    "日記": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diary"
-          }
-        }
-      }
-    },
-    "早安": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Good morning"
-          }
-        }
-      }
-    },
-    "午安": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Good afternoon"
-          }
-        }
-      }
-    },
-    "晚安": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Good evening"
-          }
-        }
-      }
-    },
-    "完成時的輸入欄位（必填／可留空）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Required fields on completion (required / optional)"
-          }
-        }
-      }
-    },
-    "打開＝該欄位必填（沒填就不能按該按鈕）；關閉＝可留空。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On = the field is required (the button is disabled until filled); Off = optional."
-          }
-        }
-      }
-    },
-    "語言": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Language"
-          }
-        }
-      }
-    },
-    "你的名字": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your name"
-          }
-        }
-      }
-    },
-    "變更語言後需重新啟動 App 才會完全套用。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restart the app for a language change to fully apply."
-          }
-        }
-      }
-    },
-    "今日 %lld 顆": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld today"
-          }
-        }
-      }
-    },
-    "本週 %lld 顆": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld this week"
-          }
-        }
-      }
-    },
-    "%lld 篇筆記": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld notes"
-          }
-        }
-      }
-    },
-    "%lld 項待辦": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld to-dos"
-          }
-        }
-      }
-    },
-    "還有 %lld 項…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld more…"
-          }
-        }
-      }
-    },
-    "%lld 顆": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld pomodoros"
-          }
-        }
-      }
-    },
-    "計畫：%@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plan: %@"
-          }
-        }
-      }
-    },
-    "第 %lld / %lld 顆 · 今日 %lld": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld / %lld · %lld today"
-          }
-        }
-      }
-    },
-    "%@ 事件": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · Events"
-          }
-        }
-      }
-    },
-    "當日筆記更新：%@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notes updated: %@"
-          }
-        }
-      }
-    },
-    "專注時長：%lld 分鐘": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Focus length: %lld min"
-          }
-        }
-      }
-    },
-    "短休息：%lld 分鐘": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Short break: %lld min"
-          }
-        }
-      }
-    },
-    "長休息：%lld 分鐘": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Long break: %lld min"
-          }
-        }
-      }
-    },
-    "一輪顆數：%lld 顆": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pomodoros per cycle: %lld"
-          }
-        }
-      }
-    },
-    "完成一輪 %lld 顆後進入長休息。設定在目前的鐘尚未開始時立即生效。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "After %lld pomodoros, a long break begins. Changes apply when the current timer hasn’t started yet."
-          }
-        }
-      }
-    },
-    "本週": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This week"
-          }
-        }
-      }
-    },
-    "上週": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last week"
-          }
-        }
-      }
-    },
-    "本月": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This month"
-          }
-        }
-      }
-    },
-    "今年": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This year"
-          }
-        }
-      }
-    },
-    "這顆要做什麼？": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What’s this one for?"
-          }
-        }
-      }
-    },
-    "這顆蕃茄鐘要做什麼": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What is this pomodoro for?"
-          }
-        }
-      }
-    },
-    "重設目前這顆；右鍵可將整個循環歸零": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset this one; right-click to reset the whole cycle"
-          }
-        }
-      }
-    },
-    "筆記更新": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Note updates"
-          }
-        }
-      }
-    },
-    "還沒寫，點擊開始今天的記錄…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing yet — tap to start today’s entry…"
-          }
-        }
-      }
-    },
-    "（未記錄內容）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "(no details recorded)"
-          }
-        }
-      }
-    },
-    "輸入文字，或打「/」插入區塊": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Type, or press “/” to insert a block"
-          }
-        }
-      }
-    },
-    "例如：推導 crossing equation": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "e.g. derive the crossing equation"
-          }
-        }
-      }
-    },
-    "搜尋標題、作者、標籤…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search title, author, tags…"
-          }
-        }
-      }
-    },
-    "PDF 暗色模式": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF dark mode"
-          }
-        }
-      }
-    },
-    "選取文字後按此加上螢光標記；選取已標記的文字再按一次 = 取消": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select text and click to highlight; click highlighted text again to remove"
-          }
-        }
-      }
-    },
-    "建立筆記": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create note"
-          }
-        }
-      }
-    },
-    "這篇有 PDF，但需要授權讀取 Zotero 資料夾\n（通常在 ~/Zotero）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This has a PDF, but reading the Zotero folder needs permission\n(usually ~/Zotero)"
-          }
-        }
-      }
-    },
-    "選擇 Zotero 資料夾…": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose Zotero folder…"
-          }
-        }
-      }
-    },
-    "讀不到 PDF 檔案——確認該篇附件已下載到本機（Zotero 中可開啟）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Can’t read the PDF — make sure the attachment is downloaded locally (openable in Zotero)"
+            "value": "What exactly needs to be done?"
           }
         }
       }
@@ -1453,92 +2112,12 @@
         }
       }
     },
-    "選擇 Zotero 資料夾（預設位置是家目錄下的 Zotero）": {
+    "這篇有 PDF，但需要授權讀取 Zotero 資料夾\n（通常在 ~/Zotero）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose the Zotero folder (default: Zotero in your home folder)"
-          }
-        }
-      }
-    },
-    "**作者**": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**Authors**"
-          }
-        }
-      }
-    },
-    "**年份**": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**Year**"
-          }
-        }
-      }
-    },
-    "**期刊**": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**Journal**"
-          }
-        }
-      }
-    },
-    "關閉（Esc）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close (Esc)"
-          }
-        }
-      }
-    },
-    "筆記會以真實檔案存放在這個資料夾內，\n會自動建立 Notes/ 與 Journal/ 兩個子目錄。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notes are stored as real files in this folder.\nNotes/ and Journal/ subfolders are created automatically."
-          }
-        }
-      }
-    },
-    "🍅 完成一顆蕃茄": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🍅 Pomodoro complete"
-          }
-        }
-      }
-    },
-    "☕ 休息結束": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "☕ Break over"
-          }
-        }
-      }
-    },
-    "記一下這顆做了什麼，再決定下一步。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Note what you did, then decide what’s next."
+            "value": "This has a PDF, but reading the Zotero folder needs permission\n(usually ~/Zotero)"
           }
         }
       }
@@ -1563,52 +2142,12 @@
         }
       }
     },
-    "例如：算完 free boson 的 IRCFT 部分": {
+    "這顆蕃茄鐘要做什麼": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "e.g. finished the IRCFT part of the free boson"
-          }
-        }
-      }
-    },
-    "幾分鐘": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes"
-          }
-        }
-      }
-    },
-    "幾分鐘（留空=預設）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes (blank = default)"
-          }
-        }
-      }
-    },
-    "下一顆要做什麼": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What’s next?"
-          }
-        }
-      }
-    },
-    "下一顆要做什麼（可留空）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What’s next? (optional)"
+            "value": "What is this pomodoro for?"
           }
         }
       }
@@ -1633,6 +2172,126 @@
         }
       }
     },
+    "這顆要做什麼？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s this one for?"
+          }
+        }
+      }
+    },
+    "選取文字後按此加上螢光標記；選取已標記的文字再按一次 = 取消": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select text and click to highlight; click highlighted text again to remove"
+          }
+        }
+      }
+    },
+    "選擇 Research Hub 的根資料夾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the Research Hub root folder"
+          }
+        }
+      }
+    },
+    "選擇 Zotero 資料夾…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Zotero folder…"
+          }
+        }
+      }
+    },
+    "選擇 Zotero 資料夾（預設位置是家目錄下的 Zotero）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the Zotero folder (default: Zotero in your home folder)"
+          }
+        }
+      }
+    },
+    "選擇一篇論文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a paper"
+          }
+        }
+      }
+    },
+    "選擇資料夾…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose folder…"
+          }
+        }
+      }
+    },
+    "還有 %lld 項…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld more…"
+          }
+        }
+      }
+    },
+    "還沒寫，點擊開始今天的記錄…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing yet — tap to start today’s entry…"
+          }
+        }
+      }
+    },
+    "還沒有 Claude 的建議。到 Claude 那邊說一聲「幫我排明天」就會出現。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Claude suggestions yet. Ask Claude to plan your tomorrow and it will appear here."
+          }
+        }
+      }
+    },
+    "還沒有完成紀錄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No completed records yet"
+          }
+        }
+      }
+    },
+    "還沒有筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No notes yet"
+          }
+        }
+      }
+    },
     "還要休息幾分鐘": {
       "localizations": {
         "en": {
@@ -1653,12 +2312,225 @@
         }
       }
     },
-    "語言切換會即時套用。": {
+    "重新命名": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Language changes apply immediately."
+            "value": "Rename"
+          }
+        }
+      }
+    },
+    "重新整理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh"
+          }
+        }
+      }
+    },
+    "重設目前這顆；右鍵可將整個循環歸零": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset this one; right-click to reset the whole cycle"
+          }
+        }
+      }
+    },
+    "重試": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "長休息": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long break"
+          }
+        }
+      }
+    },
+    "長休息：%lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long break: %lld min"
+          }
+        }
+      }
+    },
+    "開啟": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        }
+      }
+    },
+    "開始": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        }
+      }
+    },
+    "開始休息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start break"
+          }
+        }
+      }
+    },
+    "開工前有計畫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planned before starting"
+          }
+        }
+      }
+    },
+    "關閉": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
+    "關閉（Esc）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close (Esc)"
+          }
+        }
+      }
+    },
+    "雙欄": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split"
+          }
+        }
+      }
+    },
+    "項目清單": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bullet list"
+          }
+        }
+      }
+    },
+    "預覽": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
+          }
+        }
+      }
+    },
+    "預設 23119。需在 Zotero 設定 → 進階 啟用本地 API；改埠後重新整理論文分頁即生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default 23119. Enable the local API in Zotero Settings → Advanced; refresh the Papers tab after changing."
+          }
+        }
+      }
+    },
+    "顯示／隱藏側邊欄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show / hide sidebar"
+          }
+        }
+      }
+    },
+    "首頁": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Home"
+          }
+        }
+      }
+    },
+    "高優先": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High priority"
+          }
+        }
+      }
+    },
+    "點擊編輯公式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to edit formula"
+          }
+        }
+      }
+    },
+    "（未記錄內容）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(no details recorded)"
+          }
+        }
+      }
+    },
+    "🍅 完成一顆蕃茄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🍅 Pomodoro complete"
           }
         }
       }

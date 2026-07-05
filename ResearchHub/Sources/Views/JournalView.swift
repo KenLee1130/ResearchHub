@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 /// 日記分頁：左月曆、右當日日記編輯器。
 /// 日記檔存於 Journal/yyyy/MM/yyyy-MM-dd.md，首次輸入內容時自動建檔。
@@ -51,6 +53,9 @@ struct JournalView: View {
     /// 星期列：固定用數字 1–7（週一=1 … 週日=7），不分語言、不會有英文重複字母的歧義。
     private let weekdaySymbols = ["1", "2", "3", "4", "5", "6", "7"]
 
+    /// 月曆 7 欄版面（星期列與日期格共用同一組欄定義）。
+    private let weekColumns = Array(repeating: GridItem(.flexible()), count: 7)
+
     var body: some View {
         Group {
             if store.rootURL == nil {
@@ -67,7 +72,11 @@ struct JournalView: View {
             }
         }
         .navigationTitle("日記")
-        .onAppear(perform: refreshMonthData)
+        .onAppear {
+            refreshMonthData()
+            consumePendingDate()
+        }
+        .onChange(of: store.pendingJournalDate) { consumePendingDate() }
         .onChange(of: displayedMonth) { refreshMonthData() }
         .onChange(of: selectedDay) { refreshMonthData() }
         .onChange(of: eventStore.events) { refreshMonthData() }
@@ -99,17 +108,23 @@ struct JournalView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
+            // 星期標題自成一個 grid，不與日期格混在同一個 LazyVGrid。
+            LazyVGrid(columns: weekColumns, spacing: 6) {
                 ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, s in
                     Text(s)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(0..<leadingBlanks, id: \.self) { _ in
-                    Color.clear.frame(height: 30)
-                }
-                ForEach(1...daysInMonth, id: \.self) { day in
-                    dayCell(day)
+            }
+            // 日期格：先把整月格子（前置空格 + 1…末日）建成一個陣列，
+            // 用單一 ForEach 渲染，每格 id 唯一，避免互相吃掉。
+            LazyVGrid(columns: weekColumns, spacing: 6) {
+                ForEach(monthCells) { cell in
+                    if let day = cell.day {
+                        dayCell(day)
+                    } else {
+                        Color.clear.frame(height: 46)
+                    }
                 }
             }
 
@@ -132,6 +147,16 @@ struct JournalView: View {
                 Text("\(selectedDayShortTitle) 事件")
                     .font(.subheadline.weight(.medium))
                 Spacer()
+                Button {
+                    exportICS()
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .padding(4)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("匯出全部事件為 .ics（可匯入系統行事曆／Google 日曆）")
                 Button {
                     eventSheet = EventSheetConfig(draft: newEventDraft(), isNew: true)
                 } label: {
@@ -240,9 +265,43 @@ struct JournalView: View {
     private var journalPane: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
+                // 左右鍵：不用回月曆就能逐日切換
+                HStack(spacing: 0) {
+                    Button {
+                        shiftDay(-1)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .padding(6)
+                            .contentShape(Rectangle())
+                    }
+                    .help("前一天（⌘⌥←）")
+                    .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                    Button {
+                        shiftDay(1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .padding(6)
+                            .contentShape(Rectangle())
+                    }
+                    .help("後一天（⌘⌥→）")
+                    .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(dayTitle)
-                        .font(.headline)
+                    HStack(spacing: 8) {
+                        Text(dayTitle)
+                            .font(.headline)
+                        if !calendar.isDateInToday(selectedDay) {
+                            Button("回到今天") {
+                                selectedDay = calendar.startOfDay(for: .now)
+                                displayedMonth = calendar.startOfMonth(for: .now)
+                            }
+                            .font(.caption)
+                            .buttonStyle(.link)
+                        }
+                    }
                     if let names = noteUpdates[calendar.component(.day, from: selectedDay)],
                        calendar.isDate(selectedDay, equalTo: displayedMonth, toGranularity: .month) {
                         Text("當日筆記更新：\(names.joined(separator: "、"))")
@@ -279,6 +338,12 @@ struct JournalView: View {
                 Text(event.title)
                     .font(.callout)
                     .lineLimit(2)
+                if !event.notes.isEmpty {
+                    Text(event.notes)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
                 HStack(spacing: 6) {
                     Text(timeString(for: event))
                     if let tag {
@@ -320,7 +385,7 @@ struct JournalView: View {
         day.dateFormat = "M/d"
 
         if event.isAllDay {
-            let allDay = String(localized: "全天")
+            let allDay = L("全天")
             return sameDay
                 ? allDay
                 : "\(day.string(from: event.start))–\(day.string(from: event.end)) \(allDay)"
@@ -346,7 +411,7 @@ struct JournalView: View {
         let f = DateFormatter()
         f.locale = appLocale
         f.setLocalizedDateFormatFromTemplate("MMMMdEEEE")
-        return f.string(from: selectedDay) + " " + String(localized: "日記")
+        return f.string(from: selectedDay) + " " + L("日記")
     }
 
     private var daysInMonth: Int {
@@ -359,6 +424,27 @@ struct JournalView: View {
         return (weekday + 5) % 7
     }
 
+    /// 月曆單格：day == nil 代表月初的前置空格。
+    private struct DayCell: Identifiable {
+        /// 空格用負數 id、日期用 1…31，彼此與星期標題都不會相撞。
+        let id: Int
+        let day: Int?
+    }
+
+    /// 一次建好整月格子：leadingBlanks 個空格 + 1…末日。
+    /// 用單一陣列 + 單一 ForEach 渲染，跨月切換時 diff 穩定。
+    private var monthCells: [DayCell] {
+        var cells: [DayCell] = []
+        cells.reserveCapacity(leadingBlanks + daysInMonth)
+        for i in 0..<leadingBlanks {
+            cells.append(DayCell(id: -(i + 1), day: nil))
+        }
+        for day in 1...daysInMonth {
+            cells.append(DayCell(id: day, day: day))
+        }
+        return cells
+    }
+
     private func dateFor(day: Int) -> Date {
         calendar.date(byAdding: .day, value: day - 1, to: displayedMonth) ?? displayedMonth
     }
@@ -366,6 +452,35 @@ struct JournalView: View {
     private func shiftMonth(_ delta: Int) {
         if let m = calendar.date(byAdding: .month, value: delta, to: displayedMonth) {
             displayedMonth = m
+        }
+    }
+
+    /// 消化 researchhub://journal?date=… 的跳轉請求。
+    private func consumePendingDate() {
+        guard let date = store.pendingJournalDate else { return }
+        store.pendingJournalDate = nil
+        selectedDay = calendar.startOfDay(for: date)
+        displayedMonth = calendar.startOfMonth(for: date)
+    }
+
+    /// 逐日切換；跨月時月曆跟著翻頁。
+    private func shiftDay(_ delta: Int) {
+        guard let d = calendar.date(byAdding: .day, value: delta, to: selectedDay) else { return }
+        selectedDay = calendar.startOfDay(for: d)
+        if !calendar.isDate(d, equalTo: displayedMonth, toGranularity: .month) {
+            displayedMonth = calendar.startOfMonth(for: d)
+        }
+    }
+
+    /// 匯出全部事件為 .ics 檔。
+    private func exportICS() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "ics") ?? .data]
+        panel.nameFieldStringValue = "ResearchHub.ics"
+        let ics = eventStore.icsString()
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            try? ics.write(to: url, atomically: true, encoding: .utf8)
         }
     }
 

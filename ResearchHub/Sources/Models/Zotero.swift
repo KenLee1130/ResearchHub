@@ -65,7 +65,15 @@ final class ZoteroStore: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
-    private let base = URL(string: "http://localhost:23119/api/users/0")!
+    static let portKey = "settings.zoteroPort"
+    static let defaultPort = 23119
+
+    /// Zotero 7 本地 API 端點；port 可在設定調整（預設 23119）。
+    private var base: URL {
+        let stored = UserDefaults.standard.integer(forKey: Self.portKey)
+        let port = stored > 0 ? stored : Self.defaultPort
+        return URL(string: "http://localhost:\(port)/api/users/0")!
+    }
 
     func refresh() async {
         isLoading = true

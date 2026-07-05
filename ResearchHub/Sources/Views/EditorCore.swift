@@ -50,6 +50,16 @@ struct EditorCore: View {
     let fileURL: URL
     @Binding var mode: EditorMode
 
+    /// 外部（如規劃儀式）要求把文字附加到某檔案的編輯器尾端。
+    /// 走通知而不是直接改檔案：檔案正被編輯器持有，直接寫檔會被 autosave 蓋掉。
+    static let appendNotification = Notification.Name("EditorCore.append")
+
+    static func requestAppend(to url: URL, text: String) {
+        NotificationCenter.default.post(
+            name: appendNotification, object: nil,
+            userInfo: ["url": url, "text": text])
+    }
+
     @EnvironmentObject private var store: FileSystemStore
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
     @ObservedObject private var zotero = ZoteroStore.shared
@@ -68,6 +78,12 @@ struct EditorCore: View {
             .onAppear(perform: load)
             .onDisappear { saveNow() }
             .onChange(of: text) { scheduleAutosave() }
+            .onReceive(NotificationCenter.default.publisher(for: Self.appendNotification)) { note in
+                guard let url = note.userInfo?["url"] as? URL, url == fileURL,
+                      let appended = note.userInfo?["text"] as? String else { return }
+                if !text.isEmpty && !text.hasSuffix("\n") { text += "\n" }
+                text += appended
+            }
             // 載入 Zotero 文獻供 \cite 解析（已有快取就不重抓）。
             .task { if zotero.items.isEmpty { await zotero.refresh() } }
     }
@@ -169,6 +185,18 @@ struct EditorCore: View {
             return nil
         }
         return "![](assets/\(name))\n"
+    }
+}
+
+/// 內嵌網頁（block 編輯器 / markdown 預覽）的本地資源：
+/// EditorWeb/ 內含 tiptap bundle、KaTeX、marked 與字型，完全離線可用。
+enum WebResources {
+    /// 當 loadHTMLString 的 baseURL 用：優先指向 EditorWeb/ 子目錄；
+    /// 若打包時被攤平（synchronized group 的行為差異）則退回 Resources 根目錄。
+    static var baseURL: URL? {
+        guard let res = Bundle.main.resourceURL else { return nil }
+        let dir = res.appendingPathComponent("EditorWeb", isDirectory: true)
+        return FileManager.default.fileExists(atPath: dir.path) ? dir : res
     }
 }
 

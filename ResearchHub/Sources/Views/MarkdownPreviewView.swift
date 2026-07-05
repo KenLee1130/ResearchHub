@@ -23,7 +23,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         context.coordinator.webView = webView
         context.coordinator.citationItems = citationItems
         context.coordinator.pendingText = text
-        webView.loadHTMLString(Self.template, baseURL: nil)
+        webView.loadHTMLString(Self.template, baseURL: WebResources.baseURL)
         return webView
     }
 
@@ -81,8 +81,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 decisionHandler(.cancel)
                 return
             }
-            // 文件內錨點（baseURL 為 nil 時 scheme 會是 about/applewebdata，或沒有 scheme）
-            if url.scheme == nil || url.scheme == "about" || url.scheme == "applewebdata" {
+            // 文件內錨點：baseURL 指向本地資源後 scheme 是 file；
+            // 舊情況（baseURL nil）則是 about/applewebdata 或沒有 scheme。
+            if url.scheme == nil || url.scheme == "about" || url.scheme == "applewebdata"
+                || url.scheme == "file" {
                 decisionHandler(.allow)
                 return
             }
@@ -174,9 +176,9 @@ struct MarkdownPreviewView: NSViewRepresentable {
     <head>
     <meta charset="utf-8">
     <meta name="color-scheme" content="light dark">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <link rel="stylesheet" href="katex.min.css">
+    <script src="katex.min.js"></script>
+    <script src="marked.min.js"></script>
     <style>
       html, body { background: transparent; margin: 0; }
       body {

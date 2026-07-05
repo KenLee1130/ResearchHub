@@ -184,6 +184,8 @@ final class PastingTextView: NSTextView {
 
     /// 重新計算情境並更新浮動清單（由選取/輸入變動時呼叫）。
     func updateCompletion() {
+        // 輸入法組字中不要動補全清單，避免干擾候選字視窗。
+        if hasMarkedText() { return }
         if suppressCompletionOnce { suppressCompletionOnce = false; completionPopup.hide(); return }
         guard let win = window, let ctx = currentContext() else { completionPopup.hide(); return }
         let partial = (string as NSString).substring(with: ctx.range)
@@ -489,7 +491,9 @@ struct SourceTextView: NSViewRepresentable {
         guard let tv = nsView.documentView as? PastingTextView else { return }
         tv.onPasteImage = onPasteImage
         var needsHighlight = false
-        if tv.string != text && !context.coordinator.isEditing {
+        // hasMarkedText = 輸入法（注音/拼音等）正在組字：此時 tv.string 含組字暫存、
+        // binding 還是舊值，若在這裡回寫會把組字狀態整個抹掉（中文打到一半跳掉）。
+        if tv.string != text && !context.coordinator.isEditing && !tv.hasMarkedText() {
             tv.string = text
             needsHighlight = true
         }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 系統 URL scheme：讓外部工具（Raycast、終端機、其他 app）開啟指定筆記或日記。
+	     researchhub://note?path=<相對 Notes/ 的路徑>
+	     researchhub://journal?date=YYYY-MM-DD（省略 date = 今天） -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.ken.ResearchHub</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>researchhub</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

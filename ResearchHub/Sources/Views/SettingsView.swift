@@ -92,6 +92,7 @@ struct GeneralSettingsView: View {
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @AppStorage("settings.userName") private var userName = ""
+    @AppStorage(ZoteroStore.portKey) private var zoteroPort = ZoteroStore.defaultPort
     @State private var showFolderPicker = false
 
     var body: some View {
@@ -142,6 +143,22 @@ struct GeneralSettingsView: View {
                         .truncationMode(.middle)
                         .frame(maxWidth: 240, alignment: .trailing)
                 }
+            }
+
+            Section("整合") {
+                LabeledContent("Zotero 本地 API 埠") {
+                    TextField(
+                        "", value: $zoteroPort,
+                        format: .number.grouping(.never))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                }
+                Text("預設 23119。需在 Zotero 設定 → 進階 啟用本地 API；改埠後重新整理論文分頁即生效。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("外部工具可用 researchhub://note?path=… 或 researchhub://journal?date=YYYY-MM-DD 開啟本 app；資料接口說明在根資料夾的 .hub/README.md。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

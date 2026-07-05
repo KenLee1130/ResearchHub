@@ -16,6 +16,8 @@ final class FileSystemStore: ObservableObject {
     @Published var requestedTab: AppTab?
     @Published var pendingOpenNote: URL?
     @Published var searchPresented = false
+    /// researchhub://journal?date=… 要求開啟的日記日（JournalView 消化後清空）
+    @Published var pendingJournalDate: Date?
 
     private static let bookmarkKey = "researchHub.rootBookmark"
     private let fm = FileManager.default
@@ -80,14 +82,59 @@ final class FileSystemStore: ObservableObject {
         refresh()
     }
 
-    /// 確保 Notes/ 與 Journal/ 存在。
+    /// 確保 Notes/ 與 Journal/ 存在，並讓 .hub/ 自帶資料契約文件。
     private func ensureLayout() {
         for url in [notesURL, journalURL].compactMap({ $0 }) {
             if !fm.fileExists(atPath: url.path) {
                 try? fm.createDirectory(at: url, withIntermediateDirectories: true)
             }
         }
+        writeHubContractIfNeeded()
     }
+
+    /// .hub/README.md：機器可讀資料的接口說明。跟著資料夾走，
+    /// 任何外部工具（AI agent、腳本、自動化）打開資料夾就知道怎麼整合，
+    /// 不依賴特定機器上的文件。已存在就不覆寫（使用者可自行增修）。
+    private func writeHubContractIfNeeded() {
+        guard let root = rootURL else { return }
+        let hub = root.appendingPathComponent(".hub", isDirectory: true)
+        try? fm.createDirectory(at: hub, withIntermediateDirectories: true)
+        let readme = hub.appendingPathComponent("README.md")
+        guard !fm.fileExists(atPath: readme.path) else { return }
+        try? Self.hubContract.write(to: readme, atomically: true, encoding: .utf8)
+    }
+
+    private static let hubContract = """
+    # ResearchHub Data Contract
+
+    This folder is the machine-readable interface of a ResearchHub library.
+    External tools (AI agents, scripts, automations) may read and write these
+    files directly — the app reloads them whenever its views refresh.
+    All dates are ISO 8601. Missing JSON fields are tolerated.
+
+    ## Files
+
+    | Path | Contents |
+    |---|---|
+    | `events.json` | Calendar events + tags: `{tags: [{id,name,colorHex}], events: [{id,title,notes,isAllDay,start,end,tagID}]}` |
+    | `todos.json` | Inbox tasks + trash: `{todos: [{id,text,createdAt,done,completedAt}], trash: [{id,text,occurrences,trashedAt,reason}]}` |
+    | `claude/insights.json` | AI-written note shown on the home screen: `{updatedAt, message, schedule}`. `schedule` lines in the form `HH:MM–HH:MM task` can be turned into calendar events by the user with one click. |
+    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Markers: `!high` / `!low` priority, `@due(M/d)` or `@due(yyyy-M-d)`. |
+    | `../Notes/**/*.md` | Notes (plain Markdown, `[[wikilinks]]`, `$…$` math, `\\cite{…}` Zotero keys). `assets/` folders hold images. |
+    | `../Pomodoro/pomodoro.json` | Focus sessions: `[{date,minutes,plan,done,startedAt?}]`. Legacy entries have no `startedAt`, empty plan/done, and a 12:00:00 timestamp — exclude them from time-of-day analytics. |
+
+    ## Conventions for AI agents
+
+    - A task line appearing unchecked in journals on 2+ days is "repeated";
+      after 3 unfinished appearances the app suggests dropping it to trash.
+    - Do not rewrite historical journal entries; append or edit today/tomorrow only.
+    - Write `claude/insights.json` in the user's interface language.
+
+    ## URL scheme
+
+    - `researchhub://note?path=<path relative to Notes/>` — open a note
+    - `researchhub://journal?date=YYYY-MM-DD` — open a journal day (omit date for today)
+    """
 
     // MARK: - Listing & navigation
 
@@ -318,14 +365,17 @@ final class FileSystemStore: ObservableObject {
     struct TodoItem: Identifiable, Hashable {
         let noteURL: URL
         let lineIndex: Int
+        /// 原始文字（含 !high / @due 標記）
         let text: String
         let done: Bool
+        /// 解析後的標記（顯示用 cleanText、priority、due）
+        let meta: TodoMeta
 
         var id: String { "\(noteURL.path)#\(lineIndex)" }
         var noteName: String { noteURL.deletingPathExtension().lastPathComponent }
     }
 
-    /// 彙整所有筆記中的 - [ ] / - [x]
+    /// 彙整所有筆記中的 - [ ] / - [x]，依優先級（高→低）、到期日（近→遠）排序。
     func scanTodos(includeDone: Bool = false) -> [TodoItem] {
         var result: [TodoItem] = []
         for url in allNoteURLs() {
@@ -339,10 +389,20 @@ final class FileSystemStore: ObservableObject {
                 if done && !includeDone { continue }
                 let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
                 guard !text.isEmpty else { continue }
-                result.append(TodoItem(noteURL: url, lineIndex: i, text: text, done: done))
+                result.append(TodoItem(
+                    noteURL: url, lineIndex: i, text: text, done: done,
+                    meta: TodoMeta.parse(text)))
             }
         }
-        return result
+        return result.sorted { a, b in
+            if a.meta.priority != b.meta.priority { return a.meta.priority > b.meta.priority }
+            switch (a.meta.due, b.meta.due) {
+            case let (x?, y?): return x < y
+            case (.some, .none): return true
+            case (.none, .some): return false
+            case (.none, .none): return false
+            }
+        }
     }
 
     /// 在原檔打勾 / 取消打勾
@@ -360,6 +420,105 @@ final class FileSystemStore: ObservableObject {
         }
         try? lines.joined(separator: "\n")
             .write(to: item.noteURL, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: - 日記重複待辦
+
+    /// 同一句待辦在多天日記重複出現（且都沒完成）的彙整。
+    struct RepeatedTodo: Identifiable, Hashable {
+        let text: String
+        /// 出現且未完成的日記日期（由舊到新）
+        let dates: [Date]
+        var count: Int { dates.count }
+        var id: String { text }
+    }
+
+    /// 掃描 Journal/ 中重複出現的未完成待辦：
+    /// 同一句「- [ ] 文字」出現在 minCount 天以上的日記 → 回報次數。
+    /// 比對時剝掉 !high / @due 標記，同一件事加不加標記都算同一件。
+    func scanRepeatedJournalTodos(minCount: Int = 2) -> [RepeatedTodo] {
+        var occurrences: [String: Set<Date>] = [:]
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+
+        for (url, day) in journalFiles(dateFormatter: df) {
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            for line in content.components(separatedBy: "\n") {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("- [ ]") else { continue }
+                let raw = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                let text = TodoMeta.parse(raw).cleanText
+                guard !text.isEmpty else { continue }
+                occurrences[text, default: []].insert(day)
+            }
+        }
+        return occurrences
+            .filter { $0.value.count >= minCount }
+            .map { RepeatedTodo(text: $0.key, dates: $0.value.sorted()) }
+            .sorted { a, b in
+                if a.count != b.count { return a.count > b.count }
+                return a.text.localizedStandardCompare(b.text) == .orderedAscending
+            }
+    }
+
+    /// 放棄一句日記待辦：把所有日記中相同文字的「- [ ]」改成「- [-]」（已放棄，
+    /// 之後不再列入待辦與重複統計），回傳改動的檔案數。
+    @discardableResult
+    func discardJournalTodos(matching text: String) -> Int {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        var changed = 0
+
+        for (url, _) in journalFiles(dateFormatter: df) {
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            var lines = content.components(separatedBy: "\n")
+            var dirty = false
+            for i in lines.indices {
+                let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("- [ ]") else { continue }
+                let raw = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                guard TodoMeta.parse(raw).cleanText == text else { continue }
+                if let range = lines[i].range(of: "- [ ]") {
+                    lines[i].replaceSubrange(range, with: "- [-]")
+                    dirty = true
+                }
+            }
+            if dirty {
+                try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+                changed += 1
+            }
+        }
+        return changed
+    }
+
+    /// 某天日記裡還沒完成的待辦（原始文字，含標記），給規劃儀式搬移用。
+    func unfinishedJournalTodos(on date: Date) -> [String] {
+        guard let url = journalURL(for: date),
+              let content = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        var result: [String] = []
+        for line in content.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("- [ ]") else { continue }
+            let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            if !text.isEmpty { result.append(text) }
+        }
+        return result
+    }
+
+    /// 所有日記檔與其日期（檔名 yyyy-MM-dd.md）。
+    private func journalFiles(dateFormatter df: DateFormatter) -> [(URL, Date)] {
+        guard let base = journalURL,
+              let enumerator = fm.enumerator(
+                at: base, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+        else { return [] }
+        var result: [(URL, Date)] = []
+        for case let url as URL in enumerator {
+            guard url.pathExtension.lowercased() == "md" else { continue }
+            guard let day = df.date(from: url.deletingPathExtension().lastPathComponent)
+            else { continue }
+            result.append((url, day))
+        }
+        return result
     }
 
     /// 某日的日記檔路徑

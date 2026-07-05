@@ -81,6 +81,13 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
         ucc.add(self, name: "ready")
         ucc.add(self, name: "pasteImage")
         ucc.add(self, name: "jsError")
+        // 編輯器依賴（tiptap+KaTeX，本地 editor-bundle.js）用 user script 注入：
+        // 同 origin 執行、錯誤訊息不會被 file:// 隔離政策遮罩。
+        if let url = WebResources.baseURL?.appendingPathComponent("editor-bundle.js"),
+           let js = try? String(contentsOf: url, encoding: .utf8) {
+            ucc.addUserScript(WKUserScript(
+                source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         webView.navigationDelegate = self
         webView.setValue(false, forKey: "drawsBackground")
         webView.underPageBackgroundColor = .clear
@@ -93,7 +100,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     private func startLoad() {
         loadError = nil
         isReady = false
-        webView.loadHTMLString(BlockEditorView.template, baseURL: nil)
+        webView.loadHTMLString(BlockEditorView.template, baseURL: WebResources.baseURL)
         // CDN 載入失敗（網路慢/斷線）時自動重試，最多 3 次
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 10_000_000_000)
@@ -248,13 +255,14 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
 extension BlockEditorView {
     // MARK: - HTML template
 
-    static let template = #"""
+    /// 用 computed property：內含 L() 本地化字串，語言切換重載編輯器時要重新求值。
+    static var template: String { #"""
     <!DOCTYPE html>
     <html>
     <head>
     <meta charset="utf-8">
     <meta name="color-scheme" content="light dark">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <link rel="stylesheet" href="katex.min.css">
     <style>
       html, body { background: transparent; margin: 0; }
       body {
@@ -368,24 +376,22 @@ extension BlockEditorView {
       });
     </script>
     <div id="math-editor">
-      <textarea id="math-input" placeholder="LaTeX，例如 \frac{S_{im}S_{jm}}{S_{0m}}"></textarea>
+      <textarea id="math-input" placeholder="\#(L("LaTeX，例如")) \frac{S_{im}S_{jm}}{S_{0m}}"></textarea>
       <div id="math-preview"></div>
       <div class="row">
-        <button id="math-delete">刪除</button>
-        <button id="math-done" class="primary">完成 ⏎</button>
+        <button id="math-delete">\#(L("刪除"))</button>
+        <button id="math-done" class="primary">\#(L("完成")) ⏎</button>
       </div>
     </div>
-    <script type="module">
-      import { Editor, Extension, Node, mergeAttributes, InputRule } from "https://esm.sh/@tiptap/core@2.4.0";
-      import { TextSelection, NodeSelection } from "https://esm.sh/@tiptap/pm@2.4.0/state";
-      import { Fragment } from "https://esm.sh/@tiptap/pm@2.4.0/model";
-      import StarterKit from "https://esm.sh/@tiptap/starter-kit@2.4.0";
-      import TaskList from "https://esm.sh/@tiptap/extension-task-list@2.4.0";
-      import TaskItem from "https://esm.sh/@tiptap/extension-task-item@2.4.0";
-      import Image from "https://esm.sh/@tiptap/extension-image@2.4.0";
-      import Placeholder from "https://esm.sh/@tiptap/extension-placeholder@2.4.0";
-      import { Markdown } from "https://esm.sh/tiptap-markdown@0.8.10";
-      import katex from "https://esm.sh/katex@0.16.9";
+    <script>
+      // 依賴由 Swift 端以 WKUserScript 注入本地 editor-bundle.js（IIFE，global RHEditor），離線可用。
+      // 整段包進 IIFE：頂層 const Node/Image 會遮蔽 DOM 全域（bundle 內部要用 window.Node
+      // 判斷 TEXT_NODE），造成 markdown 解析炸掉、內容顯示不出來。
+      (() => {
+      const { Editor, Extension, Node, mergeAttributes, InputRule,
+              TextSelection, NodeSelection, Fragment,
+              StarterKit, TaskList, TaskItem, Image, Placeholder,
+              Markdown, katex } = RHEditor;
 
       // ---- Assets（相對路徑 → data URI）----
       let assetMap = {};
@@ -396,7 +402,7 @@ extension BlockEditorView {
 
       function renderKatex(el, latex, displayMode) {
         if (!latex || !latex.trim()) {
-          el.innerHTML = '<span class="math-empty">點擊編輯公式</span>';
+          el.innerHTML = '<span class="math-empty">\#(L("點擊編輯公式"))</span>';
           return;
         }
         try {
@@ -695,30 +701,31 @@ extension BlockEditorView {
       });
 
       // ---- Slash 選單項目 ----
+      // label 由 Swift 端本地化注入；match 保留中英關鍵字，兩種語言都搜得到。
       const slashItems = [
-        { label: "文字", hint: "", match: "text paragraph 文字",
+        { label: "\#(L("文字"))", hint: "", match: "text paragraph 文字",
           run: ed => ed.chain().focus().setParagraph().run() },
-        { label: "標題 1", hint: "#", match: "h1 heading1 標題",
+        { label: "\#(L("標題 1"))", hint: "#", match: "h1 heading1 標題",
           run: ed => ed.chain().focus().setHeading({ level: 1 }).run() },
-        { label: "標題 2", hint: "##", match: "h2 heading2 標題",
+        { label: "\#(L("標題 2"))", hint: "##", match: "h2 heading2 標題",
           run: ed => ed.chain().focus().setHeading({ level: 2 }).run() },
-        { label: "標題 3", hint: "###", match: "h3 heading3 標題",
+        { label: "\#(L("標題 3"))", hint: "###", match: "h3 heading3 標題",
           run: ed => ed.chain().focus().setHeading({ level: 3 }).run() },
-        { label: "項目清單", hint: "-", match: "bullet list ul 項目 清單",
+        { label: "\#(L("項目清單"))", hint: "-", match: "bullet list ul 項目 清單",
           run: ed => ed.chain().focus().toggleBulletList().run() },
-        { label: "編號清單", hint: "1.", match: "ordered number ol 編號",
+        { label: "\#(L("編號清單"))", hint: "1.", match: "ordered number ol 編號",
           run: ed => ed.chain().focus().toggleOrderedList().run() },
-        { label: "待辦清單", hint: "[ ]", match: "todo task checkbox 待辦",
+        { label: "\#(L("待辦清單"))", hint: "[ ]", match: "todo task checkbox 待辦",
           run: ed => ed.chain().focus().toggleTaskList().run() },
-        { label: "行內公式", hint: "$", match: "math inline latex eq equation 行內 公式 數學",
+        { label: "\#(L("行內公式"))", hint: "$", match: "math inline latex eq equation 行內 公式 數學",
           run: ed => {
             ed.chain().focus().insertContent({ type: "mathInline", attrs: { latex: "" } }).run();
           } },
-        { label: "數學公式（區塊）", hint: "$$", match: "math block latex eq equation 數學 公式 區塊",
+        { label: "\#(L("數學公式（區塊）"))", hint: "$$", match: "math block latex eq equation 數學 公式 區塊",
           run: ed => {
             ed.chain().focus().insertContent({ type: "mathBlock", attrs: { latex: "" } }).run();
           } },
-        { label: "摺疊清單", hint: "▸", match: "toggle details collapse fold 摺疊 折疊 收合",
+        { label: "\#(L("摺疊清單"))", hint: "▸", match: "toggle details collapse fold 摺疊 折疊 收合",
           run: ed => {
             ed.chain().focus().insertContent({
               type: "toggleList",
@@ -726,11 +733,11 @@ extension BlockEditorView {
               content: [{ type: "toggleSummary" }, { type: "paragraph" }]
             }).run();
           } },
-        { label: "引用", hint: ">", match: "quote blockquote 引用",
+        { label: "\#(L("引用"))", hint: ">", match: "quote blockquote 引用",
           run: ed => ed.chain().focus().toggleBlockquote().run() },
-        { label: "程式碼", hint: "```", match: "code 程式 代碼",
+        { label: "\#(L("程式碼"))", hint: "```", match: "code 程式 代碼",
           run: ed => ed.chain().focus().toggleCodeBlock().run() },
-        { label: "分隔線", hint: "---", match: "divider hr rule 分隔",
+        { label: "\#(L("分隔線"))", hint: "---", match: "divider hr rule 分隔",
           run: ed => ed.chain().focus().setHorizontalRule().run() }
       ];
 
@@ -749,7 +756,7 @@ extension BlockEditorView {
           MathBlock,
           ToggleSummary,
           ToggleList,
-          Placeholder.configure({ placeholder: "\#(String(localized: "輸入文字，或打「/」插入區塊"))" }),
+          Placeholder.configure({ placeholder: "\#(L("輸入文字，或打「/」插入區塊"))" }),
           Markdown.configure({ html: false, breaks: false, transformPastedText: true })
         ],
         onUpdate() { scheduleSend(); refreshSlash(); },
@@ -1058,8 +1065,10 @@ extension BlockEditorView {
       window.addEventListener("blur", () => { hideMenu(); });
 
       window.webkit.messageHandlers.ready.postMessage("");
+      })();
     </script>
     </body>
     </html>
     """#
+    }
 }

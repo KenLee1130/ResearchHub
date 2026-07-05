@@ -15,10 +15,30 @@ struct EventTag: Codable, Identifiable, Hashable {
 struct CalendarEvent: Codable, Identifiable, Hashable {
     var id = UUID()
     var title: String
+    /// 詳細內容：這件事具體要做什麼。
+    var notes: String = ""
     var isAllDay: Bool
     var start: Date
     var end: Date
     var tagID: UUID?
+}
+
+extension CalendarEvent {
+    private enum CodingKeys: String, CodingKey {
+        case id, title, notes, isAllDay, start, end, tagID
+    }
+
+    /// 舊版 events.json 沒有 notes 欄位 → 解碼時補空字串。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        isAllDay = try c.decode(Bool.self, forKey: .isAllDay)
+        start = try c.decode(Date.self, forKey: .start)
+        end = try c.decode(Date.self, forKey: .end)
+        tagID = try c.decodeIfPresent(UUID.self, forKey: .tagID)
+    }
 }
 
 // MARK: - Store
@@ -163,6 +183,65 @@ final class EventStore: ObservableObject {
             events[i].tagID = nil
         }
         save()
+    }
+}
+
+// MARK: - iCalendar 匯出
+
+extension EventStore {
+    /// 全部事件 → 標準 .ics（RFC 5545），可匯入 Apple／Google 行事曆或任何行事曆 app。
+    /// 時間用 floating local time（無時區後綴），符合個人行事曆的直覺。
+    func icsString() -> String {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+
+        func fmt(_ date: Date, dayOnly: Bool) -> String {
+            df.dateFormat = dayOnly ? "yyyyMMdd" : "yyyyMMdd'T'HHmmss"
+            return df.string(from: date)
+        }
+        // SUMMARY/DESCRIPTION 的跳脫：\ ; , 換行
+        func esc(_ s: String) -> String {
+            s.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: ";", with: "\\;")
+                .replacingOccurrences(of: ",", with: "\\,")
+                .replacingOccurrences(of: "\n", with: "\\n")
+        }
+
+        var lines = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//ResearchHub//EN",
+            "CALSCALE:GREGORIAN"
+        ]
+        let stamp = fmt(.now, dayOnly: false)
+        let calendar = Calendar.current
+
+        for event in events.sorted(by: { $0.start < $1.start }) {
+            lines.append("BEGIN:VEVENT")
+            lines.append("UID:\(event.id.uuidString)@researchhub")
+            lines.append("DTSTAMP:\(stamp)")
+            if event.isAllDay {
+                // 全天事件：DTEND 是「不含」的隔天
+                let endNext = calendar.date(
+                    byAdding: .day, value: 1,
+                    to: calendar.startOfDay(for: event.end)) ?? event.end
+                lines.append("DTSTART;VALUE=DATE:\(fmt(event.start, dayOnly: true))")
+                lines.append("DTEND;VALUE=DATE:\(fmt(endNext, dayOnly: true))")
+            } else {
+                lines.append("DTSTART:\(fmt(event.start, dayOnly: false))")
+                lines.append("DTEND:\(fmt(event.end, dayOnly: false))")
+            }
+            lines.append("SUMMARY:\(esc(event.title))")
+            if !event.notes.isEmpty {
+                lines.append("DESCRIPTION:\(esc(event.notes))")
+            }
+            if let tag = tag(for: event.tagID) {
+                lines.append("CATEGORIES:\(esc(tag.name))")
+            }
+            lines.append("END:VEVENT")
+        }
+        lines.append("END:VCALENDAR")
+        return lines.joined(separator: "\r\n") + "\r\n"
     }
 }
 

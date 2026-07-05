@@ -33,4 +33,20 @@ enum LanguageManager {
         objc_setAssociatedObject(
             Bundle.main, &associatedLanguageBundleKey, path, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
+
+    /// 目前 App 語言的字串 bundle（apply 過的 .lproj；跟隨系統時為 main）。
+    static var currentBundle: Bundle {
+        if let path = objc_getAssociatedObject(Bundle.main, &associatedLanguageBundleKey) as? String,
+           let bundle = Bundle(path: path) {
+            return bundle
+        }
+        return .main
+    }
+}
+
+/// 跟隨 App 語言設定的本地化字串。
+/// `String(localized:)` 讀的是系統語言、會無視 LanguageManager 的執行期切換——
+/// 所有程式碼取字串一律用這個。
+func L(_ key: String.LocalizationValue) -> String {
+    String(localized: key, bundle: LanguageManager.currentBundle)
 }

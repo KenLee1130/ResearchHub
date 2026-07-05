@@ -26,6 +26,7 @@ struct RootView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var eventStore: EventStore
     @EnvironmentObject private var pomodoro: PomodoroModel
+    @EnvironmentObject private var generalTodos: GeneralTodoStore
     @AppStorage("settings.appearance") private var appearance = AppAppearance.system.rawValue
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @State private var tab: AppTab? = .home
@@ -130,16 +131,24 @@ struct RootView: View {
         .environment(\.locale, AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent)
         // 語言改變時強制整棵重建，讓所有子畫面的字串即時重新解析。
         .id(language)
+        // block 編輯器的 template 內含本地化字串且 WebView 常駐 → 語言換了要重載。
+        // 先確保 LanguageManager 已套用新語言（不依賴 SettingsView 的觸發順序）。
+        .onChange(of: language) {
+            LanguageManager.apply(language == AppLanguage.system.rawValue ? nil : language)
+            BlockEditorHost.shared.retry()
+        }
         .background(WindowMinSizeSetter(minWidth: 700, minHeight: 560))
         .onAppear {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
+            generalTodos.configure(rootURL: store.rootURL)
             BlockEditorHost.shared.preload() // 預載日記編輯器，切分頁即時顯示
             noteTree = store.noteTree()
         }
         .onChange(of: store.rootURL) {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
+            generalTodos.configure(rootURL: store.rootURL)
             noteTree = store.noteTree()
         }
         .onChange(of: store.items) { noteTree = store.noteTree() }
@@ -151,6 +160,31 @@ struct RootView: View {
         }
         .sheet(isPresented: $store.searchPresented) {
             SearchPaletteView()
+        }
+        // 系統 URL scheme（researchhub://…）：外部工具的入口。
+        //   note?path=<相對 Notes/ 的路徑> → 開啟筆記
+        //   journal?date=YYYY-MM-DD → 開啟該日日記（省略 = 今天）
+        .onOpenURL { url in
+            guard url.scheme == "researchhub" else { return }
+            let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            switch url.host {
+            case "note":
+                if let rel = comps?.queryItems?.first(where: { $0.name == "path" })?.value,
+                   let fileURL = NoteLinkIndex.shared.url(forRelativePath: rel) {
+                    store.openNote(fileURL)
+                }
+            case "journal":
+                let f = DateFormatter()
+                f.dateFormat = "yyyy-MM-dd"
+                f.locale = Locale(identifier: "en_US_POSIX")
+                let date = comps?.queryItems?
+                    .first(where: { $0.name == "date" })?.value
+                    .flatMap { f.date(from: $0) }
+                store.pendingJournalDate = date ?? Calendar.current.startOfDay(for: .now)
+                store.requestedTab = .journal
+            default:
+                break
+            }
         }
         .alert("發生錯誤", isPresented: errorBinding) {
             Button("好") { store.errorMessage = nil }

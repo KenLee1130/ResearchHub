@@ -10,6 +10,8 @@ struct PomodoroSession: Codable, Identifiable, Equatable {
     var minutes: Int        // 這顆的長度(分)
     var plan: String        // 開始前的計畫(這顆要做什麼)
     var done: String        // 完成後記下實際做了什麼
+    // 新欄位;舊紀錄缺這個 key,靠 Optional 讓 Codable 解碼為 nil(向下相容)。
+    var startedAt: Date? = nil   // 這顆實際開始倒數的時刻(用來算真實專注時段)
 }
 
 /// 統計區間。
@@ -104,6 +106,8 @@ final class PomodoroModel: ObservableObject {
     private var pendingSessionIndex: Int?
     /// 這顆 work 的長度(分),完成時寫進紀錄。
     private var activeWorkMinutes = 25
+    /// 這顆 work 實際開始倒數的時刻,完成時寫進 session.startedAt。
+    private var activeStartedAt: Date?
 
     init() {
         remaining = duration(of: .work)
@@ -198,11 +202,14 @@ final class PomodoroModel: ObservableObject {
 
     /// 新增一筆完成紀錄,並記住索引以便稍後補「完成內容」。
     private func appendSession(minutes: Int, plan: String) {
-        let s = PomodoroSession(date: .now, minutes: minutes,
-                                plan: plan.trimmingCharacters(in: .whitespacesAndNewlines),
-                                done: "")
+        let s = PomodoroSession(
+            date: .now, minutes: minutes,
+            plan: plan.trimmingCharacters(in: .whitespacesAndNewlines),
+            done: "",
+            startedAt: activeStartedAt)
         sessions.append(s)
         pendingSessionIndex = sessions.count - 1
+        activeStartedAt = nil            // 這顆已收帳,下一顆重新記起始時刻
         saveSessions()
         recomputeCounts()
     }
@@ -260,6 +267,7 @@ final class PomodoroModel: ObservableObject {
     func reset() {
         pause()
         hasStartedPhase = false
+        activeStartedAt = nil           // 這顆作廢,別把起始時刻帶到下一顆
         remaining = duration(of: phase)
     }
 
@@ -267,15 +275,18 @@ final class PomodoroModel: ObservableObject {
     func resetCycle() {
         pause()
         hasStartedPhase = false
+        activeStartedAt = nil
         phase = .work
         cyclePosition = 0
         remaining = duration(of: .work)
     }
 
     private func start() {
-        // 全新開始一顆 work 時,記住這顆的長度(分),完成時寫進紀錄。
+        // 全新開始一顆 work 時,記住這顆的長度(分)與起始時刻,完成時寫進紀錄。
+        // 暫停後再按開始不會覆寫(activeStartedAt 已有值),startedAt 仍是第一次坐下的時間。
         if phase == .work && !hasStartedPhase {
             activeWorkMinutes = max(1, remaining / 60)
+            if activeStartedAt == nil { activeStartedAt = .now }
         }
         isRunning = true
         hasStartedPhase = true
@@ -431,20 +442,22 @@ final class PomodoroModel: ObservableObject {
     }
 
     /// 本週（週一開頭）每天的顆數（首頁原本就有用到）。
-    func weekCounts() -> [(label: String, count: Int, isToday: Bool)] {
-        dayBars(weekMondayContaining: .now)
+    func weekCounts(locale: Locale = .autoupdatingCurrent)
+        -> [(label: String, count: Int, isToday: Bool)] {
+        dayBars(weekMondayContaining: .now, locale: locale)
     }
 
     /// 統計卡的長條資料：週/上週→7 天、本月→當月每天、今年→12 個月。
-    func statBars(_ period: PomodoroStatsPeriod) -> [(label: String, count: Int, isNow: Bool)] {
+    func statBars(_ period: PomodoroStatsPeriod, locale: Locale = .autoupdatingCurrent)
+        -> [(label: String, count: Int, isNow: Bool)] {
         let cal = Calendar.current
         switch period {
         case .thisWeek:
-            return dayBars(weekMondayContaining: .now)
+            return dayBars(weekMondayContaining: .now, locale: locale)
                 .map { (label: $0.label, count: $0.count, isNow: $0.isToday) }
         case .lastWeek:
             let ref = cal.date(byAdding: .day, value: -7, to: .now) ?? .now
-            return dayBars(weekMondayContaining: ref)
+            return dayBars(weekMondayContaining: ref, locale: locale)
                 .map { (label: $0.label, count: $0.count, isNow: $0.isToday) }
         case .thisMonth:
             return monthDayBars(for: .now)
@@ -479,10 +492,14 @@ final class PomodoroModel: ObservableObject {
         return cal.date(byAdding: .day, value: -mondayOffset, to: day)
     }
 
-    private func dayBars(weekMondayContaining date: Date)
+    private func dayBars(weekMondayContaining date: Date, locale: Locale)
         -> [(label: String, count: Int, isToday: Bool)] {
         let cal = Calendar.current
-        let labels = ["一", "二", "三", "四", "五", "六", "日"]
+        // 週一開頭的極短星期符號（中：一二三…；英：M T W…），跟隨 App 語言。
+        var symCal = Calendar.current
+        symCal.locale = locale
+        let syms = symCal.veryShortWeekdaySymbols
+        let labels = (0..<7).map { syms[($0 + 1) % 7] }
         guard let monday = mondayStart(containing: date) else { return [] }
         return (0..<7).compactMap { i in
             guard let day = cal.date(byAdding: .day, value: i, to: monday) else { return nil }
@@ -520,6 +537,124 @@ final class PomodoroModel: ObservableObject {
     /// 最近 N 筆完成紀錄(新到舊),給首頁回顧用。
     func recentSessions(limit: Int = 6) -> [PomodoroSession] {
         Array(sessions.suffix(limit).reversed())
+    }
+
+    // MARK: - 生產力分析
+
+    /// 依「開始工作的時刻」統計的生產力輪廓。
+    struct ProductivityProfile {
+        /// hourCounts[h] = h:00–h:59 開始且完成的顆數
+        var hourCounts: [Int] = Array(repeating: 0, count: 24)
+        /// weekdayCounts[i] = 週一(0)…週日(6) 的顆數
+        var weekdayCounts: [Int] = Array(repeating: 0, count: 7)
+        /// 納入統計的顆數（排除舊資料補登）
+        var sampleCount = 0
+
+        /// 顆數最多的連續 2 小時窗（回傳起始小時），樣本太少回 nil。
+        var peakWindowStart: Int? {
+            guard sampleCount >= 10 else { return nil }
+            var best = 0, bestSum = -1
+            for h in 0..<23 {
+                let s = hourCounts[h] + hourCounts[h + 1]
+                if s > bestSum { bestSum = s; best = h }
+            }
+            return bestSum > 0 ? best : nil
+        }
+
+        /// 顆數最多的星期（0 = 週一），樣本太少回 nil。
+        var peakWeekday: Int? {
+            guard sampleCount >= 10 else { return nil }
+            guard let m = weekdayCounts.max(), m > 0 else { return nil }
+            return weekdayCounts.firstIndex(of: m)
+        }
+    }
+
+    /// 計畫 vs 實際的執行統計（排除舊資料補登）。
+    struct ExecutionStats {
+        var sampleCount = 0
+        /// 有寫「計畫」的顆數
+        var plannedCount = 0
+        /// 計畫、完成都有寫的顆數
+        var bothCount = 0
+        /// 其中「完成 == 計畫」（照計畫做完）的顆數
+        var followedCount = 0
+        /// 每個工作日第一顆的開始時刻（當天 0 點起算的分鐘），供平均
+        var firstStartMinutes: [Int] = []
+
+        /// 照計畫率：計畫和完成都有寫的顆之中，實際做的就是計畫的比例
+        var followRate: Double? {
+            bothCount >= 5 ? Double(followedCount) / Double(bothCount) : nil
+        }
+        /// 有計畫率
+        var planRate: Double? {
+            sampleCount >= 5 ? Double(plannedCount) / Double(sampleCount) : nil
+        }
+        /// 平均第一顆開始時刻
+        var averageFirstStart: (hour: Int, minute: Int)? {
+            guard firstStartMinutes.count >= 3 else { return nil }
+            let avg = firstStartMinutes.reduce(0, +) / firstStartMinutes.count
+            return (avg / 60, avg % 60)
+        }
+    }
+
+    /// 最近 `days` 天的「計畫 vs 實際」統計。
+    func executionStats(days: Int? = nil) -> ExecutionStats {
+        let cal = Calendar.current
+        var stats = ExecutionStats()
+        let cutoff = days.flatMap { cal.date(byAdding: .day, value: -$0, to: .now) }
+        var firstOfDay: [Date: Int] = [:] // 當天 0 點 → 最早開始分鐘
+
+        for s in sessions {
+            if let cutoff, s.date < cutoff { continue }
+            if s.startedAt == nil && s.plan.isEmpty && s.done.isEmpty {
+                let c = cal.dateComponents([.hour, .minute, .second], from: s.date)
+                if c.hour == 12 && c.minute == 0 && c.second == 0 { continue } // 補登資料
+            }
+            stats.sampleCount += 1
+            let hasPlan = !s.plan.isEmpty
+            let hasDone = !s.done.isEmpty
+            if hasPlan { stats.plannedCount += 1 }
+            if hasPlan && hasDone {
+                stats.bothCount += 1
+                if s.done.trimmingCharacters(in: .whitespacesAndNewlines)
+                    == s.plan.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    stats.followedCount += 1
+                }
+            }
+            let started = s.startedAt
+                ?? s.date.addingTimeInterval(-Double(s.minutes) * 60)
+            let day = cal.startOfDay(for: started)
+            let minute = cal.component(.hour, from: started) * 60
+                + cal.component(.minute, from: started)
+            firstOfDay[day] = min(firstOfDay[day] ?? Int.max, minute)
+        }
+        stats.firstStartMinutes = Array(firstOfDay.values)
+        return stats
+    }
+
+    /// 統計最近 `days` 天（nil = 全部）每小時／每星期幾的完成顆數。
+    /// 舊版遷移補登的紀錄（無 startedAt、無內容、正午 12:00 整）不列入，
+    /// 免得 12 點被灌水成假的生產力高峰。
+    func productivityProfile(days: Int? = nil) -> ProductivityProfile {
+        let cal = Calendar.current
+        var profile = ProductivityProfile()
+        let cutoff = days.flatMap { cal.date(byAdding: .day, value: -$0, to: .now) }
+
+        for s in sessions {
+            if let cutoff, s.date < cutoff { continue }
+            if s.startedAt == nil && s.plan.isEmpty && s.done.isEmpty {
+                let c = cal.dateComponents([.hour, .minute, .second], from: s.date)
+                if c.hour == 12 && c.minute == 0 && c.second == 0 { continue } // 補登資料
+            }
+            // 用實際開始時刻；沒有就用完成時刻回推這顆的長度。
+            let started = s.startedAt
+                ?? s.date.addingTimeInterval(-Double(s.minutes) * 60)
+            profile.hourCounts[cal.component(.hour, from: started)] += 1
+            let weekday = cal.component(.weekday, from: started) // 1 = Sun
+            profile.weekdayCounts[(weekday + 5) % 7] += 1
+            profile.sampleCount += 1
+        }
+        return profile
     }
 
     private func notify(_ title: String, _ body: String) {
