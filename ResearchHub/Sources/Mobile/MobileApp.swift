@@ -9,6 +9,7 @@ struct ResearchHubMobileApp: App {
     @StateObject private var store = FileSystemStore()
     @StateObject private var eventStore = EventStore()
     @StateObject private var generalTodos = GeneralTodoStore()
+    @StateObject private var pomodoro = PomodoroModel()
 
     init() {
         LanguageManager.activate()
@@ -21,6 +22,7 @@ struct ResearchHubMobileApp: App {
                 .environmentObject(store)
                 .environmentObject(eventStore)
                 .environmentObject(generalTodos)
+                .environmentObject(pomodoro)
         }
     }
 }
@@ -29,6 +31,7 @@ struct MobileRootView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var eventStore: EventStore
     @EnvironmentObject private var generalTodos: GeneralTodoStore
+    @EnvironmentObject private var pomodoro: PomodoroModel
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
 
     var body: some View {
@@ -39,6 +42,10 @@ struct MobileRootView: View {
                 TabView {
                     MobileTodayView()
                         .tabItem { Label("今天", systemImage: "sun.max") }
+                    MobileNotesView()
+                        .tabItem { Label("筆記", systemImage: "folder") }
+                    MobilePomodoroView()
+                        .tabItem { Label("蕃茄鐘", systemImage: "timer") }
                     MobileInboxView()
                         .tabItem { Label("一般待辦", systemImage: "tray.full") }
                     MobileSettingsView()
@@ -51,10 +58,12 @@ struct MobileRootView: View {
         .onAppear {
             eventStore.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
+            pomodoro.configure(rootURL: store.rootURL)
         }
         .onChange(of: store.rootURL) {
             eventStore.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
+            pomodoro.configure(rootURL: store.rootURL)
         }
     }
 }
@@ -99,6 +108,7 @@ struct MobileTodayView: View {
     @State private var journalText = ""
     @State private var loadedText = ""
     @State private var saveTask: Task<Void, Never>?
+    @State private var showPlanning = false
 
     private var journalURL: URL? { store.journalURL(for: .now) }
 
@@ -184,6 +194,19 @@ struct MobileTodayView: View {
                 .padding(16)
             }
             .navigationTitle(Date.now.formatted(.dateTime.month().day().weekday(.wide)))
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        saveNow() // 先存今天的，編輯器要讓給明天的日記
+                        showPlanning = true
+                    } label: {
+                        Label("規劃明天", systemImage: "moon.stars")
+                    }
+                }
+            }
+            .sheet(isPresented: $showPlanning, onDismiss: load) {
+                MobilePlanningSheet()
+            }
             .onAppear(perform: load)
             .onDisappear(perform: saveNow)
             .onChange(of: journalText) { scheduleSave() }

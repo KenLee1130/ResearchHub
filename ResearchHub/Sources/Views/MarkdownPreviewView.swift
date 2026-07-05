@@ -1,11 +1,14 @@
-#if os(macOS)
 import SwiftUI
 import WebKit
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 /// 右欄即時預覽：WKWebView + marked（Markdown）+ KaTeX（LaTeX 數學與環境）。
 /// 數學段落先以 placeholder 保護再交給 marked，避免 $、反斜線被當成 Markdown 處理。
-struct MarkdownPreviewView: NSViewRepresentable {
+struct MarkdownPreviewView {
     var text: String
     var scrollSync: ScrollSync = ScrollSync()
     var baseDir: URL?
@@ -16,23 +19,29 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeNSView(context: Context) -> WKWebView {
+    private func makeWebView(coordinator: Coordinator) -> WKWebView {
         let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-        webView.navigationDelegate = context.coordinator
+        webView.navigationDelegate = coordinator
+        #if os(macOS)
         webView.setValue(false, forKey: "drawsBackground")
+        #else
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
+        #endif
         webView.underPageBackgroundColor = .clear
-        context.coordinator.webView = webView
-        context.coordinator.citationItems = citationItems
-        context.coordinator.pendingText = text
+        coordinator.webView = webView
+        coordinator.citationItems = citationItems
+        coordinator.pendingText = text
         webView.loadHTMLString(Self.template, baseURL: WebResources.baseURL)
         return webView
     }
 
-    func updateNSView(_ webView: WKWebView, context: Context) {
-        context.coordinator.baseDir = baseDir
-        context.coordinator.onOpenNote = onOpenNote
-        context.coordinator.update(text: text, items: citationItems)
-        context.coordinator.scroll(sync: scrollSync)
+    private func refresh(coordinator: Coordinator) {
+        coordinator.baseDir = baseDir
+        coordinator.onOpenNote = onOpenNote
+        coordinator.update(text: text, items: citationItems)
+        coordinator.scroll(sync: scrollSync)
     }
 
     // MARK: - Coordinator
@@ -89,7 +98,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 decisionHandler(.allow)
                 return
             }
+            #if os(macOS)
             NSWorkspace.shared.open(url)
+            #else
+            UIApplication.shared.open(url)
+            #endif
             decisionHandler(.cancel)
         }
 
@@ -177,6 +190,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
     <head>
     <meta charset="utf-8">
     <meta name="color-scheme" content="light dark">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="katex.min.css">
     <script src="katex.min.js"></script>
     <script src="marked.min.js"></script>
@@ -280,5 +294,16 @@ struct MarkdownPreviewView: NSViewRepresentable {
     </body>
     </html>
     """
+}
+
+#if os(macOS)
+extension MarkdownPreviewView: NSViewRepresentable {
+    func makeNSView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
+    func updateNSView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
+}
+#else
+extension MarkdownPreviewView: UIViewRepresentable {
+    func makeUIView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
+    func updateUIView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
 }
 #endif

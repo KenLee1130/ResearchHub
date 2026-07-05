@@ -283,6 +283,10 @@ final class PomodoroModel: ObservableObject {
         remaining = duration(of: .work)
     }
 
+    /// 這一段倒數的結束時刻。倒數以它為準（而不是每秒 -1），
+    /// 所以 app 進背景（iOS）或 Mac 睡眠後回來，時間仍然正確。
+    private var phaseEndAt: Date?
+
     private func start() {
         // 全新開始一顆 work 時,記住這顆的長度(分)與起始時刻,完成時寫進紀錄。
         // 暫停後再按開始不會覆寫(activeStartedAt 已有值),startedAt 仍是第一次坐下的時間。
@@ -292,6 +296,8 @@ final class PomodoroModel: ObservableObject {
         }
         isRunning = true
         hasStartedPhase = true
+        phaseEndAt = Date.now.addingTimeInterval(TimeInterval(remaining))
+        scheduleEndNotification()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.tick()
@@ -303,14 +309,52 @@ final class PomodoroModel: ObservableObject {
         isRunning = false
         timer?.invalidate()
         timer = nil
+        phaseEndAt = nil
+        cancelEndNotification()
+    }
+
+    // MARK: - 結束時刻的預約通知（app 不在前景／手機鎖屏時也會響）
+
+    private static let endNotificationID = "pomodoro.phaseEnd"
+
+    private func scheduleEndNotification() {
+        cancelEndNotification()
+        guard remaining > 1 else { return }
+        let content = UNMutableNotificationContent()
+        switch phase {
+        case .work:
+            content.title = "🍅 完成一顆蕃茄"
+            content.body = "要繼續工作,還是開始休息?"
+        case .shortBreak:
+            content.title = "☕ 休息結束"
+            content.body = "要開始工作,還是再休息一下?"
+        case .longBreak:
+            content.title = "🧘 長休息結束"
+            content.body = "要開始工作,還是再休息一下?"
+        }
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: TimeInterval(remaining), repeats: false)
+        UNUserNotificationCenter.current().add(UNNotificationRequest(
+            identifier: Self.endNotificationID, content: content, trigger: trigger))
+    }
+
+    private func cancelEndNotification() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [Self.endNotificationID])
     }
 
     // MARK: - Tick
 
     private func tick() {
-        guard remaining > 0 else { return }
-        remaining -= 1
-        guard remaining == 0 else { return }
+        if let end = phaseEndAt {
+            // 以結束時刻回推,背景/睡眠回來會自動追上
+            remaining = max(0, Int(end.timeIntervalSinceNow.rounded(.up)))
+        } else if remaining > 0 {
+            remaining -= 1
+        }
+        guard remaining <= 0 else { return }
+        phaseEndAt = nil
 
         switch phase {
         case .work:
