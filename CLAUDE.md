@@ -1,7 +1,12 @@
 # ResearchHub
 
-macOS SwiftUI app（日記 + 筆記 + 事件 + 番茄鐘）。使用者選定的根資料夾就是本 repo 根目錄，
-所有資料都是純文字檔，Claude 可以直接讀寫下列檔案來參與工作流程。
+macOS + iOS SwiftUI app（日記 + 筆記 + 事件 + 番茄鐘）。所有資料都是純文字檔，
+Claude 可以直接讀寫下列檔案來參與工作流程。
+
+> ⚠️ **本 repo 只有程式碼。使用者的資料（根資料夾）在
+> `~/Library/Mobile Documents/com~apple~CloudDocs/ResearchHubLibrary/`**
+> （iCloud Drive，Mac 與 iPhone 共用）。下表的相對路徑都以那裡為準；
+> **不要**在 repo 目錄下建立或讀寫 `.hub/`、`Journal/`、`Notes/`。
 
 ## 資料佈局（Claude 介入接口）
 

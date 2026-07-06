@@ -35,13 +35,16 @@ struct JournalView: View {
     }
 
     struct DayMarks {
-        /// index = lane（最多 2 條），nil 表示該 lane 當天沒有線
-        var bars: [BarSegment?] = [nil, nil]
-        /// 單日事件的色點（最多 3 個）
+        /// index = lane（最多 maxLanes 條），nil 表示該 lane 當天沒有線
+        var bars: [BarSegment?] = Array(repeating: nil, count: JournalView.maxLanes)
+        /// 單日事件的色點（最多 maxDots 個）
         var dots: [Color] = []
+        /// 放不下的事件數（lane 滿的跨日 + 超過點數上限的單日）→ 顯示 +N
+        var overflow = 0
     }
 
-    private static let maxLanes = 2
+    static let maxLanes = 3
+    private static let maxDots = 3
 
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     private let calendar = Calendar.current
@@ -235,6 +238,12 @@ struct JournalView: View {
                     }
                     ForEach(Array(marks.dots.enumerated()), id: \.offset) { _, color in
                         Circle().fill(color).frame(width: 4, height: 4)
+                    }
+                    // 顯示不下的事件數，不再靜默丟棄
+                    if marks.overflow > 0 {
+                        Text(verbatim: "+\(marks.overflow)")
+                            .font(.system(size: 7, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .frame(height: 5)
@@ -523,16 +532,18 @@ struct JournalView: View {
             guard e >= monthStart, s <= monthEnd else { continue }
             let color = eventStore.tag(for: event.tagID)?.color ?? .gray
 
-            // 單日 → 點
+            // 單日 → 點；超過上限計入 +N
             if s == e {
                 let day = calendar.component(.day, from: s)
-                if marks[day, default: DayMarks()].dots.count < 3 {
+                if marks[day, default: DayMarks()].dots.count < Self.maxDots {
                     marks[day, default: DayMarks()].dots.append(color)
+                } else {
+                    marks[day, default: DayMarks()].overflow += 1
                 }
                 continue
             }
 
-            // 跨日 → 分配 lane
+            // 跨日 → 分配 lane；lane 滿了改記 +N（涵蓋的每一天都要算）
             var lane: Int
             if let free = laneEnds.firstIndex(where: { $0 < s }) {
                 lane = free
@@ -540,7 +551,14 @@ struct JournalView: View {
                 laneEnds.append(.distantPast)
                 lane = laneEnds.count - 1
             } else {
-                continue // lane 滿了，忽略（極端情況）
+                var d = max(s, monthStart)
+                let last = min(e, monthEnd)
+                while d <= last {
+                    marks[calendar.component(.day, from: d), default: DayMarks()].overflow += 1
+                    guard let next = calendar.date(byAdding: .day, value: 1, to: d) else { break }
+                    d = next
+                }
+                continue
             }
             laneEnds[lane] = e
 
