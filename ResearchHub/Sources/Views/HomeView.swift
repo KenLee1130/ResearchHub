@@ -65,6 +65,7 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     VStack(alignment: .leading, spacing: 14) {
+                        weeklyCard
                         todoCard
                         eventsCard
                         statsCard
@@ -561,6 +562,71 @@ struct HomeView: View {
         )
     }
 
+    // MARK: - 本週檢視（時段執行率即時算；artifact/空轉由週日檢討寫入 weekly.json）
+
+    /// 排時段用的事件標籤名（照 2026~2027 計畫的週節奏分類）。
+    private static let blockTagNames: Set<String> = ["大塊", "固定", "碎片"]
+
+    private var weeklyCard: some View {
+        let (executed, planned) = weekExecution()
+        let lastReview = generalStore.weekly.last
+        return card("checkmark.seal", "本週檢視") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    execStat("時段執行率",
+                             planned > 0 ? "\(executed)/\(planned)" : "—",
+                             planned == 0 || executed * 5 >= planned * 4 ? .green : .orange)
+                    if let last = lastReview {
+                        execStat("上週 artifact", "\(last.artifacts)",
+                                 last.artifacts > 0 ? .green : .red)
+                        if last.idleWeeks > 0 {
+                            execStat("連續空轉", "\(last.idleWeeks) 週", .red)
+                        }
+                        if let referee = last.refereeOpen {
+                            execStat("referee 剩", "\(referee)", referee == 0 ? .green : .orange)
+                        }
+                    }
+                }
+                if planned == 0 {
+                    Text("把時段排進行事曆並掛「大塊／固定／碎片」標籤，這裡就會即時比對蕃茄鐘算執行率。")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                Text("每週日 21:00 Claude 做完整週檢討（四個數字 + R1–R5），寫進計畫檔與這裡。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    /// 本週（週一起）已到時間的排定時段中，窗口內有蕃茄鐘的比例。
+    private func weekExecution() -> (executed: Int, planned: Int) {
+        let cal = Calendar.current
+        let now = Date.now
+        let today = cal.startOfDay(for: now)
+        let weekday = cal.component(.weekday, from: today) // 1 = Sun
+        guard let monday = cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: today)
+        else { return (0, 0) }
+
+        let blocks = eventStore.events.filter { event in
+            guard let tag = eventStore.tag(for: event.tagID),
+                  Self.blockTagNames.contains(tag.name) else { return false }
+            return event.start >= monday && event.start <= now
+        }
+        guard !blocks.isEmpty else { return (0, 0) }
+
+        // 時段窗口（前後放寬 15 分鐘）內有任何一顆蕃茄鐘開始 → 算有執行
+        let starts: [Date] = pomodoro.sessions.map { s in
+            s.startedAt ?? s.date.addingTimeInterval(-Double(s.minutes) * 60)
+        }
+        let executed = blocks.filter { event in
+            let from = event.start.addingTimeInterval(-900)
+            let to = event.end.addingTimeInterval(900)
+            return starts.contains { $0 >= from && $0 <= to }
+        }.count
+        return (executed, blocks.count)
+    }
+
     // MARK: - 待辦
 
     private var todoCard: some View {
@@ -929,6 +995,14 @@ struct HomeView: View {
                                    ? Color.red.opacity(0.15)
                                    : Color.orange.opacity(0.12)))
                 .foregroundStyle(meta.isOverdue ? .red : .orange)
+        }
+        if let line = meta.line {
+            Text(verbatim: line)
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Color.blue.opacity(0.12)))
+                .foregroundStyle(.blue)
         }
     }
 

@@ -98,6 +98,16 @@
         }
       }
     },
+    "%lld 週": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld wk"
+          }
+        }
+      }
+    },
     "%lld 項待辦": {
       "localizations": {
         "en": {
@@ -219,6 +229,16 @@
         }
       }
     },
+    "referee 剩": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Referee open"
+          }
+        }
+      }
+    },
     "— Claude · %@": {
       "localizations": {
         "en": {
@@ -276,6 +296,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Last week"
+          }
+        }
+      }
+    },
+    "上週 artifact": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last week artifacts"
           }
         }
       }
@@ -1035,6 +1065,16 @@
         }
       }
     },
+    "把時段排進行事曆並掛「大塊／固定／碎片」標籤，這裡就會即時比對蕃茄鐘算執行率。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schedule blocks as calendar events tagged 大塊/固定/碎片 and this card will compute execution rate against your pomodoro records."
+          }
+        }
+      }
+    },
     "把每一行建成今天的行事曆事件（已存在的不重複加）": {
       "localizations": {
         "en": {
@@ -1340,6 +1380,16 @@
       }
     },
     "明天的日記": {},
+    "時段執行率": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocks executed"
+          }
+        }
+      }
+    },
     "晚安": {
       "localizations": {
         "en": {
@@ -1485,6 +1535,16 @@
         }
       }
     },
+    "本週檢視": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Week"
+          }
+        }
+      }
+    },
     "標籤": {
       "localizations": {
         "en": {
@@ -1531,6 +1591,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "View mode"
+          }
+        }
+      }
+    },
+    "每週日 21:00 Claude 做完整週檢討（四個數字 + R1–R5），寫進計畫檔與這裡。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every Sunday 21:00 Claude runs the full weekly review (four numbers + R1–R5) and writes it to your plan note and here."
           }
         }
       }
@@ -2261,6 +2331,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "What’s this one for?"
+          }
+        }
+      }
+    },
+    "連續空轉": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle streak"
           }
         }
       }

@@ -13,7 +13,7 @@ Claude 可以直接讀寫下列檔案來參與工作流程。
 | 路徑 | 內容 | Claude 可做的事 |
 |---|---|---|
 | `Journal/yyyy/MM/yyyy-MM-dd.md` | 每日日記，待辦格式 `- [ ] 文字`／完成 `- [x]`／已放棄 `- [-]` | 讀取分析；**不要**主動改寫歷史日記 |
-| （待辦標記語法） | `- [ ] 文字 !high @due(7/10)`：`!high`/`!low` 優先級、`@due(M/d)` 或 `@due(yyyy-M-d)` 到期日 | 排程時把 `!high` 與快到期的排前面；寫待辦時可加標記 |
+| （待辦標記語法） | `- [ ] 文字 !high @due(7/10) @line(A)`：`!high`/`!low` 優先級、`@due(M/d)` 到期日、`@line(名字)` 主線歸屬。白名單制，其他 @ 內容不受影響 | 排程時把 `!high` 與快到期的排前面；週檢討按 line 分線統計 |
 | `Notes/**/*.md` | 筆記（資料夾 = 分類，`assets/` 是圖片附件） | 讀取；可餵給 Claude project 當知識庫 |
 | `.hub/events.json` | 行事曆事件與標籤（`title`、`notes`、`start`、`end` ISO8601、`isAllDay`、`tagID`） | 可代使用者新增／修改事件 |
 | `.hub/todos.json` | 首頁「一般待辦」與垃圾桶：`{ "todos": [...], "trash": [...] }` | 可新增待辦、把放棄的項目搬進 `trash` |
@@ -76,20 +76,26 @@ Claude 更新 insights 時的建議流程：掃 `Journal/` 統計重複未完成
 使用者說「幫我週檢討」（或排程於每週日晚）時，照計畫檔第四節的機制執行：
 
 1. **算四個數字**（資料都在資料夾裡）：
-   - 執行率 = 本週「時段」類事件中，時間窗口內有 ≥1 顆蕃茄鐘的比例（events.json × pomodoro.json）
-   - artifact 數 = 本週日記中 `- [x] … @artifact` 的行數（只認 artifact，讀了很多/想了很久不算）
+   - 執行率 = 本週「時段」類事件（標籤為 大塊/固定/碎片）中，時間窗口（±15 分鐘）內
+     有 ≥1 顆蕃茄鐘的比例（events.json × pomodoro.json；app 首頁也即時顯示同一口徑）
+   - artifact 數 = **由你判定**：掃本週日記的已完成項與內文，依計畫檔標準
+     （圖/commit/送出的文件/筆記新增一節）列出候選清單並計數，寫進 Log 供使用者否決。
+     「讀了很多/想了很久/debug 一整天」不算。待辦若標了 `@line(名字)` 依線歸類，
+     沒標就由內容判斷（A=物理 bootstrap、B=ML interpretability）。
    - referee 未關閉 = 審稿清單筆記中未勾的 `- [ ]` 數（審稿期）
    - 空轉週數 = 讀 `.hub/weekly.json` 歷史，artifact=0 則 +1，否則歸零
 2. **套修正規則 R1–R5**（見計畫檔），有觸發就在檢討輸出裡明講。
 3. **寫回三個地方**：
    - 計畫檔「五、Weekly Log」補一行：`YYYY-Www | 執行率 x/y | artifact: … | referee 剩 n | 空轉 n | 借用 是/否 | 備註`
-   - `.hub/weekly.json` append 同樣數字（JSON array，供 app 之後畫趨勢）
+   - `.hub/weekly.json` append 同樣數字，schema：
+     `[{week:"2026-W28", executed, planned, artifacts, refereeOpen, idleWeeks}]`
+     （app 首頁「本週檢視」卡會讀最後一筆顯示）
    - `.hub/claude/insights.json`：檢討摘要（含觸發的規則）＋下週 schedule
 4. 語氣照舊：鼓勵不責備；超過範圍的策略調整先問使用者。
 
 ### 相關約定
-- 日記待辦標記 `@artifact`：已完成且產出可驗證的東西（圖/commit/送出的文件/筆記新增一節）。
 - 排時段 = 行事曆事件掛「大塊」「固定」「碎片」其中一個標籤。
+- 待辦可標 `@line(名字)` 標主線歸屬（可選；分線統計用）。
 - 每月一次（月初的週日）改用計畫檔的每月檢討清單，取代當週週檢討。
 
 - Xcode 專案：`ResearchHub.xcodeproj`，target `ResearchHub`，synchronized folder group

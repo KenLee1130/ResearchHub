@@ -72,6 +72,33 @@ extension ClaudeInsights {
     }
 }
 
+/// 週檢討的每週數字（.hub/weekly.json，由 Claude 週日檢討時 append；app 唯讀顯示）。
+struct WeeklyRecord: Codable, Hashable {
+    /// ISO 週，如 "2026-W28"
+    var week: String
+    var executed: Int = 0
+    var planned: Int = 0
+    var artifacts: Int = 0
+    var refereeOpen: Int?
+    var idleWeeks: Int = 0
+}
+
+extension WeeklyRecord {
+    private enum CodingKeys: String, CodingKey {
+        case week, executed, planned, artifacts, refereeOpen, idleWeeks
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        week = try c.decode(String.self, forKey: .week)
+        executed = try c.decodeIfPresent(Int.self, forKey: .executed) ?? 0
+        planned = try c.decodeIfPresent(Int.self, forKey: .planned) ?? 0
+        artifacts = try c.decodeIfPresent(Int.self, forKey: .artifacts) ?? 0
+        refereeOpen = try c.decodeIfPresent(Int.self, forKey: .refereeOpen)
+        idleWeeks = try c.decodeIfPresent(Int.self, forKey: .idleWeeks) ?? 0
+    }
+}
+
 // MARK: - Store
 
 /// 一般待辦與垃圾桶，落地於根資料夾的 .hub/todos.json；
@@ -82,9 +109,12 @@ final class GeneralTodoStore: ObservableObject {
     @Published private(set) var todos: [GeneralTodo] = []
     @Published private(set) var trash: [TrashedTodo] = []
     @Published private(set) var insights: ClaudeInsights?
+    /// 週檢討歷史（新到舊排在後面；由 Claude 寫入）
+    @Published private(set) var weekly: [WeeklyRecord] = []
 
     private var fileURL: URL?
     private var insightsURL: URL?
+    private var weeklyURL: URL?
 
     private struct Payload: Codable {
         var todos: [GeneralTodo]
@@ -110,9 +140,11 @@ final class GeneralTodoStore: ObservableObject {
         guard let rootURL else {
             fileURL = nil
             insightsURL = nil
+            weeklyURL = nil
             todos = []
             trash = []
             insights = nil
+            weekly = []
             return
         }
         let hub = rootURL.appendingPathComponent(".hub", isDirectory: true)
@@ -120,6 +152,7 @@ final class GeneralTodoStore: ObservableObject {
         try? FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
         fileURL = hub.appendingPathComponent("todos.json")
         insightsURL = claudeDir.appendingPathComponent("insights.json")
+        weeklyURL = hub.appendingPathComponent("weekly.json")
         reload()
     }
 
@@ -145,6 +178,14 @@ final class GeneralTodoStore: ObservableObject {
             insights = loaded
         } else {
             insights = nil
+        }
+
+        if let weeklyURL,
+           let data = try? Data(contentsOf: weeklyURL),
+           let loaded = try? decoder.decode([WeeklyRecord].self, from: data) {
+            weekly = loaded
+        } else {
+            weekly = []
         }
     }
 
