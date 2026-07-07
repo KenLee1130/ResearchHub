@@ -22,6 +22,8 @@ struct HomeView: View {
     @State private var showTrash = false
     @State private var scheduleFeedback: String?
     @State private var showPlanning = false
+    /// 展開顯示全文的一般待辦
+    @State private var expandedTodos: Set<UUID> = []
 
     var body: some View {
         Group {
@@ -341,19 +343,38 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
 
+            let expanded = expandedTodos.contains(todo.id)
             VStack(alignment: .leading, spacing: 0) {
                 let meta = TodoMeta.parse(todo.text)
-                HStack(spacing: 5) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
                     todoBadges(meta)
                     Text(meta.cleanText)
                         .font(.callout)
-                        .lineLimit(2)
+                        .lineLimit(expanded ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(todo.createdAt.formatted(.relative(presentation: .named)))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            // 點文字也能展開/收合
+            .onTapGesture { toggleExpanded(todo) }
+
+            // 展開/收合全文
+            Button {
+                toggleExpanded(todo)
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .rotationEffect(.degrees(expanded ? 180 : 0))
+                    .foregroundStyle(.tertiary)
+                    .padding(3)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(expanded ? "收合" : "顯示全部內容")
 
             Button {
                 withAnimation(.easeOut(duration: 0.2)) {
@@ -377,6 +398,16 @@ struct HomeView: View {
     private func addGeneralTodo() {
         generalStore.add(newGeneralTodo)
         newGeneralTodo = ""
+    }
+
+    private func toggleExpanded(_ todo: GeneralTodo) {
+        withAnimation(.easeOut(duration: 0.15)) {
+            if expandedTodos.contains(todo.id) {
+                expandedTodos.remove(todo.id)
+            } else {
+                expandedTodos.insert(todo.id)
+            }
+        }
     }
 
     /// Claude 觀察區：insights 訊息 + 重複出現的日記待辦。
