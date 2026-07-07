@@ -1021,11 +1021,19 @@ extension BlockEditorView {
       document.getElementById("math-done").onclick = commitMath;
       document.getElementById("math-delete").onclick = deleteMathNode;
 
-      // ---- Slash 選單 ----
+      // ---- Slash 選單 + @/! 標記補全 ----
       const menu = document.getElementById("slash-menu");
       let filtered = [];
       let activeIndex = 0;
       let slashRange = null;
+
+      // 待辦標記（@due/@line/!high/!low）：insert 為插入文字，back 為插入後游標回退格數
+      const markerItems = [
+        { label: "@due(7/15)", hint: "\#(L("到期日"))", insert: "@due()", back: 1, match: "@due deadline 到期" },
+        { label: "@line(A)", hint: "\#(L("主線歸屬"))", insert: "@line()", back: 1, match: "@line track 主線" },
+        { label: "!high", hint: "\#(L("高優先"))", insert: "!high ", back: 0, match: "!high priority 高" },
+        { label: "!low", hint: "\#(L("低優先"))", insert: "!low ", back: 0, match: "!low priority 低" }
+      ];
 
       function refreshSlash() {
         const { state } = editor;
@@ -1033,15 +1041,25 @@ extension BlockEditorView {
         if (!empty || !$from.parent.isTextblock) return hideMenu();
         const start = $from.start();
         const textBefore = state.doc.textBetween(start, $from.pos, "\n");
+
         const m = textBefore.match(/^\/([^\s]*)$/);
-        if (!m) return hideMenu();
+        if (m) {
+          const query = m[1].toLowerCase();
+          filtered = slashItems.filter(i =>
+            i.match.includes(query) || i.label.toLowerCase().includes(query));
+          if (!filtered.length) return hideMenu();
+          slashRange = { from: start, to: $from.pos };
+        } else {
+          // 行內任意位置的 @/! 開頭字組（前面是行首或空白；「![」不會觸發）
+          const mk = textBefore.match(/(?:^|\s)([@!][a-zA-Z]*)$/);
+          if (!mk) return hideMenu();
+          const q = mk[1].toLowerCase();
+          filtered = markerItems.filter(i =>
+            i.insert.toLowerCase().startsWith(q) || i.match.includes(q));
+          if (!filtered.length) return hideMenu();
+          slashRange = { from: $from.pos - mk[1].length, to: $from.pos };
+        }
 
-        const query = m[1].toLowerCase();
-        filtered = slashItems.filter(i =>
-          i.match.includes(query) || i.label.toLowerCase().includes(query));
-        if (!filtered.length) return hideMenu();
-
-        slashRange = { from: start, to: $from.pos };
         activeIndex = Math.min(activeIndex, filtered.length - 1);
         renderMenu();
         const c = editor.view.coordsAtPos($from.pos);
@@ -1073,7 +1091,15 @@ extension BlockEditorView {
         if (slashRange) {
           editor.chain().focus().deleteRange(slashRange).run();
         }
-        item.run(editor);
+        if (item.run) {
+          item.run(editor);
+        } else {
+          // 標記項目：插入文字，必要時把游標退回括號內
+          editor.chain().focus().insertContent(item.insert).run();
+          if (item.back) {
+            editor.commands.setTextSelection(editor.state.selection.from - item.back);
+          }
+        }
         hideMenu();
       }
 

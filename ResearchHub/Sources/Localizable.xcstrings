@@ -332,6 +332,16 @@
       }
     },
     "下一顆要做什麼（繼續工作時）": {},
+    "主線歸屬": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Track"
+          }
+        }
+      }
+    },
     "事件名稱": {
       "localizations": {
         "en": {
@@ -614,6 +624,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete"
+          }
+        }
+      }
+    },
+    "到期日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due date"
           }
         }
       }
