@@ -71,7 +71,26 @@ Claude 可以直接讀寫下列檔案來參與工作流程。
 Claude 更新 insights 時的建議流程：掃 `Journal/` 統計重複未完成待辦 → 對照 `.hub/todos.json`
 的 trash（已放棄的不要再提）→ 用鼓勵、不責備的語氣寫 `message`（可點名 1–2 件最該處理的事）。
 
-## 開發
+## 週檢討（使用者的進度追蹤機制，來源：Notes/Planning/2026~2027 計畫.md）
+
+使用者說「幫我週檢討」（或排程於每週日晚）時，照計畫檔第四節的機制執行：
+
+1. **算四個數字**（資料都在資料夾裡）：
+   - 執行率 = 本週「時段」類事件中，時間窗口內有 ≥1 顆蕃茄鐘的比例（events.json × pomodoro.json）
+   - artifact 數 = 本週日記中 `- [x] … @artifact` 的行數（只認 artifact，讀了很多/想了很久不算）
+   - referee 未關閉 = 審稿清單筆記中未勾的 `- [ ]` 數（審稿期）
+   - 空轉週數 = 讀 `.hub/weekly.json` 歷史，artifact=0 則 +1，否則歸零
+2. **套修正規則 R1–R5**（見計畫檔），有觸發就在檢討輸出裡明講。
+3. **寫回三個地方**：
+   - 計畫檔「五、Weekly Log」補一行：`YYYY-Www | 執行率 x/y | artifact: … | referee 剩 n | 空轉 n | 借用 是/否 | 備註`
+   - `.hub/weekly.json` append 同樣數字（JSON array，供 app 之後畫趨勢）
+   - `.hub/claude/insights.json`：檢討摘要（含觸發的規則）＋下週 schedule
+4. 語氣照舊：鼓勵不責備；超過範圍的策略調整先問使用者。
+
+### 相關約定
+- 日記待辦標記 `@artifact`：已完成且產出可驗證的東西（圖/commit/送出的文件/筆記新增一節）。
+- 排時段 = 行事曆事件掛「大塊」「固定」「碎片」其中一個標籤。
+- 每月一次（月初的週日）改用計畫檔的每月檢討清單，取代當週週檢討。
 
 - Xcode 專案：`ResearchHub.xcodeproj`，target `ResearchHub`，synchronized folder group
   （新增 Swift 檔免改 pbxproj）。
