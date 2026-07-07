@@ -33,6 +33,8 @@ struct BlockEditorView {
             host.documentID = documentID
             host.resetForNewDocument()
         }
+        // @/! 標記補全只在日記啟用（筆記不需要）
+        host.setMarkersEnabled(documentID?.path.contains("/Journal/") ?? false)
         host.pushIfNeeded(text)
     }
 }
@@ -167,6 +169,8 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 self.isReady = true
                 self.loadError = nil
                 self.retryCount = 0
+                self.webView.evaluateJavaScript(
+                    "window.__markersEnabled = \(self.markersEnabled)")
                 if let pending = self.pendingText {
                     self.pendingText = nil
                     self.push(pending)
@@ -194,6 +198,16 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
         lastTextFromJS = nil
         lastPushed = nil
         pendingText = nil
+    }
+
+    /// @/! 待辦標記補全開關（只有日記啟用）。ready 之後重新套用，重載也不會丟。
+    private var markersEnabled = false
+
+    func setMarkersEnabled(_ enabled: Bool) {
+        markersEnabled = enabled
+        if isReady {
+            webView.evaluateJavaScript("window.__markersEnabled = \(enabled)")
+        }
     }
 
     func pushIfNeeded(_ text: String) {
@@ -1051,6 +1065,8 @@ extension BlockEditorView {
           slashRange = { from: start, to: $from.pos };
         } else {
           // 行內任意位置的 @/! 開頭字組（前面是行首或空白；「![」不會觸發）
+          // 只在日記啟用（由 Swift 端依文件路徑設定）
+          if (!window.__markersEnabled) return hideMenu();
           const mk = textBefore.match(/(?:^|\s)([@!][a-zA-Z]*)$/);
           if (!mk) return hideMenu();
           const q = mk[1].toLowerCase();

@@ -104,12 +104,6 @@ final class PastingTextView: NSTextView {
             let len = (String(before[r]) as NSString).length                  // 含反斜線
             return (.command, NSRange(location: caret - len, length: len))
         }
-        // 待辦標記：行首或空白後的 @/!（「![」圖片語法不會觸發）
-        if let r = before.range(of: #"(?:^|\s)([@!][a-zA-Z]*)$"#, options: .regularExpression) {
-            let token = String(before[r]).trimmingCharacters(in: .whitespaces)
-            let len = (token as NSString).length
-            return (.marker, NSRange(location: caret - len, length: len))
-        }
         return nil
     }
 
@@ -131,15 +125,8 @@ final class PastingTextView: NSTextView {
             return labelItems(prefix: partial)
         case .noteLink:
             return noteLinkItems(prefix: partial)
-        case .marker:
-            return Self.markerList
-                .filter { partial.isEmpty || $0.lowercased().hasPrefix(partial.lowercased()) }
-                .map { CompletionItem(display: $0, insert: $0, kind: .marker) }
         }
     }
-
-    /// 待辦標記（@due/@line/!high/!low）。
-    static let markerList = ["@due()", "@line()", "!high", "!low"]
 
     /// [[ 自動補全：列出所有其他筆記（依名稱／路徑過濾）。
     private func noteLinkItems(prefix: String) -> [CompletionItem] {
@@ -248,15 +235,6 @@ final class PastingTextView: NSTextView {
             suppressCompletionOnce = true
         case .env:
             acceptEnvironment(item.insert)
-        case .marker:
-            insertText(item.insert, replacementRange: completionRange)
-            if item.insert.hasSuffix("()") {
-                // 游標退回括號內
-                let loc = selectedRange().location
-                setSelectedRange(NSRange(location: max(0, loc - 1), length: 0))
-            } else {
-                suppressCompletionOnce = true
-            }
         }
     }
 
