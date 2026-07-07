@@ -230,6 +230,12 @@ final class GeneralTodoStore: ObservableObject {
         save()
     }
 
+    /// 帶 @due 的待辦搬進日記後移除（不進垃圾桶——它以 live 副本活在日記裡）。
+    func removeMigrated(text: String) {
+        todos.removeAll { !$0.done && $0.text == text }
+        save()
+    }
+
     /// 從垃圾桶救回 → 變成一般待辦。
     func restore(_ item: TrashedTodo) {
         trash.removeAll { $0.id == item.id }

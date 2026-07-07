@@ -129,7 +129,7 @@ final class FileSystemStore: ObservableObject {
     | `events.json` | Calendar events + tags: `{tags: [{id,name,colorHex}], events: [{id,title,notes,isAllDay,start,end,tagID}]}` |
     | `todos.json` | Inbox tasks + trash: `{todos: [{id,text,createdAt,done,completedAt}], trash: [{id,text,occurrences,trashedAt,reason}]}` |
     | `claude/insights.json` | AI-written note shown on the home screen: `{updatedAt, message, schedule}`. `schedule` lines in the form `HH:MM–HH:MM task` can be turned into calendar events by the user with one click. |
-    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Markers: `!high` / `!low` priority, `@due(M/d)` or `@due(yyyy-M-d)`. |
+    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped, `- [>]` migrated (items with a due date are carried forward to today's journal daily; old copies get `>`, sub-items stay as that day's progress log). Markers: `!high` / `!low` priority, `@due(M/d)`, `@line(name)`. |
     | `../Notes/**/*.md` | Notes (plain Markdown, `[[wikilinks]]`, `$…$` math, `\\cite{…}` Zotero keys). `assets/` folders hold images. |
     | `../Pomodoro/pomodoro.json` | Focus sessions: `[{date,minutes,plan,done,startedAt?}]`. Legacy entries have no `startedAt`, empty plan/done, and a 12:00:00 timestamp — exclude them from time-of-day analytics. |
 
@@ -430,6 +430,107 @@ final class FileSystemStore: ObservableObject {
         }
         try? lines.joined(separator: "\n")
             .write(to: item.noteURL, atomically: true, encoding: .utf8)
+    }
+
+    /// 所有帶 @due 的未完成待辦（筆記 + 全部日記），依到期日排序。
+    /// 給日記頁「即將到期」區：項目會出現在今天～到期日之間每一天的日記上方。
+    func dueTodos() -> [TodoItem] {
+        var result = scanTodos().filter { $0.meta.due != nil }
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        for (url, _) in journalFiles(dateFormatter: df) {
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            for (i, line) in content.components(separatedBy: "\n").enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("- [ ]") else { continue }
+                let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                guard !text.isEmpty else { continue }
+                let meta = TodoMeta.parse(text)
+                guard meta.due != nil else { continue }
+                result.append(TodoItem(
+                    noteURL: url, lineIndex: i, text: text, done: false, meta: meta))
+            }
+        }
+        return result.sorted { ($0.meta.due ?? .distantFuture) < ($1.meta.due ?? .distantFuture) }
+    }
+
+    // MARK: - 到期待辦每日搬移（bullet journal migration）
+
+    private static let migrationDayKey = "researchHub.lastDueMigrationDay"
+
+    /// 把仍未完成的 @due 待辦搬進今天的日記（每天只跑一次）：
+    /// - 舊日記裡的 live 副本（`- [ ]` 帶 @due）標成 `- [>]`（已搬移），
+    ///   當天掛的子項進度留在原地；今天的日記出現唯一一份 live 副本。
+    /// - `generalDueLines` 是一般待辦中帶 @due 的原始文字；實際搬入的會列在回傳值，
+    ///   由呼叫端把它們從一般待辦移除。
+    /// 必須在今天的日記編輯器載入「之前」呼叫（首頁 refresh、手機今天頁 load）。
+    @discardableResult
+    func migrateDueTodos(generalDueLines: [String] = []) -> [String] {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let todayKey = df.string(from: .now)
+        guard UserDefaults.standard.string(forKey: Self.migrationDayKey) != todayKey,
+              let todayURL = journalURL(for: .now)
+        else { return [] }
+        let today = Calendar.current.startOfDay(for: .now)
+
+        // 今天已有的 live 待辦（避免重複搬入）
+        var todayContent = (try? String(contentsOf: todayURL, encoding: .utf8)) ?? ""
+        var existing = Set<String>()
+        for line in todayContent.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("- [ ]") else { continue }
+            let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            existing.insert(TodoMeta.parse(text).cleanText)
+        }
+
+        // 舊日記的 live @due 項目：標 - [>]、收集要搬的原始文字（含標記）
+        var carried: [String] = []
+        for (url, day) in journalFiles(dateFormatter: df) where day < today {
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            var lines = content.components(separatedBy: "\n")
+            var dirty = false
+            for i in lines.indices {
+                let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("- [ ]") else { continue }
+                let raw = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                let meta = TodoMeta.parse(raw)
+                guard meta.due != nil, !raw.isEmpty else { continue }
+                if let range = lines[i].range(of: "- [ ]") {
+                    lines[i].replaceSubrange(range, with: "- [>]")
+                    dirty = true
+                }
+                if !existing.contains(meta.cleanText) {
+                    carried.append(raw)
+                    existing.insert(meta.cleanText)
+                }
+            }
+            if dirty {
+                try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+            }
+        }
+
+        // 一般待辦的 @due：搬入今天，回報給呼叫端移除
+        var migratedGenerals: [String] = []
+        for text in generalDueLines {
+            let meta = TodoMeta.parse(text)
+            guard meta.due != nil else { continue }
+            migratedGenerals.append(text)
+            guard !existing.contains(meta.cleanText) else { continue }
+            carried.append(text)
+            existing.insert(meta.cleanText)
+        }
+
+        if !carried.isEmpty {
+            try? fm.createDirectory(
+                at: todayURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if !todayContent.isEmpty && !todayContent.hasSuffix("\n") { todayContent += "\n" }
+            if !todayContent.isEmpty { todayContent += "\n" }
+            todayContent += carried.map { "- [ ] \($0)" }.joined(separator: "\n\n") + "\n"
+            try? todayContent.write(to: todayURL, atomically: true, encoding: .utf8)
+        }
+        UserDefaults.standard.set(todayKey, forKey: Self.migrationDayKey)
+        return migratedGenerals
     }
 
     // MARK: - 日記重複待辦

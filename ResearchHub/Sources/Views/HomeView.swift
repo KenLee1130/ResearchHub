@@ -1014,12 +1014,22 @@ struct HomeView: View {
     }
 
     private func refresh() {
+        generalStore.reload() // Claude 可能直接改過 .hub 的 JSON → 重讀
+        migrateDues()
         recentNotes = store.recentNotes(limit: 5)
         todos = store.scanTodos()
         todayJournalPreview = loadJournalPreview()
         noteCount = store.allNoteURLs().count
-        generalStore.reload() // Claude 可能直接改過 .hub 的 JSON → 重讀
         repeatedTodos = store.scanRepeatedJournalTodos()
+    }
+
+    /// 每日一次：把 @due 待辦搬進今天的日記（舊副本標 - [>]，一般待辦搬入後移除）。
+    private func migrateDues() {
+        let dueLines = generalStore.todos
+            .filter { !$0.done && TodoMeta.parse($0.text).due != nil }
+            .map(\.text)
+        let migrated = store.migrateDueTodos(generalDueLines: dueLines)
+        for text in migrated { generalStore.removeMigrated(text: text) }
     }
 
     private func loadJournalPreview() -> String? {

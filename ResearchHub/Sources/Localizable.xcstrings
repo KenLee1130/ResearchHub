@@ -699,6 +699,16 @@
         }
       }
     },
+    "即將到期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due soon"
+          }
+        }
+      }
+    },
     "取消": {
       "localizations": {
         "en": {
