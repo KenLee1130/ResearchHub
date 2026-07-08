@@ -23,7 +23,8 @@ npm install --silent \
 
 cat > entry.js <<'EOF'
 export { Editor, Extension, Node, mergeAttributes, InputRule } from "@tiptap/core";
-export { TextSelection, NodeSelection } from "@tiptap/pm/state";
+export { TextSelection, NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state";
+export { Decoration, DecorationSet } from "@tiptap/pm/view";
 export { Fragment } from "@tiptap/pm/model";
 export { default as StarterKit } from "@tiptap/starter-kit";
 export { default as TaskList } from "@tiptap/extension-task-list";

@@ -230,6 +230,18 @@ final class GeneralTodoStore: ObservableObject {
         save()
     }
 
+    /// 任務總覽直接改文字；清空 = 刪除。
+    func updateText(_ todo: GeneralTodo, to text: String) {
+        guard let i = todos.firstIndex(where: { $0.id == todo.id }) else { return }
+        let t = text.trimmingCharacters(in: .whitespaces)
+        if t.isEmpty {
+            todos.remove(at: i)
+        } else {
+            todos[i].text = t
+        }
+        save()
+    }
+
     /// 從垃圾桶救回 → 變成一般待辦。
     func restore(_ item: TrashedTodo) {
         trash.removeAll { $0.id == item.id }

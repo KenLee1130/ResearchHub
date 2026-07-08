@@ -109,6 +109,7 @@ struct MobileTodayView: View {
     @State private var loadedText = ""
     @State private var saveTask: Task<Void, Never>?
     @State private var showPlanning = false
+    @State private var showTaskManager = false
 
     private var journalURL: URL? { store.journalURL(for: .now) }
 
@@ -206,6 +207,15 @@ struct MobileTodayView: View {
             }
             .sheet(isPresented: $showPlanning, onDismiss: load) {
                 MobilePlanningSheet()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .rhEditorCommand)) { note in
+                if note.userInfo?["command"] as? String == "list" {
+                    saveNow()   // 讓總覽能安全改今天的檔
+                    showTaskManager = true
+                }
+            }
+            .sheet(isPresented: $showTaskManager, onDismiss: load) {
+                TaskManagerSheet()
             }
             .onAppear(perform: load)
             .onDisappear(perform: saveNow)

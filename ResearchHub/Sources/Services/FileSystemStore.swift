@@ -549,6 +549,68 @@ final class FileSystemStore: ObservableObject {
         try? content.write(to: url, atomically: true, encoding: .utf8)
     }
 
+    // MARK: - 任務總覽（/list）
+
+    /// 帶日期類標記（due/from/every/remind/est）的未完成待辦（日記＋筆記），依到期日排序。
+    func markerTodos() -> [TodoItem] {
+        func hasDateMarkers(_ meta: TodoMeta) -> Bool {
+            meta.due != nil || meta.from != nil || meta.everyWeekdays != nil
+                || meta.remind != nil || meta.estMinutes != nil
+        }
+        var result: [TodoItem] = []
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        for (url, _) in journalFiles(dateFormatter: df) {
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            for (i, line) in content.components(separatedBy: "\n").enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("- [ ]") else { continue }
+                let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                guard !text.isEmpty else { continue }
+                let meta = TodoMeta.parse(text)
+                guard hasDateMarkers(meta) else { continue }
+                result.append(TodoItem(
+                    noteURL: url, lineIndex: i, text: text, done: false, meta: meta))
+            }
+        }
+        for item in scanTodos() where hasDateMarkers(item.meta) {
+            result.append(item)
+        }
+        return result.sorted { ($0.meta.due ?? .distantFuture) < ($1.meta.due ?? .distantFuture) }
+    }
+
+    /// 任務總覽的列編輯：改寫（newText）或刪除（nil／空字串）一行待辦。
+    /// 行內容已和掃描時不同就不動，避免蓋錯。呼叫端需確定該檔的編輯器沒開著。
+    @discardableResult
+    func updateTodoLine(_ item: TodoItem, newText: String?) -> Bool {
+        guard let content = try? String(contentsOf: item.noteURL, encoding: .utf8) else { return false }
+        var lines = content.components(separatedBy: "\n")
+        guard item.lineIndex < lines.count else { return false }
+        let line = lines[item.lineIndex]
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("- [ ]"),
+              String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces) == item.text
+        else { return false }
+        let clean = newText?.trimmingCharacters(in: .whitespaces) ?? ""
+        if clean.isEmpty {
+            lines.remove(at: item.lineIndex)
+        } else if let range = line.range(of: item.text) {
+            lines[item.lineIndex] = line.replacingCharacters(in: range, with: clean)
+        } else {
+            return false
+        }
+        try? lines.joined(separator: "\n").write(to: item.noteURL, atomically: true, encoding: .utf8)
+        return true
+    }
+
+    /// 把一行待辦加到某天的日記（任務總覽「新增」用；呼叫端需確定該天編輯器沒開著）。
+    func appendTodoLine(_ text: String, on date: Date) {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty, let url = journalURL(for: date) else { return }
+        let content = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        appendTodoLines([t], existingContent: content, to: url)
+    }
+
     // MARK: - 日記重複待辦
 
     /// 同一句待辦在多天日記重複出現（且都沒完成）的彙整。

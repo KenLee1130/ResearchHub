@@ -239,6 +239,16 @@
         }
       }
     },
+    "{d} 開始": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "starts {d}"
+          }
+        }
+      }
+    },
     "— Claude · %@": {
       "localizations": {
         "en": {
@@ -392,6 +402,16 @@
         }
       }
     },
+    "今天到期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due today"
+          }
+        }
+      }
+    },
     "今天沒做完的": {
       "localizations": {
         "en": {
@@ -449,6 +469,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Today’s diary"
+          }
+        }
+      }
+    },
+    "任務總覽": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task overview"
+          }
+        }
+      }
+    },
+    "任務總覽：查詢／改／刪": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task overview: view / edit / delete"
           }
         }
       }
@@ -624,6 +664,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete"
+          }
+        }
+      }
+    },
+    "刪除該行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete line"
           }
         }
       }
@@ -1357,6 +1407,26 @@
         }
       }
     },
+    "新增到今天：讀 CFT @due(7/20) @est(2h)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to today: read CFT @due(7/20) @est(2h)"
+          }
+        }
+      }
+    },
+    "新增待辦（可帶 @ 標記）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New todo (markers welcome)"
+          }
+        }
+      }
+    },
     "新增筆記": {
       "localizations": {
         "en": {
@@ -1393,6 +1463,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Diary"
+          }
+        }
+      }
+    },
+    "日記與筆記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Journal and notes"
           }
         }
       }
@@ -1812,6 +1892,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing keeps getting pushed back right now — great state, keep it up!"
+          }
+        }
+      }
+    },
+    "直接改文字後按 Enter 儲存；清空文字＝刪除該行。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit the text and press Enter to save; clear it to delete the line."
           }
         }
       }
@@ -2405,6 +2495,16 @@
         }
       }
     },
+    "過期 {n} 天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{n} days overdue"
+          }
+        }
+      }
+    },
     "選取文字後按此加上螢光標記；選取已標記的文字再按一次 = 取消": {
       "localizations": {
         "en": {
@@ -2485,6 +2585,16 @@
         }
       }
     },
+    "還有 {n} 天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{n} days left"
+          }
+        }
+      }
+    },
     "還沒寫，點擊開始今天的記錄…": {
       "localizations": {
         "en": {
@@ -2511,6 +2621,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No completed records yet"
+          }
+        }
+      }
+    },
+    "還沒有帶日期標記的任務。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tasks with date markers yet."
           }
         }
       }

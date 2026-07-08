@@ -113,6 +113,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
         ucc.add(self, name: "ready")
         ucc.add(self, name: "pasteImage")
         ucc.add(self, name: "jsError")
+        ucc.add(self, name: "command")
         // 編輯器依賴（tiptap+KaTeX，本地 editor-bundle.js）用 user script 注入：
         // 同 origin 執行、錯誤訊息不會被 file:// 隔離政策遮罩。
         if let url = WebResources.baseURL?.appendingPathComponent("editor-bundle.js"),
@@ -170,7 +171,8 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 self.loadError = nil
                 self.retryCount = 0
                 self.webView.evaluateJavaScript(
-                    "window.__markersEnabled = \(self.markersEnabled)")
+                    "window.__markersEnabled = \(self.markersEnabled); "
+                    + "window.__pomoMinutes = \(Self.pomoMinutes)")
                 if let pending = self.pendingText {
                     self.pendingText = nil
                     self.push(pending)
@@ -182,6 +184,10 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 }
             case "pasteImage":
                 self.handlePastedImage(base64: body)
+            case "command":
+                // 命令列送出的命令（如 /list）→ 由當前畫面決定怎麼呈現
+                NotificationCenter.default.post(
+                    name: .rhEditorCommand, object: nil, userInfo: ["command": body])
             case "jsError":
                 NSLog("BlockEditor JS error: %@", body)
                 if !self.isReady {
@@ -206,8 +212,16 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     func setMarkersEnabled(_ enabled: Bool) {
         markersEnabled = enabled
         if isReady {
-            webView.evaluateJavaScript("window.__markersEnabled = \(enabled)")
+            webView.evaluateJavaScript(
+                "window.__markersEnabled = \(enabled); "
+                + "window.__pomoMinutes = \(Self.pomoMinutes)")
         }
+    }
+
+    /// 一顆蕃茄的分鐘數（跟蕃茄鐘設定連動），給 @est 進度條換算格數。
+    private static var pomoMinutes: Int {
+        let v = UserDefaults.standard.integer(forKey: PomodoroModel.SettingsKey.workMinutes)
+        return v > 0 ? v : 25
     }
 
     func pushIfNeeded(_ text: String) {
@@ -413,6 +427,51 @@ extension BlockEditorView {
       .drag-handle:hover { background: rgba(127,127,127,0.15); }
       .drag-handle:active { cursor: grabbing; }
       .drag-handle.hide { display: none; }
+      /* 命令輸入行：CLI 式外框，整列、自動長高 */
+      .command-input {
+        font-family: ui-monospace, monospace;
+        font-size: 0.92em;
+        background: rgba(127,127,127,0.12);
+        border: 1px solid rgba(127,127,127,0.4);
+        border-radius: 8px;
+        padding: 7px 12px 7px 30px;
+        margin: 3px 0;
+        position: relative;
+      }
+      .command-input::before {
+        content: "❯";
+        position: absolute; left: 12px; opacity: 0.5;
+        font-weight: 600;
+      }
+      /* 標記徽章（游標不在該行時把 @標記 渲染成元件） */
+      .marker-badge {
+        display: inline-block; font-size: 0.76em; line-height: 1.5;
+        padding: 0 7px; border-radius: 999px; margin: 0 2px;
+        background: rgba(127,127,127,0.16); cursor: pointer;
+        white-space: nowrap; vertical-align: baseline;
+      }
+      .badge-due { background: rgba(255,159,10,0.16); color: #cc7d00; }
+      .badge-overdue { background: rgba(255,69,58,0.18); color: #e0342a; }
+      @media (prefers-color-scheme: dark) {
+        .badge-due { color: #ffb340; }
+        .badge-overdue { color: #ff6961; }
+      }
+      .badge-from { opacity: 0.7; }
+      .badge-every { background: rgba(191,90,242,0.16); color: #bf5af2; }
+      .badge-line { background: rgba(10,132,255,0.16); color: #4da2ff; }
+      .badge-pomo button {
+        border: none; background: transparent; cursor: pointer;
+        font: inherit; padding: 0 3px; opacity: 0.7;
+      }
+      .badge-pomo button:hover { opacity: 1; }
+      .pomo-track { display: inline-flex; gap: 2px; margin: 0 3px; vertical-align: -1px; }
+      .pomo-cell {
+        width: 9px; height: 7px; border-radius: 2px;
+        background: rgba(216,90,48,0.28);
+      }
+      .pomo-cell.filled { background: #d85a30; }
+      .pomo-count { font-size: 0.9em; opacity: 0.8; margin-right: 2px; }
+      .marker-hidden { display: none; }
     </style>
     </head>
     <body>
@@ -441,7 +500,8 @@ extension BlockEditorView {
       // 判斷 TEXT_NODE），造成 markdown 解析炸掉、內容顯示不出來。
       (() => {
       const { Editor, Extension, Node, mergeAttributes, InputRule,
-              TextSelection, NodeSelection, Fragment,
+              TextSelection, NodeSelection, Fragment, Plugin, PluginKey,
+              Decoration, DecorationSet,
               StarterKit, TaskList, TaskItem, Image, Placeholder,
               Markdown, katex } = RHEditor;
 
@@ -769,8 +829,8 @@ extension BlockEditorView {
           run: ed => ed.chain().focus().toggleOrderedList().run() },
         { label: "\#(L("待辦清單"))", hint: "[ ]", match: "todo task checkbox 待辦",
           run: ed => ed.chain().focus().toggleTaskList().run() },
-        { label: "\#(L("命令列"))", hint: "/todo … @due !high ↵", match: "cmd command line 命令 指令",
-          run: ed => ed.chain().focus().insertContent("/todo ").run() },
+        { label: "\#(L("命令列"))", hint: "/todo /list …", match: "cmd command line 命令 指令",
+          run: ed => ed.chain().focus().setNode("commandInput").run() },
         { label: "\#(L("行內公式"))", hint: "$", match: "math inline latex eq equation 行內 公式 數學",
           run: ed => {
             ed.chain().focus().insertContent({ type: "mathInline", attrs: { latex: "" } }).run();
@@ -798,31 +858,260 @@ extension BlockEditorView {
       let applying = false;
       let sendTimer = null;
 
-      // ---- 命令列：/todo 內容 @due(…) !high … + Enter → 該行變成待辦項目 ----
-      // 標記是純文字，所以「執行」只是把整行轉成 checkbox；@due/@every 由播種引擎接手。
+      // ---- 命令輸入行（/command 或 /cmd → 整行變成 CLI 式輸入框）----
+      const CommandInput = Node.create({
+        name: "commandInput",
+        group: "block",
+        content: "inline*",
+        defining: true,
+        addStorage() {
+          return {
+            markdown: {
+              // 萬一命令行沒執行就存檔：當一般段落序列化，不會弄壞檔案
+              serialize(state, node) { state.renderInline(node); state.closeBlock(node); },
+              parse: {}
+            }
+          };
+        },
+        parseHTML() { return [{ tag: 'div[data-type="command-input"]' }]; },
+        renderHTML({ HTMLAttributes }) {
+          return ["div", mergeAttributes(HTMLAttributes,
+            { "data-type": "command-input", class: "command-input" }), 0];
+        },
+        addInputRules() {
+          return [new InputRule({
+            find: /^\/(?:command|cmd)\s$/i,
+            handler: ({ range, chain }) => {
+              chain.deleteRange(range).setNode("commandInput").run();
+            }
+          })];
+        }
+      });
+
+      // 命令執行：Enter 在命令行（或 /todo 開頭的段落）觸發
+      function runCommandLine(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty || !$from.parent.isTextblock) return false;
+        const isCmd = $from.parent.type.name === "commandInput";
+        const start = $from.start(), end = $from.end();
+        const text = state.doc.textBetween(start, end, "\n").trim();
+
+        // todo：整行變成待辦項目（標記是純文字，@due/@every 由播種引擎接手）
+        let m = text.match(/^\/?todo\s+(.+)$/i);
+        if (m && (isCmd || text.startsWith("/"))) {
+          const content = m[1].trim();
+          ed.chain()
+            .setNode("paragraph")
+            .insertContentAt({ from: start, to: end },
+                             [{ type: "text", text: content }])
+            .setTextSelection(start + content.length)
+            .toggleTaskList()
+            .run();
+          return true;
+        }
+        // list：開任務總覽（原生視窗），命令行清空還原
+        if (/^\/?(list|tasks)$/i.test(text)) {
+          if (isCmd || text.startsWith("/")) {
+            try { window.webkit.messageHandlers.command.postMessage("list"); } catch (e) {}
+            let chain = ed.chain();
+            if (end > start) chain = chain.deleteRange({ from: start, to: end });
+            chain.setNode("paragraph").run();
+            return true;
+          }
+        }
+        if (isCmd) return true;   // 未知命令：吞掉 Enter，留在輸入行讓使用者改
+        return false;
+      }
+
       const CommandLine = Extension.create({
         name: "commandLine",
         addKeyboardShortcuts() {
           return {
-            Enter: () => {
-              const { state } = this.editor;
-              const { $from, empty } = state.selection;
-              if (!empty || !$from.parent.isTextblock) return false;
-              const start = $from.start();
-              const end = $from.end();
-              const text = state.doc.textBetween(start, end, "\n");
-              const m = text.match(/^\/todo\s+(.+)$/);
-              if (!m || !m[1].trim()) return false;
-              const content = m[1].trim();
-              this.editor.chain()
-                .insertContentAt({ from: start, to: end },
-                                 [{ type: "text", text: content }])   // 純文字，不走 HTML 解析
-                .setTextSelection(start + content.length)
-                .toggleTaskList()
-                .run();
-              return true;
+            Enter: () => runCommandLine(this.editor),
+            Escape: () => {
+              const { $from } = this.editor.state.selection;
+              if ($from.parent.type.name !== "commandInput") return false;
+              return this.editor.commands.setNode("paragraph");
             }
           };
+        }
+      });
+
+      // ---- 標記徽章：游標不在該行時，@due/@est/@remind… 渲染成元件 ----
+      // 原文仍是唯一真實來源；點徽章 = 把游標移進該行顯示原文編輯。
+      function pomoMinutes() { return Math.max(1, window.__pomoMinutes || 25); }
+
+      function parseDateArg(s) {
+        s = s.trim();
+        let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+        if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+        m = s.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+        if (m) return new Date(new Date().getFullYear(), +m[1] - 1, +m[2]);
+        return null;
+      }
+      function parseEstMinutes(s) {
+        s = s.trim().toLowerCase();
+        let m = s.match(/^(\d+(?:\.\d+)?)h$/);
+        if (m) return Math.round(parseFloat(m[1]) * 60);
+        m = s.match(/^(\d+(?:\.\d+)?)m?$/);
+        if (m) return Math.round(parseFloat(m[1]));
+        return null;
+      }
+      function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+      function badgeDom(cls, text, editPos) {
+        const s = document.createElement("span");
+        s.className = "marker-badge " + cls;
+        s.textContent = text;
+        s.onmousedown = e => {
+          e.preventDefault();
+          window.__editor.chain().focus().setTextSelection(editPos).run();
+        };
+        return s;
+      }
+
+      // 加減鈕改 @pomo(n)（純文字標記，只是任務自己的進度，不動蕃茄鐘統計）
+      function adjustPomo(blockBase, delta) {
+        const ed = window.__editor;
+        const node = ed.state.doc.resolve(blockBase).parent;
+        const text = node.textContent;
+        let m = text.match(/@pomo\((\d*)\)/i);
+        if (m) {
+          const v = Math.max(0, (parseInt(m[1]) || 0) + delta);
+          const from = blockBase + m.index, to = from + m[0].length;
+          ed.chain().insertContentAt({ from, to },
+            [{ type: "text", text: "@pomo(" + v + ")" }]).run();
+        } else if (delta > 0) {
+          const e = text.match(/@est\([^)]*\)/i);
+          const at = e ? blockBase + e.index + e[0].length : blockBase + text.length;
+          ed.chain().insertContentAt({ from: at, to: at },
+            [{ type: "text", text: " @pomo(1)" }]).run();
+        }
+      }
+
+      // 🍅 + 分段進度條 + k/n + −/＋
+      function pomoBadgeDom(estMin, done, blockBase, editPos) {
+        const wrap = document.createElement("span");
+        wrap.className = "marker-badge badge-pomo";
+        wrap.onmousedown = e => {
+          e.preventDefault();
+          window.__editor.chain().focus().setTextSelection(editPos).run();
+        };
+        function btn(t, delta) {
+          const b = document.createElement("button");
+          b.textContent = t;
+          b.onmousedown = e => {
+            e.preventDefault(); e.stopPropagation();
+            adjustPomo(blockBase, delta);
+          };
+          return b;
+        }
+        const icon = document.createElement("span");
+        icon.textContent = "🍅";
+        icon.style.marginRight = "2px";
+        const total = estMin != null
+          ? Math.max(1, Math.ceil(estMin / pomoMinutes()))
+          : Math.max(done, 1);
+        const track = document.createElement("span");
+        track.className = "pomo-track";
+        const shown = Math.min(total, 10);   // 太多顆時格子最多 10，數字仍準確
+        for (let i = 0; i < shown; i++) {
+          const cell = document.createElement("span");
+          cell.className = "pomo-cell" + (i < Math.round(done / total * shown) ? " filled" : "");
+          track.appendChild(cell);
+        }
+        const count = document.createElement("span");
+        count.className = "pomo-count";
+        count.textContent = done + "/" + total;
+        wrap.append(icon, btn("−", -1), track, count, btn("+", +1));
+        return wrap;
+      }
+
+      function buildBadges(state) {
+        const decos = [];
+        const selFrom = state.selection.from, selTo = state.selection.to;
+        const todayD = startOfDay(new Date());
+        state.doc.descendants((node, pos) => {
+          if (!node.isTextblock) return true;
+          if (node.type.name === "commandInput") return false;
+          // 游標在此行 → 顯示原文（可直接編輯標記）
+          if (selFrom <= pos + node.nodeSize && selTo >= pos) return false;
+          const text = node.textContent;
+          if (!text || (text.indexOf("@") < 0 && text.indexOf("!") < 0)) return false;
+          const base = pos + 1;
+          const re = /@(due|from|est|every|remind|line|pomo)\(([^)]*)\)|!(high|low)\b/gi;
+          const matches = [];
+          let m;
+          while ((m = re.exec(text))) matches.push(m);
+          if (!matches.length) return false;
+
+          let estMin = null, pomoDone = 0, hasEstOrPomo = false, pomoHandled = false;
+          for (const mm of matches) {
+            const kind = (mm[1] || mm[3]).toLowerCase();
+            if (kind === "est") { estMin = parseEstMinutes(mm[2] || ""); hasEstOrPomo = true; }
+            if (kind === "pomo") { pomoDone = parseInt(mm[2]) || 0; hasEstOrPomo = true; }
+          }
+
+          for (const mm of matches) {
+            const kind = (mm[1] || mm[3]).toLowerCase();
+            const arg = (mm[2] || "").trim();
+            const from = base + mm.index, to = from + mm[0].length;
+            let dom = null;
+            if (kind === "due") {
+              const d = parseDateArg(arg);
+              if (d) {
+                const days = Math.round((startOfDay(d) - todayD) / 86400000);
+                if (days > 0) {
+                  dom = badgeDom("badge-due",
+                    "⏳ " + "\#(L("還有 {n} 天"))".replace("{n}", days), from);
+                } else if (days === 0) {
+                  dom = badgeDom("badge-due", "⏳ \#(L("今天到期"))", from);
+                } else {
+                  dom = badgeDom("badge-overdue",
+                    "⚠️ " + "\#(L("過期 {n} 天"))".replace("{n}", -days), from);
+                }
+              }
+            } else if (kind === "from") {
+              const d = parseDateArg(arg);
+              if (d && startOfDay(d) > todayD) {
+                dom = badgeDom("badge-from",
+                  "▸ " + "\#(L("{d} 開始"))".replace("{d}", (d.getMonth() + 1) + "/" + d.getDate()), from);
+              }
+              // 已開始的 from：整段隱藏即可
+            } else if (kind === "est" || kind === "pomo") {
+              if (!pomoHandled) {
+                dom = pomoBadgeDom(estMin, pomoDone, base, from);
+                pomoHandled = true;   // est+pomo 合成一顆徽章，第二個標記只隱藏
+              }
+            } else if (kind === "remind") {
+              dom = badgeDom("badge-remind", "🔔 " + arg, from);
+            } else if (kind === "every") {
+              dom = badgeDom("badge-every", "↻ " + arg, from);
+            } else if (kind === "line") {
+              dom = badgeDom("badge-line", arg, from);
+            } else if (kind === "high") {
+              dom = badgeDom("badge-overdue", "❗", from);
+            } else if (kind === "low") {
+              dom = badgeDom("badge-from", "↓", from);
+            }
+            // PM 沒有 Decoration.replace：用 inline 隱藏原文 + widget 放徽章
+            decos.push(Decoration.inline(from, to, { class: "marker-hidden" }));
+            if (dom) decos.push(Decoration.widget(from, dom, { side: -1 }));
+          }
+          return false;
+        });
+        return DecorationSet.create(state.doc, decos);
+      }
+
+      window.__buildBadges = buildBadges;   // debug 用
+      const MarkerBadges = Extension.create({
+        name: "markerBadges",
+        addProseMirrorPlugins() {
+          return [new Plugin({
+            key: new PluginKey("markerBadges"),
+            props: { decorations: buildBadges }
+          })];
         }
       });
 
@@ -831,6 +1120,8 @@ extension BlockEditorView {
         extensions: [
           StarterKit,
           CommandLine,
+          CommandInput,
+          MarkerBadges,
           ExitListOnBackspace,
           TaskList,
           TaskItem.configure({ nested: true }),
@@ -1073,6 +1364,11 @@ extension BlockEditorView {
       let slashRange = null;
 
       // 待辦標記：insert 為插入文字，back 為插入後游標回退格數
+      const commandItems = [
+        { label: "/todo", hint: "\#(L("新增待辦（可帶 @ 標記）"))", insert: "/todo ", match: "todo 待辦 新增" },
+        { label: "/list", hint: "\#(L("任務總覽：查詢／改／刪"))", insert: "/list", match: "list tasks 任務 總覽 查詢" }
+      ];
+
       const markerItems = [
         { label: "@due(7/15)", hint: "\#(L("到期日"))", insert: "@due()", back: 1, match: "@due deadline 到期" },
         { label: "@from(7/5)", hint: "\#(L("開始日"))", insert: "@from()", back: 1, match: "@from start defer 開始 延後" },
@@ -1093,11 +1389,20 @@ extension BlockEditorView {
         const start = $from.start();
         const textBefore = state.doc.textBetween(start, $from.pos, "\n");
 
-        const m = textBefore.match(/^\/([^\s]*)$/);
+        const inCmd = $from.parent.type.name === "commandInput";
+        const m = !inCmd && textBefore.match(/^\/([^\s]*)$/);
         if (m) {
           const query = m[1].toLowerCase();
           filtered = slashItems.filter(i =>
             i.match.includes(query) || i.label.toLowerCase().includes(query));
+          if (!filtered.length) return hideMenu();
+          slashRange = { from: start, to: $from.pos };
+        } else if (inCmd && /^\/?[a-zA-Z]*$/.test(textBefore)) {
+          const q = textBefore.replace(/^\//, "").toLowerCase();
+          filtered = commandItems.filter(i =>
+            i.match.includes(q) || i.insert.replace("/", "").startsWith(q));
+          // 已打完整命令字 → 收起選單，讓 Enter 直接執行
+          filtered = filtered.filter(i => i.insert.trim() !== textBefore.trim());
           if (!filtered.length) return hideMenu();
           slashRange = { from: start, to: $from.pos };
         } else {
@@ -1190,4 +1495,9 @@ extension BlockEditorView {
     </html>
     """#
     }
+}
+
+extension Notification.Name {
+    /// 編輯器命令列送出的命令（userInfo["command"]，如 "list"）。
+    static let rhEditorCommand = Notification.Name("ResearchHub.editorCommand")
 }

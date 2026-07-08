@@ -8,7 +8,8 @@ import Foundation
 ///   @from(7/5)              開始日：@due 副本從這天才開始出現；單獨用 = 只在那天出現一次
 ///   @every(mon,thu)         循環：每逢那幾天出現（mon/tue/wed/thu/fri/sat/sun）
 ///   @remind(7/20 09:00)     提醒：到時推播通知（也接受 M/d＝當天 09:00、HH:mm＝今天）
-///   @est(3h / 45m / 90)     預估時長（純數字 = 分鐘），排時段時參考
+///   @est(3h / 45m / 90)     預估時長（純數字 = 分鐘），排時段時參考；日記裡渲染成蕃茄進度條
+///   @pomo(2)                任務自己的進度（已投入幾顆），進度條 ＋/− 改的就是它，不動蕃茄鐘統計
 ///   @line(名字)             主線歸屬（如 A、B），週檢討分線統計用
 enum TodoPriority: Int, Comparable, Hashable {
     case low = 0, normal = 1, high = 2
@@ -28,6 +29,8 @@ struct TodoMeta: Hashable {
     let remind: Date?
     /// 預估時長（分鐘）
     let estMinutes: Int?
+    /// 任務自身已投入的蕃茄顆數（@pomo）
+    let pomoDone: Int?
     /// 主線歸屬（@line(A) → "A"），沒標 = nil
     let line: String?
 
@@ -45,6 +48,7 @@ struct TodoMeta: Hashable {
         var everyWeekdays: Set<Int>?
         var remind: Date?
         var estMinutes: Int?
+        var pomoDone: Int?
         var line: String?
 
         // !high / !low（不分大小寫、允許前後空白）
@@ -101,6 +105,15 @@ struct TodoMeta: Hashable {
             text.removeSubrange(r)
         }
 
+        // @pomo(…)：任務自身進度
+        if let r = text.range(of: #"(?i)@pomo\(([^)]*)\)"#, options: .regularExpression) {
+            let inner = String(text[r])
+                .replacingOccurrences(of: #"(?i)@pomo\("#, with: "", options: .regularExpression)
+                .dropLast()
+            pomoDone = Int(inner.trimmingCharacters(in: .whitespaces))
+            text.removeSubrange(r)
+        }
+
         // @line(…)：主線歸屬
         if let r = text.range(of: #"(?i)@line\(([^)]*)\)"#, options: .regularExpression) {
             let inner = String(text[r])
@@ -116,7 +129,7 @@ struct TodoMeta: Hashable {
             .trimmingCharacters(in: .whitespaces)
         return TodoMeta(cleanText: clean, priority: priority, due: due,
                         from: from, everyWeekdays: everyWeekdays, remind: remind,
-                        estMinutes: estMinutes, line: line)
+                        estMinutes: estMinutes, pomoDone: pomoDone, line: line)
     }
 
     /// "mon,thu" → Calendar.weekday 集合（1 = Sun … 7 = Sat）。認不得的略過。

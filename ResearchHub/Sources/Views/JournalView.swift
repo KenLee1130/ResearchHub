@@ -21,6 +21,8 @@ struct JournalView: View {
     @State private var dayMarks: [Int: DayMarks] = [:]
     /// 事件編輯 sheet
     @State private var eventSheet: EventSheetConfig?
+    /// /list 任務總覽（開著時暫時卸下編輯器：先存檔，讓總覽能安全改檔案）
+    @State private var showTaskManager = false
 
     struct EventSheetConfig: Identifiable {
         let id = UUID()
@@ -87,6 +89,14 @@ struct JournalView: View {
         .onChange(of: eventStore.events) { refreshMonthData() }
         .sheet(item: $eventSheet) { config in
             EventEditorSheet(draft: config.draft, isNew: config.isNew)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rhEditorCommand)) { note in
+            if note.userInfo?["command"] as? String == "list" {
+                showTaskManager = true
+            }
+        }
+        .sheet(isPresented: $showTaskManager, onDismiss: refreshMonthData) {
+            TaskManagerSheet()
         }
     }
 
@@ -330,7 +340,10 @@ struct JournalView: View {
 
             Divider()
 
-            if let url = journalURL(for: selectedDay) {
+            if showTaskManager {
+                // 總覽開著：編輯器卸下（onDisappear 會先存檔），總覽可安全改日記檔
+                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let url = journalURL(for: selectedDay) {
                 EditorCore(fileURL: url, mode: $mode)
                     .id(url)
             }
