@@ -8,7 +8,22 @@ struct TaskManagerSheet: View {
     @EnvironmentObject private var generalStore: GeneralTodoStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var fileItems: [FileSystemStore.TodoItem] = []
+    /// 同一任務的每日副本歸成一組：改／刪一次套用到所有副本。
+    struct TaskGroup: Identifiable {
+        let key: String                          // cleanText
+        let copies: [FileSystemStore.TodoItem]   // 依來源檔名排序
+        var rep: FileSystemStore.TodoItem { copies[0] }
+        var id: String { key }
+
+        /// 來源標示：單一來源顯示檔名；多副本顯示範圍 ×N
+        var sourceLabel: String {
+            let names = copies.map(\.noteName).sorted()
+            if names.count == 1 { return names[0] }
+            return "\(names.first!) ~ \(names.last!) ×\(names.count)"
+        }
+    }
+
+    @State private var groups: [TaskGroup] = []
     @State private var drafts: [String: String] = [:]
     @State private var generalDrafts: [UUID: String] = [:]
     @State private var newText = ""
@@ -51,10 +66,10 @@ struct TaskManagerSheet: View {
                     }
                 }
 
-                if !fileItems.isEmpty {
+                if !groups.isEmpty {
                     Section("日記與筆記") {
-                        ForEach(fileItems) { item in
-                            fileRow(item)
+                        ForEach(groups) { group in
+                            fileRow(group)
                         }
                     }
                 }
@@ -67,7 +82,7 @@ struct TaskManagerSheet: View {
                     }
                 }
 
-                if fileItems.isEmpty && generalItems.isEmpty {
+                if groups.isEmpty && generalItems.isEmpty {
                     Text("還沒有帶日期標記的任務。")
                         .font(.callout)
                         .foregroundStyle(.tertiary)
@@ -89,23 +104,28 @@ struct TaskManagerSheet: View {
 
     // MARK: - Rows
 
-    private func fileRow(_ item: FileSystemStore.TodoItem) -> some View {
+    private func fileRow(_ group: TaskGroup) -> some View {
         HStack(spacing: 8) {
             TextField("", text: Binding(
-                get: { drafts[item.id] ?? item.text },
-                set: { drafts[item.id] = $0 }))
+                get: { drafts[group.id] ?? group.rep.text },
+                set: { drafts[group.id] = $0 }))
                 .textFieldStyle(.plain)
                 .font(.callout)
                 .onSubmit {
-                    store.updateTodoLine(item, newText: drafts[item.id])
+                    // 一次套用到所有每日副本
+                    for copy in group.copies {
+                        store.updateTodoLine(copy, newText: drafts[group.id])
+                    }
                     rescan()
                 }
-            Text(verbatim: item.noteName)
+            Text(verbatim: group.sourceLabel)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
             Button {
-                store.updateTodoLine(item, newText: nil)
+                for copy in group.copies {
+                    store.updateTodoLine(copy, newText: nil)
+                }
                 rescan()
             } label: {
                 Image(systemName: "trash")
@@ -113,7 +133,7 @@ struct TaskManagerSheet: View {
                     .foregroundStyle(.tertiary)
             }
             .buttonStyle(.plain)
-            .help("刪除該行")
+            .help("刪除（所有副本一起）")
         }
     }
 
@@ -154,7 +174,15 @@ struct TaskManagerSheet: View {
     }
 
     private func rescan() {
-        fileItems = store.markerTodos()
+        // 同 cleanText 的每日副本歸一組
+        var byKey: [String: [FileSystemStore.TodoItem]] = [:]
+        for item in store.markerTodos() {
+            byKey[item.meta.cleanText, default: []].append(item)
+        }
+        groups = byKey.map { key, copies in
+            TaskGroup(key: key, copies: copies.sorted { $0.noteName > $1.noteName })
+        }
+        .sorted { ($0.rep.meta.due ?? .distantFuture) < ($1.rep.meta.due ?? .distantFuture) }
         drafts = [:]
     }
 }

@@ -1425,6 +1425,12 @@ extension BlockEditorView {
         menu.style.left = (c.left + window.scrollX) + "px";
         menu.style.top = (c.bottom + window.scrollY + 4) + "px";
         menu.style.display = "block";
+        // 夾在視窗內，靠右打字時選單不被切掉
+        const mw = menu.offsetWidth;
+        const maxLeft = window.scrollX + document.documentElement.clientWidth - mw - 8;
+        if (c.left + window.scrollX > maxLeft) {
+          menu.style.left = Math.max(window.scrollX + 8, maxLeft) + "px";
+        }
       }
 
       function renderMenu() {
@@ -1477,7 +1483,13 @@ extension BlockEditorView {
           activeIndex = (activeIndex - 1 + filtered.length) % filtered.length;
           renderMenu(); scrollActiveIntoView();
         } else if (e.key === "Enter" || e.key === "Tab") {
-          // Tab 與 Enter 都接受（和筆記源碼編輯器的 Tab 習慣一致）
+          // 命令行裡 Enter 一律「執行」（像終端機）：選字用 Tab／點選
+          if (e.key === "Enter"
+              && editor.state.selection.$from.parent.type.name === "commandInput") {
+            hideMenu();
+            return;   // 不攔截 → 交給 CommandLine 的 Enter 執行命令
+          }
+          // Tab 與 Enter（一般情境）都接受，和筆記源碼編輯器的 Tab 習慣一致
           e.preventDefault(); e.stopPropagation();
           applyItem(filtered[activeIndex]);
         } else if (e.key === "Escape") {
