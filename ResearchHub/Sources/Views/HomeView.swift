@@ -1004,6 +1004,23 @@ struct HomeView: View {
                 .background(Capsule().fill(Color.blue.opacity(0.12)))
                 .foregroundStyle(.blue)
         }
+        // @from 還沒到 → 顯示「▸ 日期」（項目在等開始日）
+        if let from = meta.from, from > Calendar.current.startOfDay(for: .now) {
+            Text(verbatim: "▸ " + from.formatted(.dateTime.month(.defaultDigits).day()))
+                .font(.caption2.weight(.medium))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Color.teal.opacity(0.12)))
+                .foregroundStyle(.teal)
+        }
+        if let est = meta.estMinutes {
+            Text(verbatim: est % 60 == 0 ? "\(est / 60)h" : "\(est)m")
+                .font(.caption2.weight(.medium))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Color.gray.opacity(0.15)))
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func emptyHint(_ text: LocalizedStringKey) -> some View {
@@ -1023,10 +1040,14 @@ struct HomeView: View {
         repeatedTodos = store.scanRepeatedJournalTodos()
     }
 
-    /// 每日一次：把 @due 待辦搬進今天的日記（舊副本標 - [>]，一般待辦搬入後移除）。
+    /// 每日一次：把 @due/@from 待辦搬進對應日記（舊副本標 - [>]，一般待辦搬入後移除）。
     private func migrateDues() {
         let dueLines = generalStore.todos
-            .filter { !$0.done && TodoMeta.parse($0.text).due != nil }
+            .filter { todo in
+                guard !todo.done else { return false }
+                let meta = TodoMeta.parse(todo.text)
+                return meta.due != nil || meta.from != nil
+            }
             .map(\.text)
         let migrated = store.migrateDueTodos(generalDueLines: dueLines)
         for text in migrated { generalStore.removeMigrated(text: text) }

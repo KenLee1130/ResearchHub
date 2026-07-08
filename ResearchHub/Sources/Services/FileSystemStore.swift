@@ -484,8 +484,13 @@ final class FileSystemStore: ObservableObject {
             existing.insert(TodoMeta.parse(text).cleanText)
         }
 
-        // 舊日記的 live @due 項目：標 - [>]、收集要搬的原始文字（含標記）
+        let cal = Calendar.current
+        // 舊日記的 live 項目：
+        //   @from 未到 → 標 - [>]，搬到 from 那天的日記（延後）
+        //   @due 存在或 @from 已到 → 標 - [>]，搬到今天（逐日跟隨）
         var carried: [String] = []
+        var deferred: [Date: [String]] = [:]
+        var seenDeferred = Set<String>()
         for (url, day) in journalFiles(dateFormatter: df) where day < today {
             guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
             var lines = content.components(separatedBy: "\n")
@@ -494,13 +499,22 @@ final class FileSystemStore: ObservableObject {
                 let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
                 guard trimmed.hasPrefix("- [ ]") else { continue }
                 let raw = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                guard !raw.isEmpty else { continue }
                 let meta = TodoMeta.parse(raw)
-                guard meta.due != nil, !raw.isEmpty else { continue }
+                let from = meta.from.map { cal.startOfDay(for: $0) }
+                let isDeferred = (from ?? .distantPast) > today
+                let isActive = meta.due != nil || (from != nil && !isDeferred)
+                guard isDeferred || isActive else { continue }
                 if let range = lines[i].range(of: "- [ ]") {
                     lines[i].replaceSubrange(range, with: "- [>]")
                     dirty = true
                 }
-                if !existing.contains(meta.cleanText) {
+                if isDeferred, let from {
+                    if !seenDeferred.contains(meta.cleanText) {
+                        deferred[from, default: []].append(raw)
+                        seenDeferred.insert(meta.cleanText)
+                    }
+                } else if !existing.contains(meta.cleanText) {
                     carried.append(raw)
                     existing.insert(meta.cleanText)
                 }
@@ -510,27 +524,58 @@ final class FileSystemStore: ObservableObject {
             }
         }
 
-        // 一般待辦的 @due：搬入今天，回報給呼叫端移除
+        // 一般待辦：@from 未到 → 搬到 from 那天；@due 或 @from 已到 → 搬到今天
         var migratedGenerals: [String] = []
         for text in generalDueLines {
             let meta = TodoMeta.parse(text)
-            guard meta.due != nil else { continue }
-            migratedGenerals.append(text)
-            guard !existing.contains(meta.cleanText) else { continue }
-            carried.append(text)
-            existing.insert(meta.cleanText)
+            let from = meta.from.map { cal.startOfDay(for: $0) }
+            if let from, from > today {
+                migratedGenerals.append(text)
+                if !seenDeferred.contains(meta.cleanText) {
+                    deferred[from, default: []].append(text)
+                    seenDeferred.insert(meta.cleanText)
+                }
+            } else if meta.due != nil || from != nil {
+                migratedGenerals.append(text)
+                if !existing.contains(meta.cleanText) {
+                    carried.append(text)
+                    existing.insert(meta.cleanText)
+                }
+            }
         }
 
         if !carried.isEmpty {
-            try? fm.createDirectory(
-                at: todayURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            if !todayContent.isEmpty && !todayContent.hasSuffix("\n") { todayContent += "\n" }
-            if !todayContent.isEmpty { todayContent += "\n" }
-            todayContent += carried.map { "- [ ] \($0)" }.joined(separator: "\n\n") + "\n"
-            try? todayContent.write(to: todayURL, atomically: true, encoding: .utf8)
+            appendTodoLines(carried, existingContent: todayContent, to: todayURL)
+        }
+        for (date, lines) in deferred {
+            guard let url = journalURL(for: date) else { continue }
+            // 目標日已有同項就不重複
+            let content = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+            var targetExisting = Set<String>()
+            for line in content.components(separatedBy: "\n") {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("- [ ]") else { continue }
+                let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                targetExisting.insert(TodoMeta.parse(text).cleanText)
+            }
+            let fresh = lines.filter { !targetExisting.contains(TodoMeta.parse($0).cleanText) }
+            if !fresh.isEmpty {
+                appendTodoLines(fresh, existingContent: content, to: url)
+            }
         }
         UserDefaults.standard.set(todayKey, forKey: Self.migrationDayKey)
         return migratedGenerals
+    }
+
+    /// 把待辦行（不含 checkbox 前綴）附加到日記檔尾端，項目之間留空行。
+    private func appendTodoLines(_ raws: [String], existingContent: String, to url: URL) {
+        try? fm.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var content = existingContent
+        if !content.isEmpty && !content.hasSuffix("\n") { content += "\n" }
+        if !content.isEmpty { content += "\n" }
+        content += raws.map { "- [ ] \($0)" }.joined(separator: "\n\n") + "\n"
+        try? content.write(to: url, atomically: true, encoding: .utf8)
     }
 
     // MARK: - 日記重複待辦

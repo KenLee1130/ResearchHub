@@ -1041,9 +1041,11 @@ extension BlockEditorView {
       let activeIndex = 0;
       let slashRange = null;
 
-      // 待辦標記（@due/@line/!high/!low）：insert 為插入文字，back 為插入後游標回退格數
+      // 待辦標記：insert 為插入文字，back 為插入後游標回退格數
       const markerItems = [
         { label: "@due(7/15)", hint: "\#(L("到期日"))", insert: "@due()", back: 1, match: "@due deadline 到期" },
+        { label: "@from(7/5)", hint: "\#(L("開始日"))", insert: "@from()", back: 1, match: "@from start defer 開始 延後" },
+        { label: "@est(3h)", hint: "\#(L("預估時長"))", insert: "@est()", back: 1, match: "@est estimate time 預估 時長" },
         { label: "@line(A)", hint: "\#(L("主線歸屬"))", insert: "@line()", back: 1, match: "@line track 主線" },
         { label: "!high", hint: "\#(L("高優先"))", insert: "!high ", back: 0, match: "!high priority 高" },
         { label: "!low", hint: "\#(L("低優先"))", insert: "!low ", back: 0, match: "!low priority 低" }
@@ -1133,7 +1135,8 @@ extension BlockEditorView {
           e.preventDefault(); e.stopPropagation();
           activeIndex = (activeIndex - 1 + filtered.length) % filtered.length;
           renderMenu(); scrollActiveIntoView();
-        } else if (e.key === "Enter") {
+        } else if (e.key === "Enter" || e.key === "Tab") {
+          // Tab 與 Enter 都接受（和筆記源碼編輯器的 Tab 習慣一致）
           e.preventDefault(); e.stopPropagation();
           applyItem(filtered[activeIndex]);
         } else if (e.key === "Escape") {

@@ -357,11 +357,16 @@ struct JournalView: View {
             let selfURL = journalURL(for: selectedDay)
             let fileItems = dueTodos.filter { item in
                 guard let due = item.meta.due else { return false }
+                // @from 還沒到的項目在等開始日，不提醒
+                if let from = item.meta.from, calendar.startOfDay(for: from) > day { return false }
                 // 這一天日記自己寫的待辦已在編輯器裡，不重複列
                 return item.noteURL != selfURL && isDueVisible(due, on: day, today: today)
             }
             let generalItems = generalStore.todos.filter { todo in
-                guard !todo.done, let due = TodoMeta.parse(todo.text).due else { return false }
+                guard !todo.done else { return false }
+                let meta = TodoMeta.parse(todo.text)
+                guard let due = meta.due else { return false }
+                if let from = meta.from, calendar.startOfDay(for: from) > day { return false }
                 return isDueVisible(due, on: day, today: today)
             }
             if !fileItems.isEmpty || !generalItems.isEmpty {

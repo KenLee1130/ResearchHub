@@ -2607,6 +2607,16 @@
       }
     },
     "開始工作": {},
+    "開始日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start date"
+          }
+        }
+      }
+    },
     "開工前有計畫": {
       "localizations": {
         "en": {
@@ -2654,6 +2664,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bullet list"
+          }
+        }
+      }
+    },
+    "預估時長": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated time"
           }
         }
       }

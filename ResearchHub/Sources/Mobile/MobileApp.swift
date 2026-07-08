@@ -164,9 +164,15 @@ struct MobileTodayView: View {
                         .background(RoundedRectangle(cornerRadius: 12).fill(.gray.opacity(0.08)))
                     }
 
-                    // 即將到期（@due 的項目，含已過期；打勾寫回原始檔）
+                    // 即將到期（@due 的項目，含已過期；打勾寫回原始檔；@from 未到的不列）
                     let dueGeneral = generalTodos.todos.filter { todo in
-                        guard !todo.done, TodoMeta.parse(todo.text).due != nil else { return false }
+                        guard !todo.done else { return false }
+                        let meta = TodoMeta.parse(todo.text)
+                        guard meta.due != nil else { return false }
+                        if let from = meta.from,
+                           Calendar.current.startOfDay(for: from) > Calendar.current.startOfDay(for: .now) {
+                            return false
+                        }
                         return true
                     }
                     if !dueItems.isEmpty || !dueGeneral.isEmpty {
@@ -267,9 +273,16 @@ struct MobileTodayView: View {
     }
 
     /// 今天要顯示的到期項目（未完成的都適用：未到期的提醒、過期的催辦）；
-    /// 今天日記自己寫的已在編輯器裡，不重複列。
+    /// 今天日記自己寫的已在編輯器裡、@from 還沒到的也不列。
     private func refreshDue() {
-        dueItems = store.dueTodos().filter { $0.noteURL != journalURL }
+        let today = Calendar.current.startOfDay(for: .now)
+        dueItems = store.dueTodos().filter { item in
+            guard item.noteURL != journalURL else { return false }
+            if let from = item.meta.from, Calendar.current.startOfDay(for: from) > today {
+                return false
+            }
+            return true
+        }
     }
 
     private func load() {
