@@ -109,7 +109,6 @@ struct MobileTodayView: View {
     @State private var loadedText = ""
     @State private var saveTask: Task<Void, Never>?
     @State private var showPlanning = false
-    @State private var dueItems: [FileSystemStore.TodoItem] = []
 
     private var journalURL: URL? { store.journalURL(for: .now) }
 
@@ -162,40 +161,6 @@ struct MobileTodayView: View {
                         }
                         .padding(12)
                         .background(RoundedRectangle(cornerRadius: 12).fill(.gray.opacity(0.08)))
-                    }
-
-                    // 即將到期（@due 的項目，含已過期；打勾寫回原始檔；@from 未到的不列）
-                    let dueGeneral = generalTodos.todos.filter { todo in
-                        guard !todo.done else { return false }
-                        let meta = TodoMeta.parse(todo.text)
-                        guard meta.due != nil else { return false }
-                        if let from = meta.from,
-                           Calendar.current.startOfDay(for: from) > Calendar.current.startOfDay(for: .now) {
-                            return false
-                        }
-                        return true
-                    }
-                    if !dueItems.isEmpty || !dueGeneral.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("即將到期", systemImage: "hourglass")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.orange)
-                            ForEach(dueItems) { item in
-                                mobileDueRow(text: item.meta.cleanText, due: item.meta.due!) {
-                                    store.toggleTodo(item)
-                                    refreshDue()
-                                }
-                            }
-                            ForEach(dueGeneral) { todo in
-                                let meta = TodoMeta.parse(todo.text)
-                                mobileDueRow(text: meta.cleanText, due: meta.due!) {
-                                    generalTodos.toggle(todo)
-                                }
-                            }
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(.orange.opacity(0.08)))
                     }
 
                     // 今日日記：與 Mac 版同一套 block 編輯器（tiptap，離線 bundle）
@@ -252,46 +217,10 @@ struct MobileTodayView: View {
         }
     }
 
-    private func mobileDueRow(
-        text: String, due: Date, onToggle: @escaping () -> Void
-    ) -> some View {
-        let overdue = Calendar.current.startOfDay(for: due) < Calendar.current.startOfDay(for: .now)
-        return HStack(spacing: 8) {
-            Button(action: onToggle) {
-                Image(systemName: "circle")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            Text(text)
-                .font(.callout)
-                .lineLimit(2)
-            Spacer(minLength: 0)
-            Text(due.formatted(.dateTime.month(.defaultDigits).day()))
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(overdue ? .red : .orange)
-        }
-    }
-
-    /// 今天要顯示的到期項目（未完成的都適用：未到期的提醒、過期的催辦）；
-    /// 今天日記自己寫的已在編輯器裡、@from 還沒到的也不列。
-    private func refreshDue() {
-        let today = Calendar.current.startOfDay(for: .now)
-        dueItems = store.dueTodos().filter { item in
-            guard item.noteURL != journalURL else { return false }
-            if let from = item.meta.from, Calendar.current.startOfDay(for: from) > today {
-                return false
-            }
-            return true
-        }
-    }
-
     private func load() {
-        // 先做每日搬移（把 @due 待辦搬進今天），再讀檔給編輯器
-        let dueLines = generalTodos.todos
-            .filter { !$0.done && TodoMeta.parse($0.text).due != nil }
-            .map(\.text)
-        let migrated = store.migrateDueTodos(generalDueLines: dueLines)
-        for text in migrated { generalTodos.removeMigrated(text: text) }
+        // 每日一次：@due/@from/@every 播進今天 + @remind 排通知（要在讀檔之前）
+        store.seedTodayTodos(
+            generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
 
         guard let url = journalURL,
               let content = try? String(contentsOf: url, encoding: .utf8) else {
@@ -301,7 +230,6 @@ struct MobileTodayView: View {
         }
         journalText = content
         loadedText = content
-        refreshDue()
     }
 
     private func scheduleSave() {

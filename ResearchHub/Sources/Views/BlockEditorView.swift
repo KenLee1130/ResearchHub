@@ -1046,6 +1046,8 @@ extension BlockEditorView {
         { label: "@due(7/15)", hint: "\#(L("到期日"))", insert: "@due()", back: 1, match: "@due deadline 到期" },
         { label: "@from(7/5)", hint: "\#(L("開始日"))", insert: "@from()", back: 1, match: "@from start defer 開始 延後" },
         { label: "@est(3h)", hint: "\#(L("預估時長"))", insert: "@est()", back: 1, match: "@est estimate time 預估 時長" },
+        { label: "@every(mon,thu)", hint: "\#(L("循環"))", insert: "@every()", back: 1, match: "@every repeat weekly 循環 每週" },
+        { label: "@remind(7/20 09:00)", hint: "\#(L("提醒"))", insert: "@remind()", back: 1, match: "@remind notify 提醒 通知" },
         { label: "@line(A)", hint: "\#(L("主線歸屬"))", insert: "@line()", back: 1, match: "@line track 主線" },
         { label: "!high", hint: "\#(L("高優先"))", insert: "!high ", back: 0, match: "!high priority 高" },
         { label: "!low", hint: "\#(L("低優先"))", insert: "!low ", back: 0, match: "!low priority 低" }

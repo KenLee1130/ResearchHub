@@ -1021,6 +1021,16 @@ struct HomeView: View {
                 .background(Capsule().fill(Color.gray.opacity(0.15)))
                 .foregroundStyle(.secondary)
         }
+        if meta.everyWeekdays != nil {
+            Image(systemName: "repeat")
+                .font(.caption2)
+                .foregroundStyle(.purple)
+        }
+        if let remind = meta.remind {
+            Text(verbatim: "🔔" + remind.formatted(.dateTime.month(.defaultDigits).day().hour().minute()))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func emptyHint(_ text: LocalizedStringKey) -> some View {
@@ -1032,25 +1042,14 @@ struct HomeView: View {
 
     private func refresh() {
         generalStore.reload() // Claude 可能直接改過 .hub 的 JSON → 重讀
-        migrateDues()
+        // 每日一次：@due/@from/@every 的獨立日副本播進今天的日記 + @remind 排通知
+        store.seedTodayTodos(
+            generalTexts: generalStore.todos.filter { !$0.done }.map(\.text))
         recentNotes = store.recentNotes(limit: 5)
         todos = store.scanTodos()
         todayJournalPreview = loadJournalPreview()
         noteCount = store.allNoteURLs().count
         repeatedTodos = store.scanRepeatedJournalTodos()
-    }
-
-    /// 每日一次：把 @due/@from 待辦搬進對應日記（舊副本標 - [>]，一般待辦搬入後移除）。
-    private func migrateDues() {
-        let dueLines = generalStore.todos
-            .filter { todo in
-                guard !todo.done else { return false }
-                let meta = TodoMeta.parse(todo.text)
-                return meta.due != nil || meta.from != nil
-            }
-            .map(\.text)
-        let migrated = store.migrateDueTodos(generalDueLines: dueLines)
-        for text in migrated { generalStore.removeMigrated(text: text) }
     }
 
     private func loadJournalPreview() -> String? {

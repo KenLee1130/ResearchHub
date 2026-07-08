@@ -1024,6 +1024,16 @@
         }
       }
     },
+    "循環": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recurring"
+          }
+        }
+      }
+    },
     "快速搜尋…": {
       "localizations": {
         "en": {
@@ -1121,6 +1131,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Authorize"
+          }
+        }
+      }
+    },
+    "提醒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder"
           }
         }
       }

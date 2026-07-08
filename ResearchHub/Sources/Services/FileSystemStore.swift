@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UserNotifications
 
 /// 管理 Research Hub 的根資料夾與目前瀏覽位置。
 /// 筆記就是磁碟上的真實檔案：資料夾 = 目錄、筆記 = .md 檔。
@@ -129,7 +130,7 @@ final class FileSystemStore: ObservableObject {
     | `events.json` | Calendar events + tags: `{tags: [{id,name,colorHex}], events: [{id,title,notes,isAllDay,start,end,tagID}]}` |
     | `todos.json` | Inbox tasks + trash: `{todos: [{id,text,createdAt,done,completedAt}], trash: [{id,text,occurrences,trashedAt,reason}]}` |
     | `claude/insights.json` | AI-written note shown on the home screen: `{updatedAt, message, schedule}`. `schedule` lines in the form `HH:MM–HH:MM task` can be turned into calendar events by the user with one click. |
-    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped, `- [>]` migrated (items with a due date are carried forward to today's journal daily; old copies get `>`, sub-items stay as that day's progress log). Markers: `!high` / `!low` priority, `@due(M/d)`, `@line(name)`. |
+    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Items with `@due`/`@every` are seeded as an independent copy into each applicable day's journal — checking one day only records that day. Markers: `!high`/`!low`, `@due(M/d)`, `@from(M/d)`, `@every(mon,thu)`, `@remind(M/d HH:mm)`, `@est(3h)`, `@line(name)`. |
     | `../Notes/**/*.md` | Notes (plain Markdown, `[[wikilinks]]`, `$…$` math, `\\cite{…}` Zotero keys). `assets/` folders hold images. |
     | `../Pomodoro/pomodoro.json` | Focus sessions: `[{date,minutes,plan,done,startedAt?}]`. Legacy entries have no `startedAt`, empty plan/done, and a 12:00:00 timestamp — exclude them from time-of-day analytics. |
 
@@ -432,139 +433,111 @@ final class FileSystemStore: ObservableObject {
             .write(to: item.noteURL, atomically: true, encoding: .utf8)
     }
 
-    /// 所有帶 @due 的未完成待辦（筆記 + 全部日記），依到期日排序。
-    /// 給日記頁「即將到期」區：項目會出現在今天～到期日之間每一天的日記上方。
-    func dueTodos() -> [TodoItem] {
-        var result = scanTodos().filter { $0.meta.due != nil }
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        for (url, _) in journalFiles(dateFormatter: df) {
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
-            for (i, line) in content.components(separatedBy: "\n").enumerated() {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard trimmed.hasPrefix("- [ ]") else { continue }
-                let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                guard !text.isEmpty else { continue }
-                let meta = TodoMeta.parse(text)
-                guard meta.due != nil else { continue }
-                result.append(TodoItem(
-                    noteURL: url, lineIndex: i, text: text, done: false, meta: meta))
-            }
-        }
-        return result.sorted { ($0.meta.due ?? .distantFuture) < ($1.meta.due ?? .distantFuture) }
-    }
+    // MARK: - 每日播種：@due/@from/@every 的獨立日副本 + @remind 通知
 
-    // MARK: - 到期待辦每日搬移（bullet journal migration）
+    private static let seedDayKey = "researchHub.lastSeedDay"
 
-    private static let migrationDayKey = "researchHub.lastDueMigrationDay"
-
-    /// 把仍未完成的 @due 待辦搬進今天的日記（每天只跑一次）：
-    /// - 舊日記裡的 live 副本（`- [ ]` 帶 @due）標成 `- [>]`（已搬移），
-    ///   當天掛的子項進度留在原地；今天的日記出現唯一一份 live 副本。
-    /// - `generalDueLines` 是一般待辦中帶 @due 的原始文字；實際搬入的會列在回傳值，
-    ///   由呼叫端把它們從一般待辦移除。
-    /// 必須在今天的日記編輯器載入「之前」呼叫（首頁 refresh、手機今天頁 load）。
-    @discardableResult
-    func migrateDueTodos(generalDueLines: [String] = []) -> [String] {
+    /// 每天一次：把「今天該出現」的待辦以獨立副本寫進今天的日記。
+    /// 每天的副本互相獨立——勾掉只代表那一天，明天照樣出現，直到條件結束：
+    ///   @due(D)         → 每天出現，直到 D（含）；搭配 @from(F) 則從 F 才開始
+    ///   @from(F) 單獨用 → 只在 F 那天出現一次
+    ///   @every(mon,…)   → 每逢指定星期幾出現
+    /// 提前不想再出現：把該行的標記拿掉或刪掉該行。
+    /// 母本來源：所有日記行（含已勾）、筆記未完成待辦、一般待辦（generalTexts）。
+    /// 同時為未完成項目的 @remind 排程推播。必須在今天的日記編輯器載入之前呼叫。
+    func seedTodayTodos(generalTexts: [String] = []) {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         let todayKey = df.string(from: .now)
-        guard UserDefaults.standard.string(forKey: Self.migrationDayKey) != todayKey,
+        guard UserDefaults.standard.string(forKey: Self.seedDayKey) != todayKey,
               let todayURL = journalURL(for: .now)
-        else { return [] }
-        let today = Calendar.current.startOfDay(for: .now)
-
-        // 今天已有的 live 待辦（避免重複搬入）
-        var todayContent = (try? String(contentsOf: todayURL, encoding: .utf8)) ?? ""
-        var existing = Set<String>()
-        for line in todayContent.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix("- [ ]") else { continue }
-            let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-            existing.insert(TodoMeta.parse(text).cleanText)
-        }
-
+        else { return }
         let cal = Calendar.current
-        // 舊日記的 live 項目：
-        //   @from 未到 → 標 - [>]，搬到 from 那天的日記（延後）
-        //   @due 存在或 @from 已到 → 標 - [>]，搬到今天（逐日跟隨）
-        var carried: [String] = []
-        var deferred: [Date: [String]] = [:]
-        var seenDeferred = Set<String>()
-        for (url, day) in journalFiles(dateFormatter: df) where day < today {
+        let today = cal.startOfDay(for: .now)
+        let weekday = cal.component(.weekday, from: today)
+
+        // 母本收集（同文字只留一份；journals 含已勾的行——每日進度型任務勾了明天照樣出現）
+        var masters: [String] = []
+        var uncheckedMasters: [String] = []
+        var seen = Set<String>()
+        func addMaster(_ raw: String, unchecked: Bool) {
+            let clean = TodoMeta.parse(raw).cleanText
+            guard !clean.isEmpty else { return }
+            if unchecked { uncheckedMasters.append(raw) }
+            guard !seen.contains(clean) else { return }
+            seen.insert(clean)
+            masters.append(raw)
+        }
+        for (url, _) in journalFiles(dateFormatter: df) {
             guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
-            var lines = content.components(separatedBy: "\n")
-            var dirty = false
-            for i in lines.indices {
-                let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
-                guard trimmed.hasPrefix("- [ ]") else { continue }
-                let raw = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                guard !raw.isEmpty else { continue }
-                let meta = TodoMeta.parse(raw)
-                let from = meta.from.map { cal.startOfDay(for: $0) }
-                let isDeferred = (from ?? .distantPast) > today
-                let isActive = meta.due != nil || (from != nil && !isDeferred)
-                guard isDeferred || isActive else { continue }
-                if let range = lines[i].range(of: "- [ ]") {
-                    lines[i].replaceSubrange(range, with: "- [>]")
-                    dirty = true
-                }
-                if isDeferred, let from {
-                    if !seenDeferred.contains(meta.cleanText) {
-                        deferred[from, default: []].append(raw)
-                        seenDeferred.insert(meta.cleanText)
-                    }
-                } else if !existing.contains(meta.cleanText) {
-                    carried.append(raw)
-                    existing.insert(meta.cleanText)
-                }
-            }
-            if dirty {
-                try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
-            }
-        }
-
-        // 一般待辦：@from 未到 → 搬到 from 那天；@due 或 @from 已到 → 搬到今天
-        var migratedGenerals: [String] = []
-        for text in generalDueLines {
-            let meta = TodoMeta.parse(text)
-            let from = meta.from.map { cal.startOfDay(for: $0) }
-            if let from, from > today {
-                migratedGenerals.append(text)
-                if !seenDeferred.contains(meta.cleanText) {
-                    deferred[from, default: []].append(text)
-                    seenDeferred.insert(meta.cleanText)
-                }
-            } else if meta.due != nil || from != nil {
-                migratedGenerals.append(text)
-                if !existing.contains(meta.cleanText) {
-                    carried.append(text)
-                    existing.insert(meta.cleanText)
-                }
-            }
-        }
-
-        if !carried.isEmpty {
-            appendTodoLines(carried, existingContent: todayContent, to: todayURL)
-        }
-        for (date, lines) in deferred {
-            guard let url = journalURL(for: date) else { continue }
-            // 目標日已有同項就不重複
-            let content = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            var targetExisting = Set<String>()
             for line in content.components(separatedBy: "\n") {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard trimmed.hasPrefix("- [ ]") else { continue }
-                let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                targetExisting.insert(TodoMeta.parse(text).cleanText)
-            }
-            let fresh = lines.filter { !targetExisting.contains(TodoMeta.parse($0).cleanText) }
-            if !fresh.isEmpty {
-                appendTodoLines(fresh, existingContent: content, to: url)
+                let unchecked = trimmed.hasPrefix("- [ ]")
+                guard unchecked || trimmed.lowercased().hasPrefix("- [x]") else { continue }
+                addMaster(
+                    String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces),
+                    unchecked: unchecked)
             }
         }
-        UserDefaults.standard.set(todayKey, forKey: Self.migrationDayKey)
-        return migratedGenerals
+        for item in scanTodos() { addMaster(item.text, unchecked: true) }
+        for text in generalTexts { addMaster(text, unchecked: true) }
+
+        // 今天已有的（不重複播）
+        let todayContent = (try? String(contentsOf: todayURL, encoding: .utf8)) ?? ""
+        var todayExisting = Set<String>()
+        for line in todayContent.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("- [ ]") || trimmed.lowercased().hasPrefix("- [x]")
+            else { continue }
+            let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            todayExisting.insert(TodoMeta.parse(text).cleanText)
+        }
+
+        var toSeed: [String] = []
+        for raw in masters {
+            let meta = TodoMeta.parse(raw)
+            guard !todayExisting.contains(meta.cleanText) else { continue }
+            let from = meta.from.map { cal.startOfDay(for: $0) }
+            var shouldSeed = false
+            if let due = meta.due.map({ cal.startOfDay(for: $0) }) {
+                shouldSeed = today <= due && (from ?? .distantPast) <= today
+            } else if let from {
+                shouldSeed = from == today
+            }
+            if let days = meta.everyWeekdays, days.contains(weekday) {
+                shouldSeed = true
+            }
+            guard shouldSeed else { continue }
+            toSeed.append(raw)
+            todayExisting.insert(meta.cleanText)
+        }
+        if !toSeed.isEmpty {
+            appendTodoLines(toSeed, existingContent: todayContent, to: todayURL)
+        }
+        scheduleReminders(for: uncheckedMasters)
+        UserDefaults.standard.set(todayKey, forKey: Self.seedDayKey)
+    }
+
+    /// @remind：未完成且時刻在未來的 → 排程推播（id 固定為內容，重排自動覆蓋）。
+    private func scheduleReminders(for raws: [String]) {
+        let reminders: [(text: String, at: Date)] = raws.compactMap { raw in
+            let meta = TodoMeta.parse(raw)
+            guard let remind = meta.remind, remind > .now else { return nil }
+            return (meta.cleanText, remind)
+        }
+        guard !reminders.isEmpty else { return }   // 不碰通知中心（也讓無 bundle 的測試環境能跑）
+        let center = UNUserNotificationCenter.current()
+        for r in reminders {
+            let content = UNMutableNotificationContent()
+            content.title = "⏰ \(r.text)"
+            content.sound = .default
+            let comps = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute], from: r.at)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+            center.add(UNNotificationRequest(
+                identifier: "todo.remind.\(r.text)",
+                content: content, trigger: trigger))
+        }
     }
 
     /// 把待辦行（不含 checkbox 前綴）附加到日記檔尾端，項目之間留空行。
@@ -603,7 +576,10 @@ final class FileSystemStore: ObservableObject {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard trimmed.hasPrefix("- [ ]") else { continue }
                 let raw = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                let text = TodoMeta.parse(raw).cleanText
+                let meta = TodoMeta.parse(raw)
+                // @due/@every/@from 是刻意每天出現的副本，不是拖延，不列入重複統計
+                guard meta.due == nil, meta.everyWeekdays == nil, meta.from == nil else { continue }
+                let text = meta.cleanText
                 guard !text.isEmpty else { continue }
                 occurrences[text, default: []].insert(day)
             }

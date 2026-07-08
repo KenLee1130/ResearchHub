@@ -8,7 +8,6 @@ import UniformTypeIdentifiers
 struct JournalView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var eventStore: EventStore
-    @EnvironmentObject private var generalStore: GeneralTodoStore
 
     @State private var displayedMonth: Date = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: .now)
@@ -19,8 +18,6 @@ struct JournalView: View {
     @State private var noteUpdates: [Int: [String]] = [:]
     /// 本月各日的事件標記（單日 = 點、跨日 = 線條）
     @State private var dayMarks: [Int: DayMarks] = [:]
-    /// 全庫帶 @due 的未完成待辦（顯示在今天～到期日間每天的日記上方）
-    @State private var dueTodos: [FileSystemStore.TodoItem] = []
     /// 事件編輯 sheet
     @State private var eventSheet: EventSheetConfig?
 
@@ -331,99 +328,10 @@ struct JournalView: View {
 
             Divider()
 
-            dueSection
-
             if let url = journalURL(for: selectedDay) {
                 EditorCore(fileURL: url, mode: $mode)
                     .id(url)
             }
-        }
-    }
-
-    // MARK: - 即將到期（@due 的項目自動出現在今天～到期日的每一天）
-
-    /// 這一天要顯示的到期項目：未完成、到期日 ≥ 這一天；今天的頁面另外收留已過期的。
-    private func isDueVisible(_ due: Date, on day: Date, today: Date) -> Bool {
-        let d = calendar.startOfDay(for: due)
-        return day <= d || (day == today && d < today)
-    }
-
-    @ViewBuilder
-    private var dueSection: some View {
-        let day = calendar.startOfDay(for: selectedDay)
-        let today = calendar.startOfDay(for: .now)
-        // 只顯示在今天以後的日記頁（翻舊日記不打擾）
-        if day >= today {
-            let selfURL = journalURL(for: selectedDay)
-            let fileItems = dueTodos.filter { item in
-                guard let due = item.meta.due else { return false }
-                // @from 還沒到的項目在等開始日，不提醒
-                if let from = item.meta.from, calendar.startOfDay(for: from) > day { return false }
-                // 這一天日記自己寫的待辦已在編輯器裡，不重複列
-                return item.noteURL != selfURL && isDueVisible(due, on: day, today: today)
-            }
-            let generalItems = generalStore.todos.filter { todo in
-                guard !todo.done else { return false }
-                let meta = TodoMeta.parse(todo.text)
-                guard let due = meta.due else { return false }
-                if let from = meta.from, calendar.startOfDay(for: from) > day { return false }
-                return isDueVisible(due, on: day, today: today)
-            }
-            if !fileItems.isEmpty || !generalItems.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("即將到期", systemImage: "hourglass")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
-                    ForEach(fileItems) { item in
-                        dueRow(text: item.meta.cleanText, due: item.meta.due!,
-                               source: item.noteName, today: today) {
-                            store.toggleTodo(item)
-                            refreshMonthData()
-                        }
-                    }
-                    ForEach(generalItems) { todo in
-                        let meta = TodoMeta.parse(todo.text)
-                        dueRow(text: meta.cleanText, due: meta.due!,
-                               source: L("一般待辦"), today: today) {
-                            generalStore.toggle(todo)
-                        }
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.orange.opacity(0.05))
-                Divider()
-            }
-        }
-    }
-
-    private func dueRow(
-        text: String, due: Date, source: String, today: Date,
-        onToggle: @escaping () -> Void
-    ) -> some View {
-        let overdue = calendar.startOfDay(for: due) < today
-        return HStack(spacing: 8) {
-            Button(action: onToggle) {
-                Image(systemName: "circle")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            Text(text)
-                .font(.callout)
-                .lineLimit(1)
-            Text(due.formatted(.dateTime.month(.defaultDigits).day()))
-                .font(.caption2.weight(.medium))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Capsule().fill(overdue
-                    ? Color.red.opacity(0.15) : Color.orange.opacity(0.12)))
-                .foregroundStyle(overdue ? .red : .orange)
-            Spacer(minLength: 0)
-            Text(verbatim: source)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
         }
     }
 
@@ -606,7 +514,6 @@ struct JournalView: View {
         journalDays = scanJournalDays()
         noteUpdates = scanNoteUpdates()
         dayMarks = computeEventMarks()
-        dueTodos = store.dueTodos()
     }
 
     /// 把本月事件整理成日曆標記：單日 → 點；跨日 → lane 線段（greedy 分配 lane 保持跨日對齊）。

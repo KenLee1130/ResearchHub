@@ -4,8 +4,10 @@ import Foundation
 ///   - [ ] 讀 CFT @from(7/15) @due(7/25) @est(3h) !high @line(A)
 /// 支援（白名單制，其餘 @ 開頭的內容一律當普通文字，不會誤傷信箱等）：
 ///   !high / !low            優先級（沒寫 = normal）
-///   @due(7/10)              到期日（當年）；也接受 @due(2026-7-10)
-///   @from(7/5)              開始日：項目在每日搬移時跳到這一天的日記，之後逐日跟隨
+///   @due(7/10)              到期日：每天在日記自動出現獨立副本，直到到期日（含）
+///   @from(7/5)              開始日：@due 副本從這天才開始出現；單獨用 = 只在那天出現一次
+///   @every(mon,thu)         循環：每逢那幾天出現（mon/tue/wed/thu/fri/sat/sun）
+///   @remind(7/20 09:00)     提醒：到時推播通知（也接受 M/d＝當天 09:00、HH:mm＝今天）
 ///   @est(3h / 45m / 90)     預估時長（純數字 = 分鐘），排時段時參考
 ///   @line(名字)             主線歸屬（如 A、B），週檢討分線統計用
 enum TodoPriority: Int, Comparable, Hashable {
@@ -18,8 +20,12 @@ struct TodoMeta: Hashable {
     let cleanText: String
     let priority: TodoPriority
     let due: Date?
-    /// 開始日（@from）：未到之前項目停在那一天的日記，不出現在今天
+    /// 開始日（@from）：@due 副本從這天才開始出現
     let from: Date?
+    /// 循環（@every）：Calendar.weekday 集合（1 = Sun … 7 = Sat）
+    let everyWeekdays: Set<Int>?
+    /// 提醒時刻（@remind）
+    let remind: Date?
     /// 預估時長（分鐘）
     let estMinutes: Int?
     /// 主線歸屬（@line(A) → "A"），沒標 = nil
@@ -36,6 +42,8 @@ struct TodoMeta: Hashable {
         var priority: TodoPriority = .normal
         var due: Date?
         var from: Date?
+        var everyWeekdays: Set<Int>?
+        var remind: Date?
         var estMinutes: Int?
         var line: String?
 
@@ -75,6 +83,24 @@ struct TodoMeta: Hashable {
             text.removeSubrange(r)
         }
 
+        // @every(…)：循環（週幾縮寫，逗號分隔）
+        if let r = text.range(of: #"(?i)@every\(([^)]*)\)"#, options: .regularExpression) {
+            let inner = String(text[r])
+                .replacingOccurrences(of: #"(?i)@every\("#, with: "", options: .regularExpression)
+                .dropLast()
+            everyWeekdays = Self.parseWeekdays(String(inner))
+            text.removeSubrange(r)
+        }
+
+        // @remind(…)：提醒時刻
+        if let r = text.range(of: #"(?i)@remind\(([^)]*)\)"#, options: .regularExpression) {
+            let inner = String(text[r])
+                .replacingOccurrences(of: #"(?i)@remind\("#, with: "", options: .regularExpression)
+                .dropLast()
+            remind = Self.parseDateTime(String(inner), calendar: calendar)
+            text.removeSubrange(r)
+        }
+
         // @line(…)：主線歸屬
         if let r = text.range(of: #"(?i)@line\(([^)]*)\)"#, options: .regularExpression) {
             let inner = String(text[r])
@@ -89,7 +115,50 @@ struct TodoMeta: Hashable {
             .replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
         return TodoMeta(cleanText: clean, priority: priority, due: due,
-                        from: from, estMinutes: estMinutes, line: line)
+                        from: from, everyWeekdays: everyWeekdays, remind: remind,
+                        estMinutes: estMinutes, line: line)
+    }
+
+    /// "mon,thu" → Calendar.weekday 集合（1 = Sun … 7 = Sat）。認不得的略過。
+    private static func parseWeekdays(_ s: String) -> Set<Int>? {
+        let map: [String: Int] = [
+            "sun": 1, "mon": 2, "tue": 3, "wed": 4, "thu": 5, "fri": 6, "sat": 7,
+        ]
+        var result = Set<Int>()
+        for part in s.lowercased().components(separatedBy: ",") {
+            let key = String(part.trimmingCharacters(in: .whitespaces).prefix(3))
+            if let d = map[key] { result.insert(d) }
+        }
+        return result.isEmpty ? nil : result
+    }
+
+    /// 提醒時刻："M/d HH:mm"、"yyyy-M-d HH:mm"、"M/d"（當天 09:00）、"HH:mm"（今天）。
+    private static func parseDateTime(_ s: String, calendar: Calendar) -> Date? {
+        let t = s.trimmingCharacters(in: .whitespaces)
+        let parts = t.split(separator: " ", maxSplits: 1).map(String.init)
+
+        func time(_ s: String) -> (h: Int, m: Int)? {
+            let c = s.components(separatedBy: ":")
+            guard c.count == 2, let h = Int(c[0]), let m = Int(c[1]),
+                  (0...23).contains(h), (0...59).contains(m) else { return nil }
+            return (h, m)
+        }
+
+        if parts.count == 2, let day = parseDate(parts[0], calendar: calendar),
+           let hm = time(parts[1]) {
+            return calendar.date(bySettingHour: hm.h, minute: hm.m, second: 0, of: day)
+        }
+        if parts.count == 1 {
+            if let hm = time(parts[0]) {   // 只有時間 = 今天
+                return calendar.date(
+                    bySettingHour: hm.h, minute: hm.m, second: 0,
+                    of: calendar.startOfDay(for: .now))
+            }
+            if let day = parseDate(parts[0], calendar: calendar) {   // 只有日期 = 當天 09:00
+                return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: day)
+            }
+        }
+        return nil
     }
 
     /// "3h" / "45m" / "90"（分鐘）→ 分鐘數。
