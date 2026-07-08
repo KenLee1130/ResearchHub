@@ -79,8 +79,20 @@ struct NoteEditorView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("輸出 PDF")
+                .help("輸出 PDF（快速，KaTeX）")
                 .keyboardShortcut("e", modifiers: .command)
+
+                // 用本機 LaTeX 工具鏈（pandoc + xelatex）輸出道地排版 PDF
+                Button {
+                    LaTeXPDFExporter.shared.export(noteURL: noteURL)
+                } label: {
+                    Image(systemName: "function")
+                        .padding(5)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("用本機 LaTeX 輸出 PDF（pandoc + xelatex；需安裝 MacTeX）")
+                .keyboardShortcut("e", modifiers: [.command, .shift])
 
                 EditorModePicker(mode: $mode)
             }
