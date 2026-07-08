@@ -218,8 +218,9 @@ struct MobileTodayView: View {
     }
 
     private func load() {
-        // 每日一次：@due/@from/@every 播進今天 + @remind 排通知（要在讀檔之前）
-        store.seedTodayTodos(
+        // @due/@from/@every 播進今天 + @remind 排通知（冪等；要在讀檔之前）
+        store.seedTodos(
+            for: .now,
             generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
 
         guard let url = journalURL,

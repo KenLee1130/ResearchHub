@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 struct JournalView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var eventStore: EventStore
+    @EnvironmentObject private var generalStore: GeneralTodoStore
 
     @State private var displayedMonth: Date = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: .now)
@@ -210,6 +211,7 @@ struct JournalView: View {
         let marks = dayMarks[day] ?? DayMarks()
 
         return Button {
+            seedBeforeShowing(date)
             selectedDay = date
         } label: {
             VStack(spacing: 2) {
@@ -469,13 +471,23 @@ struct JournalView: View {
     private func consumePendingDate() {
         guard let date = store.pendingJournalDate else { return }
         store.pendingJournalDate = nil
+        seedBeforeShowing(date)
         selectedDay = calendar.startOfDay(for: date)
         displayedMonth = calendar.startOfMonth(for: date)
+    }
+
+    /// 開某一天的日記之前，先把該天該出現的 @due/@every 副本補齊
+    /// （今天以後才播；一定要在編輯器換檔前呼叫，避免和 autosave 打架）。
+    private func seedBeforeShowing(_ date: Date) {
+        store.seedTodos(
+            for: date,
+            generalTexts: generalStore.todos.filter { !$0.done }.map(\.text))
     }
 
     /// 逐日切換；跨月時月曆跟著翻頁。
     private func shiftDay(_ delta: Int) {
         guard let d = calendar.date(byAdding: .day, value: delta, to: selectedDay) else { return }
+        seedBeforeShowing(d)
         selectedDay = calendar.startOfDay(for: d)
         if !calendar.isDate(d, equalTo: displayedMonth, toGranularity: .month) {
             displayedMonth = calendar.startOfMonth(for: d)

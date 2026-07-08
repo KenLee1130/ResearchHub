@@ -398,6 +398,10 @@ struct MobilePlanningSheet: View {
     }
 
     private func load() {
+        // 先把明天該出現的副本播好（在讀檔之前）
+        store.seedTodos(
+            for: tomorrow,
+            generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
         guard let url = tomorrowURL,
               let content = try? String(contentsOf: url, encoding: .utf8) else {
             journalText = ""

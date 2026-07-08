@@ -99,6 +99,12 @@ struct HomeView: View {
 
                 // 晚間規劃儀式：寫明天的日記 + 看節奏 + 搬未完成
                 Button {
+                    // 先把明天該出現的副本播好，規劃時就看得到
+                    if let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: .now) {
+                        store.seedTodos(
+                            for: tomorrow,
+                            generalTexts: generalStore.todos.filter { !$0.done }.map(\.text))
+                    }
                     showPlanning = true
                 } label: {
                     Label("規劃明天", systemImage: "moon.stars")
@@ -1042,8 +1048,9 @@ struct HomeView: View {
 
     private func refresh() {
         generalStore.reload() // Claude 可能直接改過 .hub 的 JSON → 重讀
-        // 每日一次：@due/@from/@every 的獨立日副本播進今天的日記 + @remind 排通知
-        store.seedTodayTodos(
+        // @due/@from/@every 的獨立日副本播進今天的日記 + @remind 排通知（冪等）
+        store.seedTodos(
+            for: .now,
             generalTexts: generalStore.todos.filter { !$0.done }.map(\.text))
         recentNotes = store.recentNotes(limit: 5)
         todos = store.scanTodos()

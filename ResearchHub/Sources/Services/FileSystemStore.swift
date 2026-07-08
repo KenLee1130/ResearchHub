@@ -435,26 +435,23 @@ final class FileSystemStore: ObservableObject {
 
     // MARK: - 每日播種：@due/@from/@every 的獨立日副本 + @remind 通知
 
-    private static let seedDayKey = "researchHub.lastSeedDay"
-
-    /// 每天一次：把「今天該出現」的待辦以獨立副本寫進今天的日記。
-    /// 每天的副本互相獨立——勾掉只代表那一天，明天照樣出現，直到條件結束：
+    /// 冪等播種：把「這一天該出現」的待辦以獨立副本補進該天的日記（只限今天以後）。
+    /// 每天的副本互相獨立——勾掉只代表那一天，隔天照樣出現，直到條件結束：
     ///   @due(D)         → 每天出現，直到 D（含）；搭配 @from(F) 則從 F 才開始
     ///   @from(F) 單獨用 → 只在 F 那天出現一次
     ///   @every(mon,…)   → 每逢指定星期幾出現
     /// 提前不想再出現：把該行的標記拿掉或刪掉該行。
     /// 母本來源：所有日記行（含已勾）、筆記未完成待辦、一般待辦（generalTexts）。
-    /// 同時為未完成項目的 @remind 排程推播。必須在今天的日記編輯器載入之前呼叫。
-    func seedTodayTodos(generalTexts: [String] = []) {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let todayKey = df.string(from: .now)
-        guard UserDefaults.standard.string(forKey: Self.seedDayKey) != todayKey,
-              let todayURL = journalURL(for: .now)
-        else { return }
+    /// 內容比對冪等，可重複呼叫；今天的呼叫順便為 @remind 排程推播。
+    /// ⚠️ 必須在該天的日記編輯器載入之前呼叫（切換日期的動作裡、或編輯器開啟前）。
+    func seedTodos(for date: Date, generalTexts: [String] = []) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
-        let weekday = cal.component(.weekday, from: today)
+        let day = cal.startOfDay(for: date)
+        guard day >= today, let targetURL = journalURL(for: day) else { return }
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let weekday = cal.component(.weekday, from: day)
 
         // 母本收集（同文字只留一份；journals 含已勾的行——每日進度型任務勾了明天照樣出現）
         var masters: [String] = []
@@ -482,40 +479,41 @@ final class FileSystemStore: ObservableObject {
         for item in scanTodos() { addMaster(item.text, unchecked: true) }
         for text in generalTexts { addMaster(text, unchecked: true) }
 
-        // 今天已有的（不重複播）
-        let todayContent = (try? String(contentsOf: todayURL, encoding: .utf8)) ?? ""
-        var todayExisting = Set<String>()
-        for line in todayContent.components(separatedBy: "\n") {
+        // 該天已有的（不重複播）
+        let targetContent = (try? String(contentsOf: targetURL, encoding: .utf8)) ?? ""
+        var targetExisting = Set<String>()
+        for line in targetContent.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("- [ ]") || trimmed.lowercased().hasPrefix("- [x]")
             else { continue }
             let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-            todayExisting.insert(TodoMeta.parse(text).cleanText)
+            targetExisting.insert(TodoMeta.parse(text).cleanText)
         }
 
         var toSeed: [String] = []
         for raw in masters {
             let meta = TodoMeta.parse(raw)
-            guard !todayExisting.contains(meta.cleanText) else { continue }
+            guard !targetExisting.contains(meta.cleanText) else { continue }
             let from = meta.from.map { cal.startOfDay(for: $0) }
             var shouldSeed = false
             if let due = meta.due.map({ cal.startOfDay(for: $0) }) {
-                shouldSeed = today <= due && (from ?? .distantPast) <= today
+                shouldSeed = day <= due && (from ?? .distantPast) <= day
             } else if let from {
-                shouldSeed = from == today
+                shouldSeed = from == day
             }
             if let days = meta.everyWeekdays, days.contains(weekday) {
                 shouldSeed = true
             }
             guard shouldSeed else { continue }
             toSeed.append(raw)
-            todayExisting.insert(meta.cleanText)
+            targetExisting.insert(meta.cleanText)
         }
         if !toSeed.isEmpty {
-            appendTodoLines(toSeed, existingContent: todayContent, to: todayURL)
+            appendTodoLines(toSeed, existingContent: targetContent, to: targetURL)
         }
-        scheduleReminders(for: uncheckedMasters)
-        UserDefaults.standard.set(todayKey, forKey: Self.seedDayKey)
+        if day == today {
+            scheduleReminders(for: uncheckedMasters)
+        }
     }
 
     /// @remind：未完成且時刻在未來的 → 排程推播（id 固定為內容，重排自動覆蓋）。

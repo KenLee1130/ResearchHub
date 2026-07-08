@@ -811,8 +811,8 @@ extension BlockEditorView {
           Placeholder.configure({ placeholder: "\#(L("輸入文字，或打「/」插入區塊"))" }),
           Markdown.configure({ html: false, breaks: false, transformPastedText: true })
         ],
-        onUpdate() { scheduleSend(); refreshSlash(); },
-        onSelectionUpdate() { refreshSlash(); }
+        onUpdate() { scheduleSend(); refreshSlash(true); },
+        onSelectionUpdate() { refreshSlash(false); }
       });
       window.__editor = editor;
 
@@ -1053,7 +1053,9 @@ extension BlockEditorView {
         { label: "!low", hint: "\#(L("低優先"))", insert: "!low ", back: 0, match: "!low priority 低" }
       ];
 
-      function refreshSlash() {
+      // allowOpen：只有文件真的變動（打字）才允許「打開」選單；
+      // 純游標移動/點擊只能更新或關閉已開的選單，避免點到 @xxx 字尾亂彈。
+      function refreshSlash(allowOpen) {
         const { state } = editor;
         const { $from, empty } = state.selection;
         if (!empty || !$from.parent.isTextblock) return hideMenu();
@@ -1071,7 +1073,7 @@ extension BlockEditorView {
           // 行內任意位置的 @/! 開頭字組（前面是行首或空白；「![」不會觸發）
           // 只在日記啟用（由 Swift 端依文件路徑設定）
           if (!window.__markersEnabled) return hideMenu();
-          const mk = textBefore.match(/(?:^|\s)([@!][a-zA-Z]*)$/);
+          const mk = textBefore.match(/(?:^|\s)(@[a-zA-Z]*|![a-zA-Z]+)$/);
           if (!mk) return hideMenu();
           const q = mk[1].toLowerCase();
           filtered = markerItems.filter(i =>
@@ -1080,6 +1082,7 @@ extension BlockEditorView {
           slashRange = { from: $from.pos - mk[1].length, to: $from.pos };
         }
 
+        if (menu.style.display !== "block" && !allowOpen) return hideMenu();
         activeIndex = Math.min(activeIndex, filtered.length - 1);
         renderMenu();
         const c = editor.view.coordsAtPos($from.pos);
