@@ -730,6 +730,16 @@
         }
       }
     },
+    "命令列": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command line"
+          }
+        }
+      }
+    },
     "回到今天": {
       "localizations": {
         "en": {

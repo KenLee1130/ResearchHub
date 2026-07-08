@@ -769,6 +769,8 @@ extension BlockEditorView {
           run: ed => ed.chain().focus().toggleOrderedList().run() },
         { label: "\#(L("待辦清單"))", hint: "[ ]", match: "todo task checkbox 待辦",
           run: ed => ed.chain().focus().toggleTaskList().run() },
+        { label: "\#(L("命令列"))", hint: "/todo … @due !high ↵", match: "cmd command line 命令 指令",
+          run: ed => ed.chain().focus().insertContent("/todo ").run() },
         { label: "\#(L("行內公式"))", hint: "$", match: "math inline latex eq equation 行內 公式 數學",
           run: ed => {
             ed.chain().focus().insertContent({ type: "mathInline", attrs: { latex: "" } }).run();
@@ -796,10 +798,39 @@ extension BlockEditorView {
       let applying = false;
       let sendTimer = null;
 
+      // ---- 命令列：/todo 內容 @due(…) !high … + Enter → 該行變成待辦項目 ----
+      // 標記是純文字，所以「執行」只是把整行轉成 checkbox；@due/@every 由播種引擎接手。
+      const CommandLine = Extension.create({
+        name: "commandLine",
+        addKeyboardShortcuts() {
+          return {
+            Enter: () => {
+              const { state } = this.editor;
+              const { $from, empty } = state.selection;
+              if (!empty || !$from.parent.isTextblock) return false;
+              const start = $from.start();
+              const end = $from.end();
+              const text = state.doc.textBetween(start, end, "\n");
+              const m = text.match(/^\/todo\s+(.+)$/);
+              if (!m || !m[1].trim()) return false;
+              const content = m[1].trim();
+              this.editor.chain()
+                .insertContentAt({ from: start, to: end },
+                                 [{ type: "text", text: content }])   // 純文字，不走 HTML 解析
+                .setTextSelection(start + content.length)
+                .toggleTaskList()
+                .run();
+              return true;
+            }
+          };
+        }
+      });
+
       const editor = new Editor({
         element: document.getElementById("editor"),
         extensions: [
           StarterKit,
+          CommandLine,
           ExitListOnBackspace,
           TaskList,
           TaskItem.configure({ nested: true }),
