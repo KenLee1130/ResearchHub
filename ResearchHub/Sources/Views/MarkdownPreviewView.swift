@@ -10,17 +10,22 @@ import UIKit
 /// 數學段落先以 placeholder 保護再交給 marked，避免 $、反斜線被當成 Markdown 處理。
 struct MarkdownPreviewView {
     var text: String
-    var scrollSync: ScrollSync = ScrollSync()
     var baseDir: URL?
     /// 供 \cite 解析用的 Zotero 文獻（載入後變動時會觸發重新渲染）。
     var citationItems: [ZoteroItem] = []
     /// 點擊 [[筆記]] 引用時開啟對應筆記。
     var onOpenNote: ((URL) -> Void)?
+    /// 雙擊預覽的某個段落 → 回報該段落在錨點座標系的位置，讓左欄源碼跳到對應處。
+    var onJumpToSource: ((ScrollSync) -> Void)?
+    /// 版面："flow" = 連續（預設）、"a4" = A4 分頁（註腳放當頁底部）。
+    var layout: String = "flow"
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     private func makeWebView(coordinator: Coordinator) -> WKWebView {
-        let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(coordinator, name: "jumpToSource")
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = coordinator
         #if os(macOS)
         webView.setValue(false, forKey: "drawsBackground")
@@ -33,6 +38,8 @@ struct MarkdownPreviewView {
         coordinator.webView = webView
         coordinator.citationItems = citationItems
         coordinator.pendingText = text
+        coordinator.pendingLayout = layout
+        coordinator.onJumpToSource = onJumpToSource
         webView.loadHTMLString(Self.template, baseURL: WebResources.baseURL)
         return webView
     }
@@ -40,32 +47,47 @@ struct MarkdownPreviewView {
     private func refresh(coordinator: Coordinator) {
         coordinator.baseDir = baseDir
         coordinator.onOpenNote = onOpenNote
+        coordinator.onJumpToSource = onJumpToSource
+        coordinator.apply(layout: layout)
         coordinator.update(text: text, items: citationItems)
-        coordinator.scroll(sync: scrollSync)
     }
 
     // MARK: - Coordinator
 
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         weak var webView: WKWebView?
         var pendingText: String?
         var baseDir: URL?
         var citationItems: [ZoteroItem] = []
         var onOpenNote: ((URL) -> Void)?
+        var onJumpToSource: ((ScrollSync) -> Void)?
+        var pendingLayout: String?
         private var isLoaded = false
         private var lastText: String?
         private var lastCiteSig = -1
-        private var lastSync: ScrollSync?
+        private var lastLayout: String?
         /// 圖片 base64 快取（path → data URI），避免每次按鍵重讀檔案
         private var imageCache: [String: String] = [:]
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             isLoaded = true
+            if let layout = pendingLayout {
+                pendingLayout = nil
+                apply(layout: layout)
+            }
             if let pending = pendingText {
                 pendingText = nil
                 push(pending)
             }
+        }
+
+        /// 切換版面（flow / a4）。值來自我們自己的 AppStorage，安全可直接插入 JS。
+        func apply(layout: String) {
+            guard isLoaded else { pendingLayout = layout; return }
+            guard layout != lastLayout else { return }
+            lastLayout = layout
+            webView?.evaluateJavaScript("window.setLayout('\(layout)')")
         }
 
         /// 攔截連結點擊：
@@ -106,24 +128,47 @@ struct MarkdownPreviewView {
             decisionHandler(.cancel)
         }
 
+        private var pushWork: DispatchWorkItem?
+
         func update(text: String, items: [ZoteroItem]) {
             citationItems = items
             // 文字或文獻數量任一改變就重繪（文獻載入後 \cite 才解析得出來）。
             guard text != lastText || items.count != lastCiteSig else { return }
+            let firstRender = lastText == nil
             lastText = text
             lastCiteSig = items.count
-            if isLoaded {
-                push(text)
-            } else {
+            guard isLoaded else {
                 pendingText = text
+                return
             }
+            pushWork?.cancel()
+            if firstRender {
+                push(text)   // 開檔首繪不延遲
+                return
+            }
+            // 打字中的重繪延後到停手：長筆記每個按鍵都全文跑 marked+KaTeX 很重，
+            // 重繪瞬間的版面抖動也是預覽上下亂跳的來源之一。
+            let w = DispatchWorkItem { [weak self] in self?.push(text) }
+            pushWork = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: w)
         }
 
-        func scroll(sync: ScrollSync) {
-            guard isLoaded, sync != lastSync else { return }
-            lastSync = sync
-            webView?.evaluateJavaScript(
-                "window.scrollSync(\(sync.anchor),\(sync.local),\(sync.global),\(sync.count))")
+        /// 預覽端雙擊段落 → 收到錨點座標，轉交給左欄源碼跳轉。
+        func userContentController(
+            _ userContentController: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+            guard message.name == "jumpToSource",
+                  let body = message.body as? [String: Any],
+                  let anchor = body["anchor"] as? Int,
+                  let local = body["local"] as? Double,
+                  let global = body["global"] as? Double,
+                  let count = body["count"] as? Int else { return }
+            onJumpToSource?(ScrollSync(
+                anchor: anchor, local: CGFloat(local), global: CGFloat(global), count: count,
+                word: body["word"] as? String ?? "",
+                occ: body["occ"] as? Int ?? 0,
+                fn: body["fn"] as? Int ?? 0))
         }
 
         private func push(_ text: String) {
@@ -209,16 +254,43 @@ struct MarkdownPreviewView {
       blockquote { margin: 0; padding-left: 12px;
                    border-left: 3px solid rgba(127,127,127,0.4); opacity: 0.85; }
       .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+      /* 巢狀編號清單：仿 LaTeX enumerate 的層級記號 1. → a. → i. */
+      ol ol { list-style-type: lower-alpha; }
+      ol ol ol { list-style-type: lower-roman; }
       input[type=checkbox] { margin-right: 6px; }
       img { max-width: 100%; border-radius: 6px; }
       li.task { list-style: none; margin-left: -1.2em; }
       hr { border: none; border-top: 1px solid rgba(127,127,127,0.3); }
       .err { color: #c33; font-family: ui-monospace, monospace; font-size: 0.85em; }
       .rh-deadlink { color: #c33; border-bottom: 1px dashed #c33; cursor: help; }
+      .rh-tail-head { font-weight: 600; margin: 1em 0 0.4em; }
+      .rh-fn-head { font-size: 0.85em; opacity: 0.8; }
+      /* A4 分頁模式：固定 794×1123（96dpi 的 210×297mm），註腳放當頁底部 */
+      #measure { position: absolute; left: -10000px; top: 0; width: 680px; visibility: hidden; }
+      /* 頁面外觀跟隨系統主題：半透明卡片 + 細框，只換排版不換配色 */
+      #content.a4 .page {
+        width: 794px; min-height: 1123px; box-sizing: border-box;
+        padding: 57px;
+        margin: 0 auto 26px;
+        background: rgba(127,127,127,0.07);
+        border: 1px solid rgba(127,127,127,0.28);
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+        display: flex; flex-direction: column;
+      }
+      .pg-foot { margin-top: auto; }
+      .pg-foot:not(:empty) {
+        border-top: 1px solid rgba(127,127,127,0.4);
+        padding-top: 8px; margin-top: auto;
+        font-size: 0.82em; line-height: 1.5;
+      }
+      .pg-fn { margin: 3px 0; }
+      .pg-fn-n { opacity: 0.65; margin-right: 4px; }
     </style>
     </head>
     <body>
     <div id="content"></div>
+    <div id="measure"></div>
     <script>
       let mathBlocks = [];
 
@@ -255,41 +327,247 @@ struct MarkdownPreviewView {
         }
       }
 
+      let layoutMode = "flow";
+      let lastSrc = null;
+
+      window.setLayout = function (m) {
+        if (m === layoutMode) return;
+        layoutMode = m;
+        if (lastSrc !== null) { const s = lastSrc; lastSrc = null; window.update(s); }
+      };
+
+      // 給尾端註腳清單的每個項目標上 data-fn（雙擊可跳回源碼對應的 \\footnote）
+      function tagFootnotes(root) {
+        const head = root.querySelector(".rh-fn-head");
+        if (!head) return null;
+        const list = head.nextElementSibling;
+        if (!list || list.tagName !== "OL") return null;
+        Array.from(list.children).forEach((li, i) => { li.dataset.fn = i + 1; });
+        return { head: head, list: list };
+      }
+
+      // A4 分頁：把渲染好的區塊依高度塞進 794×1123 的頁面，
+      // 區塊裡有 [n] 註腳標記時，把對應註腳搬到「當頁」底部。
+      function paginate(meas, content) {
+        const USABLE = 1123 - 2 * 57;
+        // 比頁寬還寬的公式：等比縮小塞進頁面（消掉水平捲軸，
+        // 否則捲軸會吃掉高度、把公式上下裁掉）。縮到 0.5 為止，再寬就讓它捲。
+        for (const kd of meas.querySelectorAll(".katex-display")) {
+          kd.style.zoom = "";
+          if (kd.scrollWidth > kd.clientWidth + 1) {
+            kd.style.zoom = Math.max(0.5, kd.clientWidth / kd.scrollWidth);
+          }
+        }
+        const fn = tagFootnotes(meas);
+        let fnItems = [], fnHeights = [];
+        if (fn) {
+          fnItems = Array.from(fn.list.children).map(li => {
+            const d = document.createElement("div");
+            d.className = "pg-fn";
+            d.dataset.fn = li.dataset.fn;
+            d.innerHTML = '<span class="pg-fn-n">' + li.dataset.fn + '.</span> ' + li.innerHTML;
+            return d;
+          });
+          const hr = fn.head.previousElementSibling;
+          fn.list.remove();
+          fn.head.remove();
+          if (hr && hr.tagName === "HR") hr.remove();
+          for (const d of fnItems) {
+            d.style.fontSize = "0.82em";
+            meas.appendChild(d);
+            fnHeights.push(d.getBoundingClientRect().height + 3);
+            d.remove();
+            d.style.fontSize = "";
+          }
+        }
+
+        let body = null, foot = null, bodyH = 0, footH = 0;
+        function newPage() {
+          const page = document.createElement("div");
+          page.className = "page";
+          body = document.createElement("div");
+          body.className = "pg-body";
+          foot = document.createElement("div");
+          foot.className = "pg-foot";
+          page.append(body, foot);
+          content.appendChild(page);
+          bodyH = 0; footH = 0;
+        }
+        newPage();
+        for (const b of Array.from(meas.children)) {
+          const cs = getComputedStyle(b);
+          const h = b.getBoundingClientRect().height
+            + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+          const marks = Array.from(b.querySelectorAll("sup.rh-fn"))
+            .map(s => parseInt((s.textContent.match(/\\d+/) || ["0"])[0]))
+            .filter(n => n >= 1 && n <= fnItems.length);
+          let addFoot = 0;
+          for (const n of marks) addFoot += fnHeights[n - 1];
+          if (footH === 0 && marks.length) addFoot += 22;
+          if (bodyH > 0 && bodyH + h + footH + addFoot > USABLE) {
+            newPage();
+            addFoot = 0;
+            for (const n of marks) addFoot += fnHeights[n - 1];
+            if (marks.length) addFoot += 22;
+          }
+          body.appendChild(b);
+          bodyH += h;
+          for (const n of marks) foot.appendChild(fnItems[n - 1]);
+          footH += addFoot;
+        }
+      }
+
+      // 窄視窗時整頁等比縮小（zoom 會影響版面與座標，左右對位不受影響）
+      function applyScale() {
+        const content = document.getElementById("content");
+        if (!content.classList.contains("a4")) { content.style.zoom = ""; return; }
+        const w = document.documentElement.clientWidth - 44;
+        content.style.zoom = Math.max(0.3, Math.min(1, w / 794));
+      }
+      window.addEventListener("resize", applyScale);
+
+      // KaTeX 字型是首次渲染才開始載入：載入前量測的高度不準（也會造成字符重疊），
+      // 每批字型載完就把 A4 重新分頁（字型已齊時不會再觸發，不會迴圈）。
+      if (document.fonts) {
+        document.fonts.addEventListener("loadingdone", () => {
+          if (layoutMode === "a4" && lastSrc !== null) {
+            const s = lastSrc; lastSrc = null; window.update(s);
+          }
+        });
+      }
+
       window.update = function (text) {
+        lastSrc = text;
         mathBlocks = [];
         const safe = protect(text);
         let html = marked.parse(safe, { gfm: true, breaks: true });
         html = html.replace(/@@MATH(\\d+)@@/g, (_, i) => renderMath(mathBlocks[+i]));
-        document.getElementById("content").innerHTML = html;
+        const content = document.getElementById("content");
+        // 重繪防跳：記住捲動位置並鎖住高度——圖片/字型還沒定型時文件會暫時變矮，
+        // 捲動位置被瀏覽器夾到底端就是「上下亂跳」的來源；等圖片就位再解除。
+        const savedY = window.scrollY;
+        content.style.minHeight = content.getBoundingClientRect().height + "px";
+        if (layoutMode === "a4") {
+          content.className = "a4";
+          content.innerHTML = "";
+          const meas = document.getElementById("measure");
+          meas.innerHTML = html;
+          paginate(meas, content);
+          meas.innerHTML = "";
+        } else {
+          content.className = "";
+          content.innerHTML = html;
+          tagFootnotes(content);
+        }
+        applyScale();
+        window.scrollTo(0, savedY);
+        const imgs = Array.from(content.querySelectorAll("img"));
+        Promise.allSettled(imgs.map(im => im.decode ? im.decode() : Promise.resolve()))
+          .then(() => {
+            content.style.minHeight = "";
+            if (window.scrollY < savedY - 4) window.scrollTo(0, savedY);
+          });
       };
 
-      window.scrollToFraction = function (f) {
-        const max = document.body.scrollHeight - window.innerHeight;
-        window.scrollTo(0, Math.max(0, max * f));
-      };
-
-      // 以「標題 + 顯示型公式」為錨點的捲動同步：左邊在第 k 個錨點之後、段內比例 local，
-      // 右邊就對到對應錨點之間的同樣比例；錨點數對不上時退回整份比例 global。
+      // 雙擊某個段落 → 回報它在「標題 + 顯示型公式」錨點座標系的位置：
+      // 位於第 k 個錨點之後、段內比例 local；錨點數對不上時源碼端退回整份比例 global。
       // 公式也是錨點 → 公式多的段落不會因為原始碼很長、渲染後很短而整段偏掉。
-      window.scrollSync = function (k, local, global, srcCount) {
-        const anchors = Array.from(document.querySelectorAll(
-          "#content h1, #content h2, #content h3, #content h4, #content h5, #content h6, #content .rh-head, #content .katex-display"));
-        if (anchors.length === 0 || anchors.length !== srcCount) {
-          window.scrollToFraction(global);
+      const anchorSelector =
+        "#content h1, #content h2, #content h3, #content h4, #content h5, #content h6, #content .rh-head, #content .katex-display";
+
+      // 錨點清單：排除「生成尾端」（參考文獻/註腳，源碼沒有對應行）與 A4 頁底註腳，
+      // 否則左右錨點數對不上、整份對位會歪掉。
+      function anchorList() {
+        const tail = document.getElementById("rh-tail-start");
+        return Array.from(document.querySelectorAll(anchorSelector)).filter(el => {
+          if (el.closest(".pg-foot")) return false;
+          if (tail && (tail.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
+            return false;
+          return true;
+        });
+      }
+
+      // 選到的字在 range 起點之前出現過幾次（＝這次是第 occ 次，0-based）
+      function occurrenceBefore(word, containerRange, sel) {
+        const pre = containerRange.cloneRange();
+        const sr = sel.getRangeAt(0);
+        pre.setEnd(sr.startContainer, sr.startOffset);
+        const preText = pre.toString();
+        let occ = 0, idx = preText.indexOf(word);
+        while (idx !== -1) { occ += 1; idx = preText.indexOf(word, idx + 1); }
+        return occ;
+      }
+
+      function selectedWord(sel) {
+        if (!sel || sel.isCollapsed || sel.rangeCount === 0) return "";
+        const w = sel.toString().trim();
+        return (w && w.length <= 80 && w.indexOf("\\n") < 0) ? w : "";
+      }
+
+      document.addEventListener("dblclick", function (e) {
+        const bridge = window.webkit && window.webkit.messageHandlers
+          && window.webkit.messageHandlers.jumpToSource;
+        if (!bridge) return;
+        const sel = window.getSelection();
+
+        // 註腳項目（A4 頁底 .pg-fn 或文末清單 li[data-fn]）→ 直接對到第 n 個 \\footnote
+        const fnEl = e.target.closest("[data-fn]");
+        if (fnEl) {
+          let word = selectedWord(sel), occ = 0;
+          if (word) {
+            try {
+              const r = document.createRange();
+              r.selectNodeContents(fnEl);
+              occ = occurrenceBefore(word, r, sel);
+            } catch (_) { occ = 0; }
+          }
+          bridge.postMessage({ anchor: -1, local: 0, global: 0, count: 0,
+                               word: word, occ: occ, fn: parseInt(fnEl.dataset.fn) || 0 });
           return;
         }
-        const ys = anchors.map(el => el.getBoundingClientRect().top + window.scrollY);
-        const maxScroll = Math.max(0, document.body.scrollHeight - window.innerHeight);
-        let target;
-        if (k < 0) {
-          target = local * ys[0];
+
+        const block = e.target.closest(".katex-display, .pg-body > *, #content > *");
+        if (!block || block.classList.contains("page")) return;
+        const top = block.getBoundingClientRect().top + window.scrollY;
+        const maxScroll = Math.max(1, document.body.scrollHeight - window.innerHeight);
+        const anchorEls = anchorList();
+        const ys = anchorEls.map(el => el.getBoundingClientRect().top + window.scrollY);
+        let k = -1;
+        for (const y of ys) { if (y <= top + 0.5) k += 1; else break; }
+        let local;
+        if (ys.length === 0) {
+          local = 0;
+        } else if (k < 0) {
+          local = top / Math.max(1, ys[0]);
         } else if (k >= ys.length - 1) {
-          target = ys[ys.length - 1] + local * Math.max(0, maxScroll - ys[ys.length - 1]);
+          local = (top - ys[k]) / Math.max(1, maxScroll - ys[k]);
         } else {
-          target = ys[k] + local * (ys[k + 1] - ys[k]);
+          local = (top - ys[k]) / Math.max(1, ys[k + 1] - ys[k]);
         }
-        window.scrollTo(0, Math.max(0, Math.min(maxScroll, target)));
-      };
+        // 雙擊已讓瀏覽器選了字：連同「該字在錨點段落內是第幾次出現」一起回報，
+        // 左欄就能在對應的源碼區段選到同一個字（找不到時退回位置跳轉）。
+        let word = selectedWord(sel), occ = 0;
+        if (word) {
+          try {
+            const content = document.getElementById("content");
+            const seg = document.createRange();
+            if (k >= 0) seg.setStartBefore(anchorEls[k]);
+            else seg.setStart(content, 0);
+            if (k + 1 < anchorEls.length) seg.setEndBefore(anchorEls[k + 1]);
+            else seg.setEnd(content, content.childNodes.length);
+            occ = occurrenceBefore(word, seg, sel);
+          } catch (_) { word = ""; occ = 0; }
+        }
+        bridge.postMessage({
+          anchor: k,
+          local: Math.max(0, Math.min(1, local)),
+          global: Math.max(0, Math.min(1, top / maxScroll)),
+          count: ys.length,
+          word: word,
+          occ: occ,
+          fn: 0
+        });
+      });
     </script>
     </body>
     </html>

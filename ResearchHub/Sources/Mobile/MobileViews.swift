@@ -73,12 +73,23 @@ struct MobileNotePreview: View {
             onOpenNote: { pushedNote = $0 })
             .navigationTitle(noteURL.deletingPathExtension().lastPathComponent)
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                content = (try? String(contentsOf: noteURL, encoding: .utf8)) ?? ""
-            }
+            .onAppear { loadContent(retriesLeft: 5) }
             .navigationDestination(item: $pushedNote) { url in
                 MobileNotePreview(noteURL: url)
             }
+    }
+
+    private func loadContent(retriesLeft: Int) {
+        if let text = FileSystemStore.safeRead(noteURL) {
+            content = text
+        } else if retriesLeft > 0 {
+            // iCloud 還沒下載完（safeRead 已觸發下載）：稍後重試
+            content = "（從 iCloud 下載中…）"
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                loadContent(retriesLeft: retriesLeft - 1)
+            }
+        }
     }
 }
 
@@ -397,19 +408,31 @@ struct MobilePlanningSheet: View {
         moved.insert(item)
     }
 
-    private func load() {
+    private func load() { load(retriesLeft: 5) }
+
+    private func load(retriesLeft: Int) {
         // 先把明天該出現的副本播好（在讀檔之前）
         store.seedTodos(
             for: tomorrow,
             generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
-        guard let url = tomorrowURL,
-              let content = try? String(contentsOf: url, encoding: .utf8) else {
+        guard let url = tomorrowURL else {
             journalText = ""
             loadedText = ""
             return
         }
-        journalText = content
-        loadedText = content
+        if let content = FileSystemStore.safeRead(url) {
+            journalText = content
+            loadedText = content
+        } else if (try? url.checkResourceIsReachable()) == true, retriesLeft > 0 {
+            // iCloud 還沒下載完（safeRead 已觸發下載）：稍後重試，別當成空檔
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if journalText == loadedText { load(retriesLeft: retriesLeft - 1) }
+            }
+        } else {
+            journalText = ""
+            loadedText = ""
+        }
     }
 
     private func scheduleSave() {

@@ -7,6 +7,7 @@ import Foundation
 ///   @due(7/10)              到期日：每天在日記自動出現獨立副本，直到到期日（含）
 ///   @from(7/5)              開始日：@due 副本從這天才開始出現；單獨用 = 只在那天出現一次
 ///   @every(mon,thu)         循環：每逢那幾天出現（mon/tue/wed/thu/fri/sat/sun）
+///   @on(7/10,7/14)          指定日期：只在列出的那幾天出現（不連續工作用）
 ///   @remind(7/20 09:00)     提醒：到時推播通知（也接受 M/d＝當天 09:00、HH:mm＝今天）
 ///   @est(3h / 45m / 90)     預估時長（純數字 = 分鐘），排時段時參考；日記裡渲染成蕃茄進度條
 ///   @pomo(2)                任務自己的進度（已投入幾顆），進度條 ＋/− 改的就是它，不動蕃茄鐘統計
@@ -25,6 +26,8 @@ struct TodoMeta: Hashable {
     let from: Date?
     /// 循環（@every）：Calendar.weekday 集合（1 = Sun … 7 = Sat）
     let everyWeekdays: Set<Int>?
+    /// 指定日期（@on）：只在這些天出現（startOfDay）
+    let onDates: Set<Date>?
     /// 提醒時刻（@remind）
     let remind: Date?
     /// 預估時長（分鐘）
@@ -33,6 +36,15 @@ struct TodoMeta: Hashable {
     let pomoDone: Int?
     /// 主線歸屬（@line(A) → "A"），沒標 = nil
     let line: String?
+
+    /// 播種去重／任務總覽歸組用的比對鍵：去掉 markdown 強調符號與多餘空白，
+    /// 讓「**A @due(x)**」「**A**@due(x)」等寫法變體視為同一任務（否則會重複播種）。
+    var dedupKey: String {
+        cleanText
+            .replacingOccurrences(of: #"[*_`]"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
 
     /// 已過期（到期日在今天之前）
     var isOverdue: Bool {
@@ -46,6 +58,7 @@ struct TodoMeta: Hashable {
         var due: Date?
         var from: Date?
         var everyWeekdays: Set<Int>?
+        var onDates: Set<Date>?
         var remind: Date?
         var estMinutes: Int?
         var pomoDone: Int?
@@ -96,6 +109,19 @@ struct TodoMeta: Hashable {
             text.removeSubrange(r)
         }
 
+        // @on(…)：指定日期（逗號分隔，不連續工作用）
+        if let r = text.range(of: #"(?i)@on\(([^)]*)\)"#, options: .regularExpression) {
+            let inner = String(text[r])
+                .replacingOccurrences(of: #"(?i)@on\("#, with: "", options: .regularExpression)
+                .dropLast()
+            let dates = String(inner).split(separator: ",").compactMap {
+                Self.parseDate(String($0), calendar: calendar)
+                    .map { calendar.startOfDay(for: $0) }
+            }
+            onDates = dates.isEmpty ? nil : Set(dates)
+            text.removeSubrange(r)
+        }
+
         // @remind(…)：提醒時刻
         if let r = text.range(of: #"(?i)@remind\(([^)]*)\)"#, options: .regularExpression) {
             let inner = String(text[r])
@@ -128,8 +154,8 @@ struct TodoMeta: Hashable {
             .replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
         return TodoMeta(cleanText: clean, priority: priority, due: due,
-                        from: from, everyWeekdays: everyWeekdays, remind: remind,
-                        estMinutes: estMinutes, pomoDone: pomoDone, line: line)
+                        from: from, everyWeekdays: everyWeekdays, onDates: onDates,
+                        remind: remind, estMinutes: estMinutes, pomoDone: pomoDone, line: line)
     }
 
     /// "mon,thu" → Calendar.weekday 集合（1 = Sun … 7 = Sat）。認不得的略過。
@@ -175,7 +201,8 @@ struct TodoMeta: Hashable {
     }
 
     /// "3h" / "45m" / "90"（分鐘）→ 分鐘數。
-    private static func parseDuration(_ s: String) -> Int? {
+    /// "2h" / "45m" / "90"（純數字 = 分鐘）→ 分鐘數。任務總覽的 est 直接輸入也用它解析。
+    static func parseDuration(_ s: String) -> Int? {
         let t = s.trimmingCharacters(in: .whitespaces).lowercased()
         if t.hasSuffix("h"), let v = Double(t.dropLast()) { return Int(v * 60) }
         if t.hasSuffix("m"), let v = Double(t.dropLast()) { return Int(v) }
@@ -183,7 +210,8 @@ struct TodoMeta: Hashable {
         return nil
     }
 
-    private static func parseDate(_ s: String, calendar: Calendar) -> Date? {
+    /// "M/d"（當年）或 "yyyy-M-d" → 日期。日記命令列的 /go 跳日也用它解析。
+    static func parseDate(_ s: String, calendar: Calendar) -> Date? {
         let t = s.trimmingCharacters(in: .whitespaces)
         // yyyy-M-d 或 yyyy/M/d
         let full = t.components(separatedBy: CharacterSet(charactersIn: "-/"))

@@ -4,6 +4,9 @@ import UserNotifications
 #if canImport(AppKit)
 import AppKit
 #endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// 一顆已完成的蕃茄鐘紀錄(存進 <root>/Pomodoro/pomodoro.json)。
 struct PomodoroSession: Codable, Identifiable, Equatable {
@@ -36,7 +39,7 @@ enum PomodoroStatsPeriod: String, CaseIterable, Identifiable {
 @MainActor
 final class PomodoroModel: ObservableObject {
 
-    enum Phase {
+    enum Phase: String {
         case work, shortBreak, longBreak
 
         var label: String {
@@ -80,6 +83,7 @@ final class PomodoroModel: ObservableObject {
         static let todayDate = "pomodoro.todayDate"
         static let history = "pomodoro.history" // [yyyy-MM-dd: count]
         static let focusLog = "pomodoro.focusLog" // ["yyyy-MM-dd HH:mm [kind] text"]
+        static let savedTimer = "pomodoro.savedTimer" // 重啟續跑用的計時器快照
     }
 
     // MARK: - State
@@ -120,11 +124,76 @@ final class PomodoroModel: ObservableObject {
             name: UserDefaults.didChangeNotification,
             object: nil
         )
+        // app 結束前把計時器快照存起來，重啟後續跑
+        #if os(macOS)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillTerminate),
+            name: NSApplication.willTerminateNotification,
+            object: nil
+        )
+        #else
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillTerminate),
+            name: UIApplication.willTerminateNotification,
+            object: nil
+        )
+        #endif
 
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
         Task {
             try? await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound])
+        }
+
+        restoreTimerState()
+    }
+
+    @objc private func appWillTerminate() {
+        saveTimerState()
+    }
+
+    // MARK: - 計時器快照（重啟 app 後續跑）
+
+    /// 存下目前計時器的完整狀態。正在跑的靠 phaseEndAt（結束時刻）還原，
+    /// 所以重啟耗掉的時間也會正確扣掉。
+    private func saveTimerState() {
+        var d: [String: Any] = [
+            "phase": phase.rawValue,
+            "remaining": remaining,
+            "isRunning": isRunning,
+            "hasStartedPhase": hasStartedPhase,
+            "cyclePosition": cyclePosition,
+            "currentPlan": currentPlan,
+            "activeWorkMinutes": activeWorkMinutes,
+        ]
+        d["phaseEndAt"] = phaseEndAt?.timeIntervalSince1970 ?? 0
+        d["activeStartedAt"] = activeStartedAt?.timeIntervalSince1970 ?? 0
+        defaults.set(d, forKey: CountKey.savedTimer)
+    }
+
+    /// 啟動時還原快照。原本在跑 → 依結束時刻回推剩餘秒數接著跑；
+    /// 重啟期間就到期的，一秒內走正常完成流程（彈完成小視窗、記錄照寫）。
+    private func restoreTimerState() {
+        guard let d = defaults.dictionary(forKey: CountKey.savedTimer),
+              let raw = d["phase"] as? String,
+              let savedPhase = Phase(rawValue: raw) else { return }
+        phase = savedPhase
+        cyclePosition = d["cyclePosition"] as? Int ?? 0
+        currentPlan = d["currentPlan"] as? String ?? ""
+        hasStartedPhase = d["hasStartedPhase"] as? Bool ?? false
+        activeWorkMinutes = d["activeWorkMinutes"] as? Int ?? 25
+        if let t = d["activeStartedAt"] as? Double, t > 0 {
+            activeStartedAt = Date(timeIntervalSince1970: t)
+        }
+        let wasRunning = d["isRunning"] as? Bool ?? false
+        if wasRunning, let end = d["phaseEndAt"] as? Double, end > 0 {
+            remaining = max(0, Int(
+                Date(timeIntervalSince1970: end).timeIntervalSinceNow.rounded(.up)))
+            start()
+        } else {
+            remaining = d["remaining"] as? Int ?? duration(of: savedPhase)
         }
     }
 
@@ -271,6 +340,7 @@ final class PomodoroModel: ObservableObject {
         hasStartedPhase = false
         activeStartedAt = nil           // 這顆作廢,別把起始時刻帶到下一顆
         remaining = duration(of: phase)
+        saveTimerState()
     }
 
     /// 整個循環歸零。
@@ -281,6 +351,7 @@ final class PomodoroModel: ObservableObject {
         phase = .work
         cyclePosition = 0
         remaining = duration(of: .work)
+        saveTimerState()
     }
 
     /// 這一段倒數的結束時刻。倒數以它為準（而不是每秒 -1），
@@ -303,6 +374,7 @@ final class PomodoroModel: ObservableObject {
                 self?.tick()
             }
         }
+        saveTimerState()
     }
 
     private func pause() {
@@ -311,6 +383,7 @@ final class PomodoroModel: ObservableObject {
         timer = nil
         phaseEndAt = nil
         cancelEndNotification()
+        saveTimerState()
     }
 
     // MARK: - 結束時刻的預約通知（app 不在前景／手機鎖屏時也會響）
@@ -385,6 +458,7 @@ final class PomodoroModel: ObservableObject {
             notify("🧘 長休息結束", "要開始工作,還是再休息一下?")
             present(.breakDone(wasLong: true))
         }
+        saveTimerState()   // pause() 存的是切換前的狀態,這裡再存一次切換後的
     }
 
     /// 把 app 帶到前景並要求彈出完成小視窗。
@@ -431,6 +505,7 @@ final class PomodoroModel: ObservableObject {
         remaining = duration(of: .work)
         hasStartedPhase = false
         // 刻意不呼叫 start():維持暫停。
+        saveTimerState()
     }
 
     /// 休息結束 →「繼續工作」:可給下一顆計畫與分鐘數。長休息後循環歸零。
@@ -460,6 +535,7 @@ final class PomodoroModel: ObservableObject {
         phase = .work
         remaining = duration(of: .work)
         hasStartedPhase = false
+        saveTimerState()
     }
 
     /// 讀舊版歷史字典（相容 defaults 字串值，僅用於首次資料遷移）

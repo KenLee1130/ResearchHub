@@ -668,6 +668,16 @@
         }
       }
     },
+    "刪除區塊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete block"
+          }
+        }
+      }
+    },
     "刪除該行": {
       "localizations": {
         "en": {
@@ -806,6 +816,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open in Zotero"
+          }
+        }
+      }
+    },
+    "在下方插入區塊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insert block below"
           }
         }
       }
@@ -2202,6 +2222,16 @@
         }
       }
     },
+    "複製區塊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicate block"
+          }
+        }
+      }
+    },
     "規劃明天": {
       "localizations": {
         "en": {
@@ -2895,6 +2925,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Click to edit formula"
+          }
+        }
+      }
+    },
+    "點擊開啟選單；拖拉移動": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click for menu; drag to move"
           }
         }
       }

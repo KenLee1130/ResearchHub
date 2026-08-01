@@ -110,15 +110,21 @@ struct MobileTodayView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var showPlanning = false
     @State private var showTaskManager = false
+    @State private var selectedDate = Calendar.current.startOfDay(for: .now)
+    @State private var showDatePicker = false
 
-    private var journalURL: URL? { store.journalURL(for: .now) }
+    private let calendar = Calendar.current
+    private var isToday: Bool { calendar.isDateInToday(selectedDate) }
+    private var journalURL: URL? { store.journalURL(for: selectedDate) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    dateNavigationBar
+
                     // Claude 觀察（.hub/claude/insights.json，Mac 端或 AI 更新後同步過來）
-                    if let insights = generalTodos.insights, !insights.message.isEmpty {
+                    if isToday, let insights = generalTodos.insights, !insights.message.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Claude 觀察", systemImage: "sparkles")
                                 .font(.caption.weight(.semibold))
@@ -132,11 +138,12 @@ struct MobileTodayView: View {
                         .background(RoundedRectangle(cornerRadius: 12).fill(.purple.opacity(0.08)))
                     }
 
-                    // 今日事件
-                    let todayEvents = eventStore.events(on: .now)
+                    // 當日事件
+                    let todayEvents = eventStore.events(on: selectedDate)
                     if !todayEvents.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            Label("今日事件", systemImage: "calendar.badge.clock")
+                            Label(isToday ? "今日事件" : "當日事件",
+                                  systemImage: "calendar.badge.clock")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             ForEach(todayEvents) { event in
@@ -164,9 +171,9 @@ struct MobileTodayView: View {
                         .background(RoundedRectangle(cornerRadius: 12).fill(.gray.opacity(0.08)))
                     }
 
-                    // 今日日記：與 Mac 版同一套 block 編輯器（tiptap，離線 bundle）
+                    // 當日日記：與 Mac 版同一套 block 編輯器（tiptap，離線 bundle）
                     VStack(alignment: .leading, spacing: 6) {
-                        Label("今日日記", systemImage: "book")
+                        Label(isToday ? "今日日記" : "當日日記", systemImage: "book")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         BlockEditorView(
@@ -194,7 +201,7 @@ struct MobileTodayView: View {
                 }
                 .padding(16)
             }
-            .navigationTitle(Date.now.formatted(.dateTime.month().day().weekday(.wide)))
+            .navigationTitle(selectedDate.formatted(.dateTime.month().day().weekday(.wide)))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -207,6 +214,20 @@ struct MobileTodayView: View {
             }
             .sheet(isPresented: $showPlanning, onDismiss: load) {
                 MobilePlanningSheet()
+            }
+            .sheet(isPresented: $showDatePicker) {
+                DatePicker(
+                    "選擇日期",
+                    selection: Binding(
+                        get: { selectedDate },
+                        set: { date in
+                            showDatePicker = false
+                            switchTo(date)
+                        }),
+                    displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .padding()
+                    .presentationDetents([.medium])
             }
             .onReceive(NotificationCenter.default.publisher(for: .rhEditorCommand)) { note in
                 if note.userInfo?["command"] as? String == "list" {
@@ -227,20 +248,73 @@ struct MobileTodayView: View {
         }
     }
 
-    private func load() {
-        // @due/@from/@every 播進今天 + @remind 排通知（冪等；要在讀檔之前）
+    /// 日期導覽列：← 前一天｜點日期開月曆｜回今天｜後一天 →
+    private var dateNavigationBar: some View {
+        HStack(spacing: 12) {
+            Button { shiftDay(-1) } label: {
+                Image(systemName: "chevron.left")
+                    .frame(width: 36, height: 32)
+            }
+            Spacer()
+            Button { showDatePicker = true } label: {
+                Label(selectedDate.formatted(.dateTime.month().day().weekday(.abbreviated)),
+                      systemImage: "calendar")
+                    .font(.callout.weight(.medium))
+            }
+            if !isToday {
+                Button("今天") { switchTo(.now) }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+            }
+            Spacer()
+            Button { shiftDay(1) } label: {
+                Image(systemName: "chevron.right")
+                    .frame(width: 36, height: 32)
+            }
+        }
+    }
+
+    private func shiftDay(_ delta: Int) {
+        guard let d = calendar.date(byAdding: .day, value: delta, to: selectedDate) else { return }
+        switchTo(d)
+    }
+
+    /// 換日：先把目前這天存好，再切日期重載（編輯器由 documentID 換檔）。
+    private func switchTo(_ date: Date) {
+        saveNow()
+        selectedDate = calendar.startOfDay(for: date)
+        load()
+    }
+
+    private func load() { load(retriesLeft: 5) }
+
+    private func load(retriesLeft: Int) {
+        // @due/@from/@every 播進當天 + @remind 排通知（冪等；要在讀檔之前；
+        // seedTodos 內部只對今天以後的日期生效，翻舊日記不會被改動）
         store.seedTodos(
-            for: .now,
+            for: selectedDate,
             generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
 
-        guard let url = journalURL,
-              let content = try? String(contentsOf: url, encoding: .utf8) else {
+        guard let url = journalURL else {
             journalText = ""
             loadedText = ""
             return
         }
-        journalText = content
-        loadedText = content
+        if let content = FileSystemStore.safeRead(url) {
+            journalText = content
+            loadedText = content
+        } else if (try? url.checkResourceIsReachable()) == true, retriesLeft > 0 {
+            // 檔案在 iCloud 還沒下載完（safeRead 已觸發下載）：稍後重試。
+            // 別當成空檔——使用者一打字存檔會蓋掉雲端那份
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if journalText == loadedText { load(retriesLeft: retriesLeft - 1) }
+            }
+        } else {
+            journalText = ""
+            loadedText = ""
+        }
     }
 
     private func scheduleSave() {

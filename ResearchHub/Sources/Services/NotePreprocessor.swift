@@ -42,6 +42,11 @@ enum NotePreprocessor {
             }
         }
 
+        // 0.5 文字模式清單環境：\begin{enumerate}/\begin{itemize}（可巢狀、\item 可多行）
+        //     → markdown 清單。一定要在數學處理「之前」做：KaTeX 不支援這些文字環境，
+        //     不先轉換整塊會被預覽端當數學送去 KaTeX，渲染成錯誤。
+        text = convertListEnvironments(text)
+
         // 1. 方程式編號（仿 LaTeX）：
         //    - \label 不顯示任何東西，只記錄該式的編號供 \eqref 使用。
         //    - 編號由「環境」決定：equation/align/gather… 會編號；星號版、$$、\[ 不編號。
@@ -169,9 +174,16 @@ enum NotePreprocessor {
             return markers.joined()
         }
 
+        // 5.5 尾端生成區哨兵：預覽端用它排除「生成內容」的捲動錨點
+        //（生成的標題/公式在源碼沒有對應行，混進錨點會讓左右對位整個歪掉）。
+        //  標題刻意用 <div> 而不是 markdown 標題，才不會被當成 h1–h6 錨點。
+        if !citeOrder.isEmpty || !footnotes.isEmpty {
+            text += "\n\n<span id=\"rh-tail-start\"></span>"
+        }
+
         // 6. 附上「參考文獻」清單
         if !citeOrder.isEmpty {
-            var lines = ["", "", "---", "", "## 參考文獻", ""]
+            var lines = ["", "", "---", "", "<div class=\"rh-tail-head\">參考文獻</div>", ""]
             for (i, key) in citeOrder.enumerated() {
                 let n = i + 1
                 if let item = itemsByKey[key] {
@@ -185,7 +197,7 @@ enum NotePreprocessor {
 
         // 7. 附上註腳清單
         if !footnotes.isEmpty {
-            var lines = ["", "", "---", "", "###### 註腳", ""]
+            var lines = ["", "", "---", "", "<div class=\"rh-tail-head rh-fn-head\">註腳</div>", ""]
             for (i, note) in footnotes.enumerated() {
                 lines.append("\(i + 1). \(note)")
             }
@@ -193,6 +205,151 @@ enum NotePreprocessor {
         }
 
         return text
+    }
+
+    // MARK: - 文字清單環境 → markdown
+
+    /// KaTeX 只支援數學環境；enumerate/itemize 是文字模式清單，先轉成 markdown 清單。
+    private static let textListEnvs = ["enumerate", "itemize"]
+
+    /// 掃出環境內容裡的結構 token：\begin{...}、\end{...}、頂層 \item（可帶 [自訂標籤]）。
+    private static let listTokenRegex = try! NSRegularExpression(
+        pattern: #"\\begin\{[a-zA-Z*]+\}|\\end\{[a-zA-Z*]+\}|\\item(?![a-zA-Z])(?:\[[^\]\n]*\])?"#)
+
+    private static func convertListEnvironments(_ text: String) -> String {
+        let ns = text as NSString
+        let n = ns.length
+        var result = ""
+        var i = 0
+        while i < n {
+            var found: (begin: NSRange, env: String)?
+            for env in textListEnvs {
+                let r = ns.range(of: "\\begin{\(env)}", range: NSRange(location: i, length: n - i))
+                if r.location != NSNotFound,
+                   found == nil || r.location < found!.begin.location {
+                    found = (r, env)
+                }
+            }
+            guard let f = found,
+                  let (contentEnd, blockEnd) = matchingEnd(
+                    for: f.env, in: ns, from: f.begin.location + f.begin.length)
+            else {
+                // 沒有清單環境（或沒有對應的 \end）→ 剩餘內容原樣保留
+                result += ns.substring(from: i)
+                break
+            }
+            result += ns.substring(with: NSRange(location: i, length: f.begin.location - i))
+            let contentStart = f.begin.location + f.begin.length
+            let content = ns.substring(
+                with: NSRange(location: contentStart, length: contentEnd - contentStart))
+            result += markdownList(from: content, ordered: f.env == "enumerate")
+            i = blockEnd
+        }
+        return result
+    }
+
+    /// 從 from 開始找同名環境的對應 \end（同名巢狀會計數）。回傳（內容結尾, 區塊結尾）。
+    private static func matchingEnd(for env: String, in ns: NSString, from: Int) -> (Int, Int)? {
+        let beginTok = "\\begin{\(env)}"
+        let endTok = "\\end{\(env)}"
+        let n = ns.length
+        var depth = 1
+        var j = from
+        while j < n {
+            let e = ns.range(of: endTok, range: NSRange(location: j, length: n - j))
+            guard e.location != NSNotFound else { return nil }
+            let b = ns.range(of: beginTok, range: NSRange(location: j, length: n - j))
+            if b.location != NSNotFound, b.location < e.location {
+                depth += 1
+                j = b.location + b.length
+            } else {
+                depth -= 1
+                if depth == 0 { return (e.location, e.location + e.length) }
+                j = e.location + e.length
+            }
+        }
+        return nil
+    }
+
+    /// 把環境內容轉成 markdown 清單。\item 依「頂層」切分（巢狀環境內的不算），
+    /// 每項先逐行去掉 LaTeX 排版縮排、遞迴轉換巢狀清單，續行縮 4 格掛回本項。
+    /// 第一個 \item 之前的內容（如 \begin{enumerate}[(a)] 的選項）一併忽略。
+    private static func markdownList(from content: String, ordered: Bool) -> String {
+        let ns = content as NSString
+        var boundaries: [(afterToken: Int, tokenStart: Int)] = []
+        var depth = 0
+        listTokenRegex.enumerateMatches(
+            in: content, range: NSRange(location: 0, length: ns.length)) { m, _, _ in
+            guard let m else { return }
+            let tok = ns.substring(with: m.range)
+            if tok.hasPrefix("\\begin") {
+                depth += 1
+            } else if tok.hasPrefix("\\end") {
+                depth -= 1
+            } else if depth == 0 {
+                boundaries.append((m.range.location + m.range.length, m.range.location))
+            }
+        }
+        // 沒有半個 \item：使用者多半直接在環境裡寫了 markdown 式的「1. 2.」清單，
+        // 把各層縮排正規化成 0/4/8 格（頂層縮 4 格以上會被 markdown 當 code block）。
+        guard !boundaries.isEmpty else { return normalizeMarkdownListIndent(content) }
+
+        var lines: [String] = []
+        for (k, b) in boundaries.enumerated() {
+            let end = k + 1 < boundaries.count ? boundaries[k + 1].tokenStart : ns.length
+            let raw = ns.substring(
+                with: NSRange(location: b.afterToken, length: end - b.afterToken))
+            var itemLines = raw.components(separatedBy: "\n").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            while itemLines.first?.isEmpty == true { itemLines.removeFirst() }
+            while itemLines.last?.isEmpty == true { itemLines.removeLast() }
+            let converted = convertListEnvironments(itemLines.joined(separator: "\n"))
+            let outLines = converted.components(separatedBy: "\n")
+            let marker = ordered ? "\(k + 1). " : "- "
+            lines.append(marker + (outLines.first ?? ""))
+            for l in outLines.dropFirst() {
+                lines.append(l.isEmpty ? "" : "    " + l)
+            }
+        }
+        // 前後各留空行，marked 才會把它當獨立清單解析（就算原本卡在段落中間）
+        return "\n\n" + lines.joined(separator: "\n") + "\n\n"
+    }
+
+    /// 清單環境裡沒有 \item 時的救援：內容當 markdown 清單，把「出現過的縮排寬度」
+    /// 由淺到深映射成第 0/1/2… 層，重寫成每層 4 格；非清單行剝掉縮排讓它以
+    /// lazy continuation 掛回上一項。內容完全沒有清單行就原樣還回去。
+    private static let markdownListLineRegex = try! NSRegularExpression(
+        pattern: #"^[ \t]*(?:\d+[.)]|[-*+])\s"#)
+
+    private static func normalizeMarkdownListIndent(_ content: String) -> String {
+        func width(_ line: String) -> Int {
+            line.prefix { $0 == " " || $0 == "\t" }
+                .reduce(0) { $0 + ($1 == "\t" ? 4 : 1) }
+        }
+        let lines = content.components(separatedBy: "\n")
+        var isList: [Bool] = []
+        var widths = Set<Int>()
+        for l in lines {
+            let m = markdownListLineRegex.firstMatch(
+                in: l, range: NSRange(location: 0, length: (l as NSString).length))
+            isList.append(m != nil)
+            if m != nil { widths.insert(width(l)) }
+        }
+        guard !widths.isEmpty else { return content }
+        let level = Dictionary(
+            uniqueKeysWithValues: widths.sorted().enumerated().map { ($1, $0) })
+        var out: [String] = []
+        for (i, l) in lines.enumerated() {
+            let trimmed = l.trimmingCharacters(in: .whitespaces)
+            if isList[i] {
+                out.append(String(repeating: "    ", count: level[width(l)] ?? 0) + trimmed)
+            } else {
+                out.append(trimmed)
+            }
+        }
+        // 前後留空行，跟其他轉換結果一樣讓 marked 把它當獨立清單
+        return "\n\n" + out.joined(separator: "\n") + "\n\n"
     }
 
     /// 把 key 轉成可當 HTML id / URL 片段的字串（非 ASCII 英數一律換成 -）。

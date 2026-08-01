@@ -9,6 +9,7 @@ struct JournalView: View {
     @EnvironmentObject private var store: FileSystemStore
     @EnvironmentObject private var eventStore: EventStore
     @EnvironmentObject private var generalStore: GeneralTodoStore
+    @EnvironmentObject private var pomodoro: PomodoroModel
 
     @State private var displayedMonth: Date = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: .now)
@@ -91,8 +92,12 @@ struct JournalView: View {
             EventEditorSheet(draft: config.draft, isNew: config.isNew)
         }
         .onReceive(NotificationCenter.default.publisher(for: .rhEditorCommand)) { note in
-            if note.userInfo?["command"] as? String == "list" {
+            guard let cmd = note.userInfo?["command"] as? String else { return }
+            if cmd == "list" {
                 showTaskManager = true
+            } else if cmd.hasPrefix("go:") {
+                // 編輯器內命令行的 /go：跳到那一天（同底部命令列）
+                _ = handleQuickAction(.go(String(cmd.dropFirst(3))))
             }
         }
         .sheet(isPresented: $showTaskManager, onDismiss: refreshMonthData) {
@@ -286,54 +291,25 @@ struct JournalView: View {
 
     private var journalPane: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // 左右鍵：不用回月曆就能逐日切換
-                HStack(spacing: 0) {
-                    Button {
-                        shiftDay(-1)
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .padding(6)
-                            .contentShape(Rectangle())
-                    }
-                    .help("前一天（⌘⌥←）")
-                    .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
-                    Button {
-                        shiftDay(1)
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .padding(6)
-                            .contentShape(Rectangle())
-                    }
-                    .help("後一天（⌘⌥→）")
-                    .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+            // 放得下：時間收支整組跟標題同一列；放不下：折到第二列靠右
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    journalHeaderLeading
+                    Spacer(minLength: 12)
+                    timeBudgetBar
+                    EditorModePicker(mode: $mode, available: [.blocks, .source])
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 8) {
-                        Text(dayTitle)
-                            .font(.headline)
-                        if !calendar.isDateInToday(selectedDay) {
-                            Button("回到今天") {
-                                selectedDay = calendar.startOfDay(for: .now)
-                                displayedMonth = calendar.startOfMonth(for: .now)
-                            }
-                            .font(.caption)
-                            .buttonStyle(.link)
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 12) {
+                        journalHeaderLeading
+                        Spacer(minLength: 12)
+                        EditorModePicker(mode: $mode, available: [.blocks, .source])
                     }
-                    if let names = noteUpdates[calendar.component(.day, from: selectedDay)],
-                       calendar.isDate(selectedDay, equalTo: displayedMonth, toGranularity: .month) {
-                        Text("當日筆記更新：\(names.joined(separator: "、"))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                    HStack {
+                        Spacer()
+                        timeBudgetBar
                     }
                 }
-                Spacer()
-                EditorModePicker(mode: $mode, available: [.blocks, .source])
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -344,10 +320,165 @@ struct JournalView: View {
                 // 總覽開著：編輯器卸下（onDisappear 會先存檔），總覽可安全改日記檔
                 Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let url = journalURL(for: selectedDay) {
-                EditorCore(fileURL: url, mode: $mode)
+                EditorCore(
+                    fileURL: url, mode: $mode,
+                    quickCmdBar: true,
+                    onJournalCommand: handleQuickAction)
                     .id(url)
             }
         }
+    }
+
+    /// 標題列左半：日期切換鍵＋標題（一列/兩列佈局共用）
+    private var journalHeaderLeading: some View {
+        HStack(spacing: 12) {
+            // 左右鍵：不用回月曆就能逐日切換
+            HStack(spacing: 0) {
+                Button {
+                    shiftDay(-1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .padding(6)
+                        .contentShape(Rectangle())
+                }
+                .help("前一天（⌘⌥←）")
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                Button {
+                    shiftDay(1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .padding(6)
+                        .contentShape(Rectangle())
+                }
+                .help("後一天（⌘⌥→）")
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(dayTitle)
+                        .font(.headline)
+                        .fixedSize()
+                    if !calendar.isDateInToday(selectedDay) {
+                        Button("回到今天") {
+                            selectedDay = calendar.startOfDay(for: .now)
+                            displayedMonth = calendar.startOfMonth(for: .now)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.link)
+                    }
+                }
+                if let names = noteUpdates[calendar.component(.day, from: selectedDay)],
+                   calendar.isDate(selectedDay, equalTo: displayedMonth, toGranularity: .month) {
+                    Text("當日筆記更新：\(names.joined(separator: "、"))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    // MARK: - 今日時間收支（標題列右側）
+
+    private struct DayBudget {
+        var estTotal = 0        // 全部待辦 @est 加總（分）
+        var estRemaining = 0    // 未打勾的 @est 加總（分）
+        var ranMinutes = 0      // 今天蕃茄鐘實際跑的分鐘
+        var leftMinutes = 0     // 現在到午夜（分）
+    }
+
+    /// 只在「今天」且日記裡有帶 @est 的待辦時顯示。
+    /// 打勾一項 → estRemaining 立刻少掉那項的估時，可對照 🍅 實跑。
+    @ViewBuilder private var timeBudgetBar: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { _ in
+            if let b = todayBudget() {
+                let h = { (m: Int) in Int((Double(m) / 60).rounded()) }
+                let overloaded = b.estRemaining > b.leftMinutes
+                let total = max(1, b.ranMinutes + max(b.leftMinutes, b.estRemaining))
+                HStack(spacing: 8) {
+                    Text("🍅 \(h(b.ranMinutes))h ・ 還需 \(h(b.estRemaining))h / 剩 \(h(b.leftMinutes))h")
+                        .font(.caption)
+                        .foregroundStyle(overloaded ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                        .fixedSize()
+                    Capsule()
+                        .fill(.quaternary)
+                        .frame(width: 150, height: 8)
+                        .overlay(alignment: .leading) {
+                            HStack(spacing: 0) {
+                                Rectangle()
+                                    .fill(.green)
+                                    .frame(width: 150 * CGFloat(b.ranMinutes) / CGFloat(total))
+                                Rectangle()
+                                    .fill(overloaded ? Color.red : .orange)
+                                    .frame(width: 150 * CGFloat(min(b.estRemaining, total - b.ranMinutes)) / CGFloat(total))
+                            }
+                            .clipShape(Capsule())
+                        }
+                }
+                .help("總需 \(h(b.estTotal))h・已完成 \(h(b.estTotal - b.estRemaining))h・已跑 \(h(b.ranMinutes))h・緩衝 \(h(b.leftMinutes - b.estRemaining))h")
+            }
+        }
+    }
+
+    private func todayBudget() -> DayBudget? {
+        guard calendar.isDateInToday(selectedDay),
+              let url = journalURL(for: selectedDay),
+              let content = try? String(contentsOf: url, encoding: .utf8)
+        else { return nil }
+        var b = DayBudget()
+        for line in content.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let done: Bool
+            if trimmed.hasPrefix("- [ ]") { done = false }
+            else if trimmed.lowercased().hasPrefix("- [x]") { done = true }
+            else { continue }
+            let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            guard let est = TodoMeta.parse(text).estMinutes else { continue }
+            b.estTotal += est
+            if !done { b.estRemaining += est }
+        }
+        guard b.estTotal > 0 else { return nil }
+        b.ranMinutes = pomodoro.sessions
+            .filter { calendar.isDateInToday($0.date) }
+            .reduce(0) { $0 + $1.minutes }
+        let midnight = calendar.startOfDay(for: .now).addingTimeInterval(86_400)
+        b.leftMinutes = max(0, Int(midnight.timeIntervalSinceNow / 60))
+        return b
+    }
+
+    // MARK: - 底部命令列的日記層級動作（/go /list）
+
+    private func handleQuickAction(_ action: JournalQuickAction) -> Bool {
+        switch action {
+        case .list:
+            showTaskManager = true
+            return true
+        case .go(let arg):
+            guard let day = parseGoTarget(arg) else { return false }
+            selectedDay = calendar.startOfDay(for: day)
+            displayedMonth = calendar.startOfMonth(for: day)
+            return true
+        }
+    }
+
+    /// /go 的目標：空/today/今天、tomorrow/明天、yesterday/昨天、±n（相對目前顯示的那天）、
+    /// M/d 或 yyyy-M-d（與 @due 同格式）。
+    private func parseGoTarget(_ s: String) -> Date? {
+        let t = s.lowercased()
+        if t.isEmpty || t == "today" || t == "今天" { return .now }
+        if t == "tomorrow" || t == "明天" {
+            return calendar.date(byAdding: .day, value: 1, to: .now)
+        }
+        if t == "yesterday" || t == "昨天" {
+            return calendar.date(byAdding: .day, value: -1, to: .now)
+        }
+        if t.range(of: #"^[+-]\d+$"#, options: .regularExpression) != nil, let n = Int(t) {
+            return calendar.date(byAdding: .day, value: n, to: selectedDay)
+        }
+        return TodoMeta.parseDate(s, calendar: calendar)
     }
 
     // MARK: - Event rows

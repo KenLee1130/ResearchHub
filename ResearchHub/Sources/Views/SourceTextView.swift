@@ -15,7 +15,8 @@ final class ActiveEditorRegistry {
     }
 }
 
-/// 左欄源碼編輯器：NSTextView 包裝，Overleaf 式多色語法高亮，回報捲動位置。
+/// 左欄源碼編輯器：NSTextView 包裝，Overleaf 式多色語法高亮，
+/// 可接收右欄預覽雙擊段落後的跳轉請求（SourceJumpRequest）。
 /// 配色：定界符（$、$$、\[、\(）橘、數學內容紫、指令藍、
 /// 環境名與指令第一個 {…} 參數綠、標題粗體、checkbox 橘。
 /// 支援 Cmd+V 貼上圖片的 NSTextView：圖片交給 onPasteImage 存檔，插入回傳的 markdown。
@@ -59,6 +60,7 @@ final class PastingTextView: NSTextView {
     static let envList: [String] = [
         "equation", "equation*", "align", "align*", "aligned", "gather", "gather*",
         "cases", "split", "multline", "matrix", "pmatrix", "bmatrix", "vmatrix", "Vmatrix",
+        "enumerate", "itemize",
     ]
 
     private lazy var completionPopup: CompletionPopup = {
@@ -269,6 +271,9 @@ final class PastingTextView: NSTextView {
             updateCompletion()   // Esc：手動叫出我們的清單（而非系統補全）
             return
         }
+        // Tab / Shift-Tab：游標在清單項上時升降層級（編號會跟著兩層重編）
+        if selector == #selector(insertTab(_:)), changeListLevel(by: 1) { return }
+        if selector == #selector(insertBacktab(_:)), changeListLevel(by: -1) { return }
         super.doCommand(by: selector)
     }
 
@@ -413,23 +418,259 @@ final class PastingTextView: NSTextView {
             .replacingOccurrences(of: "[x]", with: "[ ]")
             .replacingOccurrences(of: "[X]", with: "[ ]")
         // 編號列表遞增
+        var renumber: (indent: String, next: Int)?
         if match.range(at: 4).location != NSNotFound,
            let n = Int(lineNS.substring(with: match.range(at: 4))) {
             let indent = lineNS.substring(with: match.range(at: 1))
             let sep = lineNS.substring(with: match.range(at: 5))
             newPrefix = "\(indent)\(n + 1)\(sep) "
+            renumber = (indent, n + 2)
         }
 
         insertText("\n" + newPrefix, replacementRange: sel)
+        // 在清單中間插入新項後，後面同層的既有項目依序改號（2. 變 3.、3. 變 4.…）
+        if let renumber {
+            renumberFollowingItems(indent: renumber.indent, startingAt: renumber.next)
+        }
+    }
+
+    // MARK: - 編號清單重編（插入 / 刪除 / 升降層級共用）
+
+    /// 把一行解析成編號清單項：回傳（縮排, 數字在行內的範圍, 數字）。
+    private func numberedItem(in line: String) -> (indent: String, numRange: NSRange, num: Int)? {
+        let lineNS = line as NSString
+        guard let m = Self.listPrefixRegex.firstMatch(
+                in: line, range: NSRange(location: 0, length: lineNS.length)),
+              m.range(at: 4).location != NSNotFound,
+              let n = Int(lineNS.substring(with: m.range(at: 4))) else { return nil }
+        return (lineNS.substring(with: m.range(at: 1)), m.range(at: 4), n)
+    }
+
+    /// 從游標所在行的下一行開始重編（插入新項後用）。
+    private func renumberFollowingItems(indent: String, startingAt first: Int) {
+        let ns = string as NSString
+        let caret = selectedRange().location
+        guard caret != NSNotFound, caret <= ns.length else { return }
+        renumberItems(afterLine: ns.lineRange(for: NSRange(location: caret, length: 0)),
+                      indent: indent, startingAt: first)
+    }
+
+    /// 從 baseLine 的下一行開始，把同縮排的編號項重編為 first、first+1…。
+    /// 更深縮排的行（子清單/續行）跳過；空行或其他內容代表清單結束就停。
+    private func renumberItems(afterLine baseLine: NSRange, indent: String, startingAt first: Int) {
+        let ns = string as NSString
+        var pos = baseLine.location + baseLine.length
+        var next = first
+        var edits: [(range: NSRange, num: String)] = []
+        while pos < ns.length {
+            let lr = ns.lineRange(for: NSRange(location: pos, length: 0))
+            let line = ns.substring(with: lr)
+            if line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { break }
+            if let it = numberedItem(in: line), it.indent == indent {
+                if it.num != next {
+                    edits.append((NSRange(location: lr.location + it.numRange.location,
+                                          length: it.numRange.length), "\(next)"))
+                }
+                next += 1
+            } else {
+                let leading = line.prefix { $0 == " " || $0 == "\t" }
+                if leading.count <= indent.count { break }
+            }
+            pos = lr.location + lr.length
+        }
+        guard !edits.isEmpty else { return }
+        guard shouldChangeText(
+            inRanges: edits.map { NSValue(range: $0.range) },
+            replacementStrings: edits.map { $0.num }) else { return }
+        textStorage?.beginEditing()
+        for e in edits.reversed() {   // 由後往前套用，前面的 range 才不會位移
+            textStorage?.replaceCharacters(in: e.range, with: e.num)
+        }
+        textStorage?.endEditing()
+        didChangeText()
+    }
+
+    /// 從 line 往上找「indent 這一層」最上面的編號項。
+    /// 更深縮排的行（子清單/續行）跳過；空行或縮排更淺的其他內容＝清單邊界就停。
+    private func topItemLine(from line: NSRange, indent: String) -> (line: NSRange, num: Int)? {
+        let ns = string as NSString
+        var scan = line
+        var top: (line: NSRange, num: Int)?
+        if let it = numberedItem(in: ns.substring(with: scan)), it.indent == indent {
+            top = (scan, it.num)
+        }
+        while scan.location > 0 {
+            let prev = ns.lineRange(for: NSRange(location: scan.location - 1, length: 0))
+            let prevLine = ns.substring(with: prev)
+            if let it = numberedItem(in: prevLine), it.indent == indent {
+                top = (prev, it.num)
+                scan = prev
+            } else {
+                if prevLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { break }
+                let leading = prevLine.prefix { $0 == " " || $0 == "\t" }
+                if leading.count <= indent.count { break }
+                scan = prev
+            }
+        }
+        return top
+    }
+
+    /// 重編 line 所在「indent 層」的整串編號：最上面一項的號碼保留，其餘依序遞增。
+    private func renumberLevel(around line: NSRange, indent: String) {
+        guard let top = topItemLine(from: line, indent: indent) else { return }
+        renumberItems(afterLine: top.line, indent: indent, startingAt: top.num + 1)
+    }
+
+    /// 從 line 的下一行往下找到第一個「indent 層」編號項，把它改成 first，
+    /// 其後同層項目接續重編（升降層級後，留下/新生的子清單從頭編）。
+    private func resequenceLevelBelow(_ line: NSRange, indent: String, startingAt first: Int) {
+        let ns = string as NSString
+        var pos = line.location + line.length
+        while pos < ns.length {
+            let lr = ns.lineRange(for: NSRange(location: pos, length: 0))
+            let l = ns.substring(with: lr)
+            if l.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
+            if let it = numberedItem(in: l), it.indent == indent {
+                if it.num != first {
+                    let r = NSRange(location: lr.location + it.numRange.location,
+                                    length: it.numRange.length)
+                    guard shouldChangeText(in: r, replacementString: "\(first)") else { return }
+                    textStorage?.replaceCharacters(in: r, with: "\(first)")
+                    didChangeText()
+                }
+                let ns2 = string as NSString
+                renumberItems(afterLine: ns2.lineRange(for: NSRange(location: lr.location, length: 0)),
+                              indent: indent, startingAt: first + 1)
+                return
+            }
+            let leading = l.prefix { $0 == " " || $0 == "\t" }
+            if leading.count <= indent.count { return }
+            pos = lr.location + lr.length
+        }
+    }
+
+    // MARK: - 刪除時自動重編
+
+    /// 這次刪除是否跨行（併行/整行刪除才需要重編；行內改字不動編號）。
+    private func deletionCrossesLine(backward: Bool) -> Bool {
+        let ns = string as NSString
+        let sel = selectedRange()
+        guard sel.location != NSNotFound else { return false }
+        if sel.length > 0 { return ns.substring(with: sel).contains("\n") }
+        if backward {
+            return sel.location > 0 && ns.character(at: sel.location - 1) == 0x0A
+        }
+        return sel.location < ns.length && ns.character(at: sel.location) == 0x0A
+    }
+
+    override func deleteBackward(_ sender: Any?) {
+        let crossed = deletionCrossesLine(backward: true)
+        super.deleteBackward(sender)
+        if crossed { renumberAfterDeletion() }
+    }
+
+    override func deleteForward(_ sender: Any?) {
+        let crossed = deletionCrossesLine(backward: false)
+        super.deleteForward(sender)
+        if crossed { renumberAfterDeletion() }
+    }
+
+    override func cut(_ sender: Any?) {
+        let sel = selectedRange()
+        let crossed = sel.length > 0
+            && (string as NSString).substring(with: sel).contains("\n")
+        super.cut(sender)
+        if crossed { renumberAfterDeletion() }
+    }
+
+    private func renumberAfterDeletion() {
+        let ns = string as NSString
+        let caret = selectedRange().location
+        guard caret != NSNotFound, caret <= ns.length else { return }
+        let line = ns.lineRange(for: NSRange(location: caret, length: 0))
+        guard let it = numberedItem(in: ns.substring(with: line)) else { return }
+        renumberLevel(around: line, indent: it.indent)
+    }
+
+    // MARK: - Tab / Shift-Tab 升降清單層級
+
+    private static let listIndentUnit = "    "   // 巢狀清單縮排 4 格（markdown 各層都吃）
+
+    /// 游標所在的清單項升（+1）/降（-1）一層；編號項會重編「離開」與「加入」兩層。
+    /// 非清單行回傳 false，維持原本 Tab 行為。
+    private func changeListLevel(by delta: Int) -> Bool {
+        let ns = string as NSString
+        let sel = selectedRange()
+        guard sel.length == 0, sel.location != NSNotFound, sel.location <= ns.length
+        else { return false }
+        let line = ns.lineRange(for: NSRange(location: sel.location, length: 0))
+        let lineStr = ns.substring(with: line)
+        guard Self.listPrefixRegex.firstMatch(
+            in: lineStr,
+            range: NSRange(location: 0, length: (lineStr as NSString).length)) != nil
+        else { return false }
+        let oldIndent = String(lineStr.prefix { $0 == " " || $0 == "\t" })
+
+        if delta > 0 {
+            insertText(Self.listIndentUnit,
+                       replacementRange: NSRange(location: line.location, length: 0))
+        } else {
+            let removeLen = oldIndent.hasPrefix("\t")
+                ? 1 : min(Self.listIndentUnit.count, oldIndent.prefix { $0 == " " }.count)
+            guard removeLen > 0 else { return true }   // 已在最外層：吃掉按鍵即可
+            insertText("", replacementRange: NSRange(location: line.location, length: removeLen))
+        }
+
+        // 縮排變了，重新取行與縮排
+        let ns2 = string as NSString
+        let newLine = ns2.lineRange(for: NSRange(location: selectedRange().location, length: 0))
+        let newLineStr = ns2.substring(with: newLine)
+        let newIndent = String(newLineStr.prefix { $0 == " " || $0 == "\t" })
+
+        if let it = numberedItem(in: newLineStr) {
+            // 加入的那一層：上面有同層項就接續它重編；沒有就本行從 1 開始、後面接著編
+            if let top = topItemLine(from: newLine, indent: newIndent),
+               top.line.location != newLine.location {
+                renumberItems(afterLine: top.line, indent: newIndent, startingAt: top.num + 1)
+            } else {
+                if it.num != 1 {
+                    let r = NSRange(location: newLine.location + it.numRange.location,
+                                    length: it.numRange.length)
+                    if shouldChangeText(in: r, replacementString: "1") {
+                        textStorage?.replaceCharacters(in: r, with: "1")
+                        didChangeText()
+                    }
+                }
+                let ns3 = string as NSString
+                let lr = ns3.lineRange(for: NSRange(location: selectedRange().location, length: 0))
+                renumberItems(afterLine: lr, indent: newIndent, startingAt: 2)
+            }
+        }
+
+        // 離開的那一層：升層後外層剩下的項目補位；上面沒有同層項時，下面的從 1 重編
+        let ns4 = string as NSString
+        let lr = ns4.lineRange(for: NSRange(location: selectedRange().location, length: 0))
+        if delta > 0, let top = topItemLine(from: lr, indent: oldIndent) {
+            renumberItems(afterLine: top.line, indent: oldIndent, startingAt: top.num + 1)
+        } else {
+            resequenceLevelBelow(lr, indent: oldIndent, startingAt: 1)
+        }
+        return true
     }
 }
 
 // （ScrollSync 移到 Services/WebResources.swift，iOS 版共用）
 
+/// 右欄預覽雙擊段落 → 左欄源碼跳轉的一次性請求（id 變了才執行，避免重複觸發）。
+struct SourceJumpRequest: Equatable {
+    let id = UUID()
+    let sync: ScrollSync
+}
+
 struct SourceTextView: NSViewRepresentable {
     @Binding var text: String
     var fontSize: CGFloat = 14
-    var onScroll: ((ScrollSync) -> Void)?
+    var jump: SourceJumpRequest?
     var onPasteImage: ((NSImage) -> String?)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -469,14 +710,6 @@ struct SourceTextView: NSViewRepresentable {
 
         context.coordinator.textView = textView
         context.coordinator.applyHighlighting()
-
-        scrollView.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            context.coordinator,
-            selector: #selector(Coordinator.scrolled),
-            name: NSView.boundsDidChangeNotification,
-            object: scrollView.contentView
-        )
         return scrollView
     }
 
@@ -498,6 +731,10 @@ struct SourceTextView: NSViewRepresentable {
         if needsHighlight {
             context.coordinator.applyHighlighting()
         }
+        if let jump, jump.id != context.coordinator.lastJumpID {
+            context.coordinator.lastJumpID = jump.id
+            context.coordinator.jump(to: jump.sync)
+        }
     }
 
     // MARK: - Coordinator
@@ -508,20 +745,36 @@ struct SourceTextView: NSViewRepresentable {
         weak var textView: NSTextView?
         var isEditing = false
         var lastFontSize: CGFloat
-        /// 各「標題」行的字元起點（供捲動同步；隨文字變動由 applyHighlighting 重算）。
+        var lastJumpID: UUID?
+        /// 各「標題」行的字元起點（供跳轉對位；隨文字變動由 applyHighlighting 重算）。
         private var anchorCharIndices: [Int] = []
+        /// 各 \footnote{...} 的內容範圍（跳轉對位用，順序 = 預覽端的註腳編號）。
+        private var footnoteRanges: [NSRange] = []
+        /// 反白閃爍的世代計數（新的跳轉會取消上一次的移除排程）。
+        private var flashGeneration = 0
 
         init(_ parent: SourceTextView) {
             self.parent = parent
             self.lastFontSize = parent.fontSize
         }
 
+        private var highlightWork: DispatchWorkItem?
+
         func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
             isEditing = true
             parent.text = tv.string
-            applyHighlighting()
             isEditing = false
+            scheduleHighlight()
+        }
+
+        /// 打字中的重新上色延後到停手（0.25s）：全文 setAttributes 會讓長筆記
+        /// 整份重排版面、捲動位置跳動，也省掉每個按鍵掃全文 regex 的開銷。
+        private func scheduleHighlight() {
+            highlightWork?.cancel()
+            let w = DispatchWorkItem { [weak self] in self?.applyHighlighting() }
+            highlightWork = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
         }
 
         /// 選取/輸入變動時更新浮動補全清單（涵蓋打字時游標移動）。
@@ -530,49 +783,191 @@ struct SourceTextView: NSViewRepresentable {
             DispatchQueue.main.async { [weak pv] in pv?.updateCompletion() }
         }
 
-        @objc func scrolled() {
+        /// 右欄預覽雙擊 → 優先在對應的源碼區段（錨點段或第 n 個 \footnote{...}）
+        /// 選到同一個字（選取 + 聚焦 + 置中），並反白對應的區域；
+        /// 找不到字（如雙擊到公式）時退回位置跳轉 + 反白整段。
+        func jump(to sync: ScrollSync) {
             guard let tv = textView, let sv = tv.enclosingScrollView,
                   let lm = tv.layoutManager else { return }
-            let topY = sv.contentView.bounds.origin.y
-            let contentH = tv.bounds.height
-            let maxOffset = max(1, contentH - sv.contentView.bounds.height)
-            let global = max(0, min(1, topY / maxOffset))
             let inset = tv.textContainerInset.height
             let ns = tv.string as NSString
+            let chars = anchorCharIndices.filter { $0 < ns.length }
+            let maxOffset = max(0, tv.bounds.height - sv.contentView.bounds.height)
 
-            // 各標題行目前的 Y（用當前版面算，所以縮放/改寬度也對）
+            // 對應的源碼區段：註腳 → 第 n 個 \footnote{...} 的內容；否則錨點段
+            var segment: NSRange?
+            if sync.fn > 0 {
+                if sync.fn <= footnoteRanges.count {
+                    segment = footnoteRanges[sync.fn - 1]
+                }
+            } else if !chars.isEmpty, chars.count == sync.count {
+                let start = sync.anchor >= 0 && sync.anchor < chars.count
+                    ? chars[sync.anchor] : 0
+                let end = sync.anchor + 1 < chars.count ? chars[sync.anchor + 1] : ns.length
+                segment = NSRange(location: start, length: max(0, end - start))
+            } else if chars.isEmpty, sync.count == 0 {
+                segment = NSRange(location: 0, length: ns.length)   // 短筆記：全篇當一段
+            }
+
+            // 1) 選字模式：在區段裡找第 occ 次出現的字 → 選取 + 聚焦 + 置中 + 反白所在段落
+            if !sync.word.isEmpty, let seg = segment, seg.length > 0 {
+                let segEnd = seg.location + seg.length
+                var found = NSRange(location: NSNotFound, length: 0)
+                var remaining = sync.occ
+                var loc = seg.location
+                while loc < segEnd {
+                    let r = ns.range(
+                        of: sync.word, options: [],
+                        range: NSRange(location: loc, length: segEnd - loc))
+                    if r.location == NSNotFound { break }
+                    found = r   // occ 超過段內出現次數時就用最後一個
+                    if remaining == 0 { break }
+                    remaining -= 1
+                    loc = r.location + 1
+                }
+                if found.location != NSNotFound, let tc = tv.textContainer {
+                    tv.setSelectedRange(found)
+                    tv.window?.makeFirstResponder(tv)
+                    flash(sync.fn > 0 ? seg : blockRange(around: found, in: ns, limit: seg))
+                    let gr = lm.glyphRange(forCharacterRange: found, actualCharacterRange: nil)
+                    let rect = lm.boundingRect(forGlyphRange: gr, in: tc)
+                    let centered = rect.midY + inset - sv.contentView.bounds.height / 2
+                    scroll(sv, to: max(0, min(maxOffset, centered)))
+                    return
+                }
+            }
+
+            // 2) 註腳但沒選到字：跳到該 \footnote 置中並反白
+            if sync.fn > 0, let seg = segment {
+                flash(seg)
+                let gi = lm.glyphIndexForCharacter(at: min(seg.location, max(0, ns.length - 1)))
+                let r = lm.lineFragmentRect(forGlyphAt: gi, effectiveRange: nil)
+                let centered = r.midY + inset - sv.contentView.bounds.height / 2
+                scroll(sv, to: max(0, min(maxOffset, centered)))
+                return
+            }
+
+            // 3) 位置模式：各錨點行目前的 Y（用當前版面算，所以縮放/改寬度也對）
             var ys: [CGFloat] = []
-            for ci in anchorCharIndices where ci < ns.length {
+            for ci in chars {
                 let gi = lm.glyphIndexForCharacter(at: ci)
                 let r = lm.lineFragmentRect(forGlyphAt: gi, effectiveRange: nil)
                 ys.append(r.minY + inset)
             }
-            // 視窗頂端上方最近的標題
-            var k = -1
-            for (i, y) in ys.enumerated() {
-                if y <= topY + 0.5 { k = i } else { break }
+            var target: CGFloat
+            if !ys.isEmpty, ys.count == sync.count {
+                if sync.anchor < 0 {
+                    target = sync.local * ys[0]
+                } else if sync.anchor >= ys.count - 1 {
+                    target = ys[ys.count - 1]
+                        + sync.local * max(0, maxOffset - ys[ys.count - 1])
+                } else {
+                    target = ys[sync.anchor]
+                        + sync.local * (ys[sync.anchor + 1] - ys[sync.anchor])
+                }
+                if let seg = segment { flash(seg) }   // 反白對應的錨點段
+            } else {
+                target = sync.global * maxOffset      // 錨點對不上：只捲動，不反白
             }
-            let segStart = k >= 0 ? ys[k] : 0
-            let segEnd = (k + 1 < ys.count) ? ys[k + 1] : maxOffset
-            let local = max(0, min(1, (topY - segStart) / max(1, segEnd - segStart)))
-            parent.onScroll?(ScrollSync(anchor: k, local: local, global: global, count: ys.count))
+            scroll(sv, to: max(0, min(maxOffset, target)))
+        }
+
+        /// found 所在的「段落」：往前後找空行（\n\n）邊界，不超出 limit。
+        private func blockRange(around r: NSRange, in ns: NSString, limit: NSRange) -> NSRange {
+            var start = limit.location
+            var end = limit.location + limit.length
+            let beforeLen = max(0, r.location - start)
+            let before = ns.range(
+                of: "\n\n", options: .backwards,
+                range: NSRange(location: start, length: beforeLen))
+            if before.location != NSNotFound { start = before.location + 2 }
+            let afterStart = min(r.location + r.length, end)
+            let after = ns.range(
+                of: "\n\n",
+                range: NSRange(location: afterStart, length: max(0, end - afterStart)))
+            if after.location != NSNotFound { end = after.location }
+            return NSRange(location: start, length: max(0, end - start))
+        }
+
+        /// 短暫反白一段源碼（暫時屬性，不動 textStorage、不進 undo），約 1.4 秒後淡出。
+        private func flash(_ range: NSRange) {
+            guard let tv = textView, let lm = tv.layoutManager, range.length > 0 else { return }
+            let ns = tv.string as NSString
+            let safe = NSIntersectionRange(range, NSRange(location: 0, length: ns.length))
+            guard safe.length > 0 else { return }
+            flashGeneration += 1
+            let gen = flashGeneration
+            lm.addTemporaryAttribute(
+                .backgroundColor,
+                value: NSColor.systemYellow.withAlphaComponent(0.22),
+                forCharacterRange: safe)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
+                guard let self, self.flashGeneration == gen,
+                      let tv = self.textView, let lm = tv.layoutManager else { return }
+                let len = (tv.string as NSString).length
+                lm.removeTemporaryAttribute(
+                    .backgroundColor, forCharacterRange: NSRange(location: 0, length: len))
+            }
+        }
+
+        private func scroll(_ sv: NSScrollView, to y: CGFloat) {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                sv.contentView.animator().setBoundsOrigin(NSPoint(x: 0, y: y))
+            } completionHandler: {
+                sv.reflectScrolledClipView(sv.contentView)
+            }
         }
 
         /// 掃描捲動同步的錨點：各「標題」(\title/\subtitle/\author/\date/\section… 與 markdown #)
         /// 的行起點，外加每個「顯示型數學區塊」($$…$$ / \[…\] / \begin{env}…\end{env}) 的起點。
         /// 公式多的長段落（例如一段裡夾好幾條方程式）也因此有細錨點，左右才對得準。
+        /// \footnote{…} 內的內容排除（預覽端把它搬到文末，位置對不上）。
         private func recomputeAnchors() {
-            guard let tv = textView else { anchorCharIndices = []; return }
+            guard let tv = textView else {
+                anchorCharIndices = []; footnoteRanges = []; return
+            }
             let ns = tv.string as NSString
             let full = NSRange(location: 0, length: ns.length)
+            footnoteRanges = Self.balancedArgRanges("\\footnote", in: ns)
+            let fnRanges = footnoteRanges
+            func insideFootnote(_ loc: Int) -> Bool {
+                fnRanges.contains { NSLocationInRange(loc, $0) }
+            }
             var idx: [Int] = []
             Self.anchorLineRegex.enumerateMatches(in: tv.string, range: full) { m, _, _ in
-                if let m { idx.append(m.range.location) }
+                if let m, !insideFootnote(m.range.location) { idx.append(m.range.location) }
             }
             Self.mathBlockRegex.enumerateMatches(in: tv.string, range: full) { m, _, _ in
-                if let m { idx.append(m.range.location) }
+                if let m, !insideFootnote(m.range.location) { idx.append(m.range.location) }
             }
             anchorCharIndices = idx.sorted()
+        }
+
+        /// \command{...} 的「內容」範圍清單（大括號計數配對，巢狀也正確）。
+        private static func balancedArgRanges(_ command: String, in ns: NSString) -> [NSRange] {
+            var ranges: [NSRange] = []
+            let needle = command + "{"
+            let n = ns.length
+            let open = UInt16(UnicodeScalar("{").value)
+            let close = UInt16(UnicodeScalar("}").value)
+            var i = 0
+            while i < n {
+                let f = ns.range(of: needle, range: NSRange(location: i, length: n - i))
+                if f.location == NSNotFound { break }
+                var depth = 1
+                var j = f.location + f.length
+                while j < n, depth > 0 {
+                    let c = ns.character(at: j)
+                    if c == open { depth += 1 } else if c == close { depth -= 1 }
+                    j += 1
+                }
+                guard depth == 0 else { break }
+                let start = f.location + f.length
+                ranges.append(NSRange(location: start, length: j - 1 - start))
+                i = j
+            }
+            return ranges
         }
 
         // MARK: - Patterns
@@ -592,8 +987,9 @@ struct SourceTextView: NSViewRepresentable {
         }()
 
         /// begin/end 環境整塊（內容上紫色，之後指令/參數再覆蓋）。
+        /// enumerate/itemize 是文字清單環境（預覽端轉成 markdown 清單），不算數學。
         private static let envBlockPattern = try! NSRegularExpression(
-            pattern: #"\\begin\{([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
+            pattern: #"\\begin\{(?!enumerate\}|itemize\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
 
         private static let commandPattern = try! NSRegularExpression(pattern: #"\\[a-zA-Z]+"#)
 
@@ -613,8 +1009,9 @@ struct SourceTextView: NSViewRepresentable {
             pattern: #"^[ \t]*(?:#{1,6}\s|\\(?:title|subtitle|author|date|subsubsection|subsection|section)\{)"#,
             options: [.anchorsMatchLines])
         /// 顯示型數學區塊（每塊對到預覽裡一個 .katex-display），當作捲動同步的細錨點。
+        /// enumerate/itemize 在預覽端渲染成清單而非 .katex-display，要排除，否則左右錨點數對不上。
         private static let mathBlockRegex = try! NSRegularExpression(
-            pattern: #"\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
+            pattern: #"\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{(?!enumerate\}|itemize\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
 
         // MARK: - Colors (Overleaf-ish, adapts to dark mode)
 
@@ -631,6 +1028,9 @@ struct SourceTextView: NSViewRepresentable {
 
         func applyHighlighting() {
             guard let tv = textView, let storage = tv.textStorage else { return }
+            // 全文重上色會觸發整份重排；先記住捲動位置，上完色恢復，避免畫面跳動。
+            let sv = tv.enclosingScrollView
+            let savedOrigin = sv?.contentView.bounds.origin
             let size = parent.fontSize
             let ns = tv.string as NSString
             let full = NSRange(location: 0, length: ns.length)
@@ -700,6 +1100,10 @@ struct SourceTextView: NSViewRepresentable {
             }
 
             storage.endEditing()
+            if let sv, let savedOrigin {
+                sv.contentView.setBoundsOrigin(savedOrigin)
+                sv.reflectScrolledClipView(sv.contentView)
+            }
             recomputeAnchors()   // 文字/版面變了 → 更新捲動同步的標題位置
         }
 

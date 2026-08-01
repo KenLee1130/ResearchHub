@@ -82,6 +82,11 @@ struct NoteEditorView: View {
                 .help("輸出 PDF")
                 .keyboardShortcut("e", modifiers: .command)
 
+                // 預覽版面（連續 / A4）：只在看得到預覽的模式顯示
+                if mode == .split || mode == .preview {
+                    PreviewLayoutPicker()
+                }
+
                 EditorModePicker(mode: $mode)
             }
             .padding(.horizontal, 14)

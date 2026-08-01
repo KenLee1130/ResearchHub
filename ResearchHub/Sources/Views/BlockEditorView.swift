@@ -336,6 +336,11 @@ extension BlockEditorView {
         color: CanvasText;
         padding: 16px 22px 40vh;
       }
+      /* 滑鼠環境才有 gutter（＋ 和 ⋮⋮）：左邊距要放得下兩顆按鈕，
+         否則最外層區塊的把手會掛出視窗外、很難點到。手機維持窄邊距。 */
+      @media (hover: hover) and (pointer: fine) {
+        body { padding-left: 46px; }
+      }
       .tiptap:focus { outline: none; }
       .tiptap > * + * { margin-top: 0.4em; }
       .tiptap p { margin: 0; }
@@ -417,16 +422,32 @@ extension BlockEditorView {
       .toggle-list.open > .toggle-arrow { transform: rotate(90deg); }
       .toggle-summary-node { font-weight: 500; }
       .toggle-list:not(.open) > .toggle-body > *:not(.toggle-summary-node) { display: none; }
-      .drag-handle {
-        position: fixed; z-index: 40; width: 20px; height: 22px;
-        display: flex; align-items: center; justify-content: center;
-        cursor: grab; border-radius: 5px;
-        color: rgba(127,127,127,0.7); font-size: 13px; letter-spacing: -2px;
+      /* 區塊左側 gutter：＋（插入區塊）與 ⋮⋮（點=選單、拖=移動） */
+      .block-gutter {
+        position: fixed; z-index: 40; display: flex; align-items: center;
+        padding: 2px;   /* 透明外圈加大滑鼠容錯範圍 */
       }
+      .block-gutter.hide { display: none; }
+      .gutter-btn {
+        width: 18px; height: 24px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 5px; color: rgba(127,127,127,0.7);
+      }
+      .gutter-btn:hover { background: rgba(127,127,127,0.15); color: rgba(127,127,127,1); }
+      .plus-btn { cursor: pointer; font-size: 15px; }
+      .plus-btn::after { content: "+"; }
+      .drag-handle { cursor: grab; font-size: 13px; letter-spacing: -2px; }
       .drag-handle::after { content: "⋮⋮"; }
-      .drag-handle:hover { background: rgba(127,127,127,0.15); }
       .drag-handle:active { cursor: grabbing; }
-      .drag-handle.hide { display: none; }
+      #block-menu {
+        position: fixed; z-index: 60; display: none;
+        background: Canvas; color: CanvasText; min-width: 170px;
+        border: 1px solid rgba(127,127,127,0.35); border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.25); padding: 4px;
+        max-height: 320px; overflow-y: auto;
+      }
+      .slash-item.danger { color: rgb(224, 83, 61); }
+      .menu-sep { height: 1px; background: rgba(127,127,127,0.25); margin: 4px 6px; }
       /* 命令輸入行：CLI 式外框，整列、自動長高 */
       .command-input {
         font-family: ui-monospace, monospace;
@@ -443,11 +464,11 @@ extension BlockEditorView {
         position: absolute; left: 12px; opacity: 0.5;
         font-weight: 600;
       }
-      /* 標記徽章（游標不在該行時把 @標記 渲染成元件） */
+      /* 標記徽章：一律排在行尾（widget），彼此與最後一個字保持固定間隔 */
       .marker-badge {
         display: inline-block; font-size: 0.76em; line-height: 1.5;
-        padding: 0 7px; border-radius: 999px; margin: 0 2px;
-        background: rgba(127,127,127,0.16); cursor: pointer;
+        padding: 0 7px; border-radius: 999px; margin: 0 0 0 8px;
+        background: rgba(127,127,127,0.16); cursor: default;
         white-space: nowrap; vertical-align: baseline;
       }
       .badge-due { background: rgba(255,159,10,0.16); color: #cc7d00; }
@@ -472,6 +493,16 @@ extension BlockEditorView {
       .pomo-cell.filled { background: #d85a30; }
       .pomo-count { font-size: 0.9em; opacity: 0.8; margin-right: 2px; }
       .marker-hidden { display: none; }
+      /* 底部浮動提示（例如：含 @due 的待辦請從 /list 刪除） */
+      #rh-hint {
+        position: fixed; left: 50%; bottom: 24px;
+        transform: translateX(-50%) translateY(8px);
+        background: rgba(30,30,32,0.92); color: #fff; font-size: 12px;
+        padding: 6px 14px; border-radius: 8px;
+        opacity: 0; pointer-events: none;
+        transition: opacity .18s, transform .18s; z-index: 99;
+      }
+      #rh-hint.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
     </head>
     <body>
@@ -649,6 +680,31 @@ extension BlockEditorView {
                 }
               }
               return false;
+            },
+            // 標題最前面按 Backspace → 解開整個 toggle（標題變一般段落、內容放出來），
+            // 否則 defining + selectable:false 的外殼永遠刪不掉。
+            Backspace: ({ editor }) => {
+              const { state } = editor;
+              const { $from, empty } = state.selection;
+              if (!empty || $from.parentOffset !== 0) return false;
+              let sumDepth = -1;
+              for (let d = $from.depth; d > 0; d--) {
+                if ($from.node(d).type.name === "toggleSummary") { sumDepth = d; break; }
+              }
+              if (sumDepth < 1) return false;
+              const listDepth = sumDepth - 1;
+              if ($from.node(listDepth).type.name !== "toggleList") return false;
+              const listNode = $from.node(listDepth);
+              const from = $from.before(listDepth), to = $from.after(listDepth);
+              const summary = listNode.firstChild;
+              const para = state.schema.nodes.paragraph.create(
+                null, summary ? summary.content : null);
+              const frag = Fragment.from([para])
+                .append(listNode.content.cut(summary.nodeSize));
+              let tr = state.tr.replaceWith(from, to, frag);
+              tr = tr.setSelection(TextSelection.create(tr.doc, from + 1));
+              editor.view.dispatch(tr);
+              return true;
             }
           };
         },
@@ -829,7 +885,7 @@ extension BlockEditorView {
           run: ed => ed.chain().focus().toggleOrderedList().run() },
         { label: "\#(L("待辦清單"))", hint: "[ ]", match: "todo task checkbox 待辦",
           run: ed => ed.chain().focus().toggleTaskList().run() },
-        { label: "\#(L("命令列"))", hint: "/todo /list …", match: "cmd command line 命令 指令",
+        { label: "\#(L("命令列"))", hint: "/todo /h1 /go /list …", match: "cmd command line 命令 指令",
           run: ed => ed.chain().focus().setNode("commandInput").run() },
         { label: "\#(L("行內公式"))", hint: "$", match: "math inline latex eq equation 行內 公式 數學",
           run: ed => {
@@ -898,8 +954,9 @@ extension BlockEditorView {
         const text = state.doc.textBetween(start, end, "\n").trim();
 
         // todo：整行變成待辦項目（標記是純文字，@due/@every 由播種引擎接手）
-        let m = text.match(/^\/?todo\s+(.+)$/i);
-        if (m && (isCmd || text.startsWith("/"))) {
+        // 命令一律要以 / 開頭；cmd 裡打純文字（如 list）不觸發任何行為。
+        let m = text.match(/^\/todo\s+(.+)$/i);
+        if (m) {
           const content = m[1].trim();
           ed.chain()
             .setNode("paragraph")
@@ -911,24 +968,267 @@ extension BlockEditorView {
           return true;
         }
         // list：開任務總覽（原生視窗），命令行清空還原
-        if (/^\/?(list|tasks)$/i.test(text)) {
-          if (isCmd || text.startsWith("/")) {
-            try { window.webkit.messageHandlers.command.postMessage("list"); } catch (e) {}
-            let chain = ed.chain();
-            if (end > start) chain = chain.deleteRange({ from: start, to: end });
-            chain.setNode("paragraph").run();
-            return true;
-          }
+        if (/^\/(list|tasks)$/i.test(text)) {
+          try { window.webkit.messageHandlers.command.postMessage("list"); } catch (e) {}
+          let chain = ed.chain();
+          if (end > start) chain = chain.deleteRange({ from: start, to: end });
+          chain.setNode("paragraph").run();
+          return true;
+        }
+        // 空的 todo 命令（自動接續後沒打內容就按 Enter）→ 取消，還原成一般段落
+        if (isCmd && /^\/todo\s*$/i.test(text)) {
+          let chain = ed.chain();
+          if (end > start) chain = chain.deleteRange({ from: start, to: end });
+          chain.setNode("paragraph").run();
+          return true;
+        }
+        // 內容指令：就地把這一行變成對應區塊（和底部命令列同一套）
+        let hm = text.match(/^\/h([123])\s+(.+)$/i);
+        if (hm) {
+          ed.chain()
+            .setNode("paragraph")
+            .insertContentAt({ from: start, to: end },
+                             [{ type: "text", text: hm[2].trim() }])
+            .setNode("heading", { level: +hm[1] })
+            .run();
+          return true;
+        }
+        let bm = text.match(/^\/(bullet|num)\s+(.+)$/i);
+        if (bm) {
+          let chain = ed.chain()
+            .setNode("paragraph")
+            .insertContentAt({ from: start, to: end },
+                             [{ type: "text", text: bm[2].trim() }]);
+          chain = bm[1].toLowerCase() === "num"
+            ? chain.toggleOrderedList() : chain.toggleBulletList();
+          chain.run();
+          return true;
+        }
+        let tm = text.match(/^\/toggle\s+(.+)$/i);
+        if (tm) {
+          const title = tm[1].trim();
+          const nodeFrom = $from.before(), nodeTo = nodeFrom + $from.parent.nodeSize;
+          ed.chain().insertContentAt({ from: nodeFrom, to: nodeTo }, {
+            type: "toggleList",
+            attrs: { open: true },
+            content: [
+              { type: "toggleSummary",
+                content: title ? [{ type: "text", text: title }] : [] },
+              { type: "paragraph" }
+            ]
+          }).run();
+          return true;
+        }
+        // /go：跳到那一天（交給 Swift 端；先把這一行清掉，免得留在原本那天的檔案裡）
+        let gm = text.match(/^\/(?:go|goto|day)\b\s*(.*)$/i);
+        if (gm) {
+          let chain = ed.chain();
+          if (end > start) chain = chain.deleteRange({ from: start, to: end });
+          chain.setNode("paragraph").run();
+          try {
+            window.webkit.messageHandlers.command.postMessage("go:" + gm[1].trim());
+          } catch (e) {}
+          return true;
         }
         if (isCmd) return true;   // 未知命令：吞掉 Enter，留在輸入行讓使用者改
         return false;
       }
 
+      // 待辦行按 Enter → 新行自動變成命令輸入行「/todo 」：
+      // 打 @標記 全程保持原文，Enter 提交才變成待辦 + 徽章（省去事後點回去編輯）。
+      //   • 行尾（容忍游標後只剩隱藏的 @標記/空白）→ 插在下面
+      //   • 行首 → 插在上面（往上開新行也給 cmd）
+      // 這樣標記永遠不會被劈到別行（先前蕃茄鐘被拖下來的成因）。
+      function todoEnterToCommand(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty || $from.parent.type.name !== "paragraph") return false;
+        if ($from.parent.content.size === 0) return false;   // 空項目 → 預設行為（結束清單）
+        const atStart = $from.parentOffset === 0;
+        if (!atStart) {
+          const rest = $from.parent.textContent.slice($from.parentOffset);
+          const markersOnly =
+            /^(?:\s*(?:@(?:due|from|on|est|every|remind|line|pomo)\([^)]*\)|!(?:high|low)\b))*\s*$/i;
+          if (!markersOnly.test(rest)) return false;         // 游標在正文中間 → 一般換行
+        }
+        let itemDepth = -1;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === "taskItem") { itemDepth = d; break; }
+        }
+        if (itemDepth < 1) return false;
+        const listDepth = itemDepth - 1;
+        const list = $from.node(listDepth);
+        if (list.type.name !== "taskList") return false;
+        const idx = $from.index(listDepth);
+        let tr = state.tr;
+        let insertPos;
+        if (atStart) {
+          if (idx === 0) {
+            insertPos = $from.before(listDepth);             // 第一項：插在清單前面
+          } else {
+            const itemBefore = $from.before(itemDepth);      // 中間項：把清單劈成兩段
+            tr = tr.split(itemBefore, 1);
+            insertPos = itemBefore + 1;
+          }
+        } else if (idx === list.childCount - 1) {
+          insertPos = $from.after(listDepth);                // 最後一項：插在清單後面
+        } else {
+          const itemAfter = $from.after(itemDepth);          // 中間項：把清單劈成兩段
+          tr = tr.split(itemAfter, 1);
+          insertPos = itemAfter + 1;
+        }
+        const node = state.schema.nodes.commandInput.create(null, state.schema.text("/todo "));
+        tr = tr.insert(insertPos, node);
+        tr = tr.setSelection(TextSelection.create(tr.doc, insertPos + 1 + node.content.size));
+        ed.view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+
+      // ---- 標記保護：標記只能從 /list 改（蕃茄 −/＋ 除外），編輯器裡刪不掉 ----
+      const MARKER_RE = /@(?:due|from|on|est|every|remind|line|pomo)\([^)]*\)|!(?:high|low)\b/gi;
+
+      function markerRanges(text) {
+        const out = [];
+        MARKER_RE.lastIndex = 0;
+        let m;
+        while ((m = MARKER_RE.exec(text))) out.push([m.index, m.index + m[0].length]);
+        return out;
+      }
+
+      // 底部浮動提示（自動淡出）
+      function showHint(msg) {
+        let el = document.getElementById("rh-hint");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "rh-hint";
+          document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        el.classList.add("show");
+        clearTimeout(showHint._t);
+        showHint._t = setTimeout(() => el.classList.remove("show"), 1800);
+      }
+
+      function selectionHasDue(state) {
+        const sel = state.selection;
+        if (sel.empty) return false;
+        return /@due\(/i.test(state.doc.textBetween(sel.from, sel.to, "\n"));
+      }
+
+      // Backspace/Delete：游標貼著標記（或在其隱藏文字裡）→ 跳過整顆標記、不刪除；
+      // 範圍選取蓋到 @due → 擋下（含 @due 的待辦請從 /list 刪，明天還是會播種回來）。
+      function guardMarkerDelete(ed, forward) {
+        const { state } = ed;
+        if (selectionHasDue(state)) {
+          showHint("\#(L("含 @due 的待辦請從 /list 刪除"))");
+          return true;
+        }
+        const { $from, empty } = state.selection;
+        if (!empty) return false;
+        if (!$from.parent.isTextblock || $from.parent.type.name === "commandInput") return false;
+        const text = $from.parent.textContent;
+        const off = $from.parentOffset;
+        for (const [ms, me] of markerRanges(text)) {
+          const inside = off > ms && off < me;
+          if (!forward && (off === me || inside)) {
+            ed.commands.setTextSelection($from.start() + ms);
+            return true;
+          }
+          if (forward && (off === ms || inside)) {
+            ed.commands.setTextSelection($from.start() + me);
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // 方向鍵跳過隱藏的標記文字，游標不會「卡」在看不見的字裡
+      function skipMarkerArrow(ed, dir) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty || !$from.parent.isTextblock) return false;
+        if ($from.parent.type.name === "commandInput") return false;
+        const text = $from.parent.textContent;
+        const off = $from.parentOffset;
+        for (const [ms, me] of markerRanges(text)) {
+          if (dir < 0 && off === me) {
+            ed.commands.setTextSelection($from.start() + ms);
+            return true;
+          }
+          if (dir > 0 && off === ms) {
+            ed.commands.setTextSelection($from.start() + me);
+            return true;
+          }
+          if (off > ms && off < me) {
+            ed.commands.setTextSelection($from.start() + (dir < 0 ? ms : me));
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // 命令行的 Backspace：有字照常刪；「已經空了」再按一下才變回一般段落。
+      // 永遠不往上併回待辦行（否則 Enter → Backspace → Enter 會死循環）。
+      function cmdBackspaceToParagraph(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty || $from.parent.type.name !== "commandInput") return false;
+        if ($from.parent.textContent === "") {
+          ed.commands.setNode("paragraph");
+          return true;
+        }
+        if ($from.parentOffset === 0) return true;   // 行首（還有字）：不往上併行
+        return false;
+      }
+
+      // 待辦行 Shift+Enter → 在該項目底下開縮排子項目（一般 bullet，不帶 checkbox）。
+      // 子項目只屬於當天，不會被播種複製；徽章仍固定在父行行尾。
+      function todoShiftEnterSubItem(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty) return false;
+        let itemDepth = -1;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === "taskItem") { itemDepth = d; break; }
+        }
+        if (itemDepth < 1) return false;
+        const types = state.schema.nodes;
+        const item = $from.node(itemDepth);
+        const endOfItem = $from.end(itemDepth);
+        let tr = state.tr, caret;
+        if (item.lastChild && item.lastChild.type.name === "bulletList") {
+          tr = tr.insert(endOfItem - 1, types.listItem.createAndFill());
+          caret = endOfItem + 1;
+        } else {
+          tr = tr.insert(endOfItem, types.bulletList.createAndFill());
+          caret = endOfItem + 3;
+        }
+        tr = tr.setSelection(TextSelection.create(tr.doc, caret));
+        ed.view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+
       const CommandLine = Extension.create({
         name: "commandLine",
+        // 要贏過 TaskItem 的 Enter（splitListItem 會先接手），否則
+        // todoEnterToCommand 在待辦行永遠輪不到。
+        priority: 1000,
         addKeyboardShortcuts() {
           return {
-            Enter: () => runCommandLine(this.editor),
+            Enter: () => runCommandLine(this.editor) || todoEnterToCommand(this.editor),
+            "Shift-Enter": () => todoShiftEnterSubItem(this.editor),
+            Backspace: () => cmdBackspaceToParagraph(this.editor)
+              || guardMarkerDelete(this.editor, false),
+            Delete: () => guardMarkerDelete(this.editor, true),
+            "Mod-x": () => {
+              if (selectionHasDue(this.editor.state)) {
+                showHint("\#(L("含 @due 的待辦請從 /list 刪除"))");
+                return true;
+              }
+              return false;
+            },
+            ArrowLeft: () => skipMarkerArrow(this.editor, -1),
+            ArrowRight: () => skipMarkerArrow(this.editor, 1),
             Escape: () => {
               const { $from } = this.editor.state.selection;
               if ($from.parent.type.name !== "commandInput") return false;
@@ -938,8 +1238,8 @@ extension BlockEditorView {
         }
       });
 
-      // ---- 標記徽章：游標不在該行時，@due/@est/@remind… 渲染成元件 ----
-      // 原文仍是唯一真實來源；點徽章 = 把游標移進該行顯示原文編輯。
+      // ---- 標記徽章：@due/@est/@remind… 一律渲染成元件（游標在該行也不退回原文）----
+      // 原文仍是唯一真實來源；要改標記請走 /list 任務總覽或源碼模式。
       function pomoMinutes() { return Math.max(1, window.__pomoMinutes || 25); }
 
       function parseDateArg(s) {
@@ -960,14 +1260,12 @@ extension BlockEditorView {
       }
       function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 
-      function badgeDom(cls, text, editPos) {
+      function badgeDom(cls, text) {
         const s = document.createElement("span");
         s.className = "marker-badge " + cls;
         s.textContent = text;
-        s.onmousedown = e => {
-          e.preventDefault();
-          window.__editor.chain().focus().setTextSelection(editPos).run();
-        };
+        // 點徽章不做事（不再把游標移進原文）；避免點擊把游標放進隱藏的標記文字裡
+        s.onmousedown = e => e.preventDefault();
         return s;
       }
 
@@ -991,13 +1289,10 @@ extension BlockEditorView {
       }
 
       // 🍅 + 分段進度條 + k/n + −/＋
-      function pomoBadgeDom(estMin, done, blockBase, editPos) {
+      function pomoBadgeDom(estMin, done, blockBase) {
         const wrap = document.createElement("span");
         wrap.className = "marker-badge badge-pomo";
-        wrap.onmousedown = e => {
-          e.preventDefault();
-          window.__editor.chain().focus().setTextSelection(editPos).run();
-        };
+        wrap.onmousedown = e => e.preventDefault();
         function btn(t, delta) {
           const b = document.createElement("button");
           b.textContent = t;
@@ -1030,17 +1325,14 @@ extension BlockEditorView {
 
       function buildBadges(state) {
         const decos = [];
-        const selFrom = state.selection.from, selTo = state.selection.to;
         const todayD = startOfDay(new Date());
         state.doc.descendants((node, pos) => {
           if (!node.isTextblock) return true;
           if (node.type.name === "commandInput") return false;
-          // 游標在此行 → 顯示原文（可直接編輯標記）
-          if (selFrom <= pos + node.nodeSize && selTo >= pos) return false;
           const text = node.textContent;
           if (!text || (text.indexOf("@") < 0 && text.indexOf("!") < 0)) return false;
           const base = pos + 1;
-          const re = /@(due|from|est|every|remind|line|pomo)\(([^)]*)\)|!(high|low)\b/gi;
+          const re = /@(due|from|on|est|every|remind|line|pomo)\(([^)]*)\)|!(high|low)\b/gi;
           const matches = [];
           let m;
           while ((m = re.exec(text))) matches.push(m);
@@ -1053,6 +1345,7 @@ extension BlockEditorView {
             if (kind === "pomo") { pomoDone = parseInt(mm[2]) || 0; hasEstOrPomo = true; }
           }
 
+          const doms = [];
           for (const mm of matches) {
             const kind = (mm[1] || mm[3]).toLowerCase();
             const arg = (mm[2] || "").trim();
@@ -1064,41 +1357,48 @@ extension BlockEditorView {
                 const days = Math.round((startOfDay(d) - todayD) / 86400000);
                 if (days > 0) {
                   dom = badgeDom("badge-due",
-                    "⏳ " + "\#(L("還有 {n} 天"))".replace("{n}", days), from);
+                    "⏳ " + "\#(L("還有 {n} 天"))".replace("{n}", days));
                 } else if (days === 0) {
-                  dom = badgeDom("badge-due", "⏳ \#(L("今天到期"))", from);
+                  dom = badgeDom("badge-due", "⏳ \#(L("今天到期"))");
                 } else {
                   dom = badgeDom("badge-overdue",
-                    "⚠️ " + "\#(L("過期 {n} 天"))".replace("{n}", -days), from);
+                    "⚠️ " + "\#(L("過期 {n} 天"))".replace("{n}", -days));
                 }
               }
             } else if (kind === "from") {
               const d = parseDateArg(arg);
               if (d && startOfDay(d) > todayD) {
                 dom = badgeDom("badge-from",
-                  "▸ " + "\#(L("{d} 開始"))".replace("{d}", (d.getMonth() + 1) + "/" + d.getDate()), from);
+                  "▸ " + "\#(L("{d} 開始"))".replace("{d}", (d.getMonth() + 1) + "/" + d.getDate()));
               }
               // 已開始的 from：整段隱藏即可
             } else if (kind === "est" || kind === "pomo") {
               if (!pomoHandled) {
-                dom = pomoBadgeDom(estMin, pomoDone, base, from);
+                dom = pomoBadgeDom(estMin, pomoDone, base);
                 pomoHandled = true;   // est+pomo 合成一顆徽章，第二個標記只隱藏
               }
+            } else if (kind === "on") {
+              dom = badgeDom("badge-every", "📅 " + arg);
             } else if (kind === "remind") {
-              dom = badgeDom("badge-remind", "🔔 " + arg, from);
+              dom = badgeDom("badge-remind", "🔔 " + arg);
             } else if (kind === "every") {
-              dom = badgeDom("badge-every", "↻ " + arg, from);
+              dom = badgeDom("badge-every", "↻ " + arg);
             } else if (kind === "line") {
-              dom = badgeDom("badge-line", arg, from);
+              dom = badgeDom("badge-line", arg);
             } else if (kind === "high") {
-              dom = badgeDom("badge-overdue", "❗", from);
+              dom = badgeDom("badge-overdue", "❗");
             } else if (kind === "low") {
-              dom = badgeDom("badge-from", "↓", from);
+              dom = badgeDom("badge-from", "↓");
             }
-            // PM 沒有 Decoration.replace：用 inline 隱藏原文 + widget 放徽章
+            // PM 沒有 Decoration.replace：用 inline 隱藏原文；徽章統一放行尾
             decos.push(Decoration.inline(from, to, { class: "marker-hidden" }));
-            if (dom) decos.push(Decoration.widget(from, dom, { side: -1 }));
+            if (dom) doms.push(dom);
           }
+          // 徽章一律掛在行尾（依標記出現順序），打字時自動往後退
+          const endPos = pos + node.nodeSize - 1;
+          doms.forEach((d, i) => {
+            decos.push(Decoration.widget(endPos, d, { side: 1 + i }));
+          });
           return false;
         });
         return DecorationSet.create(state.doc, decos);
@@ -1138,32 +1438,49 @@ extension BlockEditorView {
       });
       window.__editor = editor;
 
-      // ---- 自製拖拉把手：hover 在 block 左側出現 ⋮⋮，拖拉重排 ----
-      // 用 ProseMirror 原生拖放：dragstart 時選取整個 block 並設定 view.dragging，
-      // drop 的落點計算與移動全部交給 PM 處理。
+      // ---- 區塊 gutter：hover 在 block 左側出現「＋」與「⋮⋮」----
+      // ＋：在該區塊下方插入新區塊並打開 slash 選單。
+      // ⋮⋮：點一下開區塊選單（轉換類型/複製/刪除）；拖拉用 ProseMirror 原生
+      // 拖放重排（dragstart 選取整個 block 並設定 view.dragging，落點交給 PM）。
+      const gutter = document.createElement("div");
+      gutter.className = "block-gutter hide";
+      const plusBtn = document.createElement("div");
+      plusBtn.className = "gutter-btn plus-btn";
+      plusBtn.title = "\#(L("在下方插入區塊"))";
       const dragHandle = document.createElement("div");
-      dragHandle.className = "drag-handle hide";
+      dragHandle.className = "gutter-btn drag-handle";
+      dragHandle.title = "\#(L("點擊開啟選單；拖拉移動"))";
       dragHandle.draggable = true;
-      document.body.appendChild(dragHandle);
+      gutter.appendChild(plusBtn);
+      gutter.appendChild(dragHandle);
+      document.body.appendChild(gutter);
       let handleBlockPos = null;
+      let gutterHideTimer = null;
 
       function hideHandle() {
-        dragHandle.classList.add("hide");
+        clearTimeout(gutterHideTimer);
+        gutter.classList.add("hide");
         handleBlockPos = null;
+      }
+      // 延遲隱藏：滑鼠從內文往 gutter 移動的路上不會讓按鈕消失
+      function scheduleHideHandle() {
+        clearTimeout(gutterHideTimer);
+        gutterHideTimer = setTimeout(hideHandle, 300);
       }
 
       document.addEventListener("mousemove", e => {
-        if (e.target === dragHandle) return;
+        if (gutter.contains(e.target)) { clearTimeout(gutterHideTimer); return; }
+        if (blockMenu.style.display === "block") return;   // 選單開著時 gutter 定住
         const view = editor.view;
         const editorRect = view.dom.getBoundingClientRect();
-        if (e.clientX < editorRect.left - 30 || e.clientX > editorRect.right ||
+        if (e.clientX < editorRect.left - 60 || e.clientX > editorRect.right ||
             e.clientY < editorRect.top || e.clientY > editorRect.bottom) {
-          hideHandle();
+          scheduleHideHandle();
           return;
         }
         const posInfo = view.posAtCoords({
           left: Math.max(e.clientX, editorRect.left + 1), top: e.clientY });
-        if (!posInfo) { hideHandle(); return; }
+        if (!posInfo) { scheduleHideHandle(); return; }
 
         let blockPos = null;
         if (posInfo.inside >= 0) {
@@ -1173,15 +1490,37 @@ extension BlockEditorView {
           const $p = view.state.doc.resolve(posInfo.pos);
           if ($p.depth >= 1) blockPos = $p.before(1);
         }
-        if (blockPos == null) { hideHandle(); return; }
+        if (blockPos == null) { scheduleHideHandle(); return; }
+
+        // 相鄰的 todo/清單項在 markdown 裡是同一個頂層清單節點，但對使用者
+        // 來說每一項都該是獨立區塊：改用「滑鼠的 y 座標落在哪個項目的 DOM 範圍」
+        // 來選（不能用 posAtCoords 的解析結果——滑鼠在左側 gutter 區時它會落在
+        // 清單邊界上，找不到項目就退回整串清單，把手會跳到第一項）。
+        const blockNode = view.state.doc.nodeAt(blockPos);
+        if (blockNode &&
+            ["taskList", "bulletList", "orderedList"].includes(blockNode.type.name)) {
+          let p = blockPos + 1;
+          let chosen = null;
+          for (let i = 0; i < blockNode.childCount; i++) {
+            const itemDom = view.nodeDOM(p);
+            if (itemDom instanceof HTMLElement) {
+              const r = itemDom.getBoundingClientRect();
+              if (chosen == null || e.clientY >= r.top) chosen = p;
+              if (e.clientY <= r.bottom) break;
+            }
+            p += blockNode.child(i).nodeSize;
+          }
+          if (chosen != null) blockPos = chosen;
+        }
 
         const dom = view.nodeDOM(blockPos);
-        if (!dom || !(dom instanceof HTMLElement)) { hideHandle(); return; }
+        if (!dom || !(dom instanceof HTMLElement)) { scheduleHideHandle(); return; }
+        clearTimeout(gutterHideTimer);
         const rect = dom.getBoundingClientRect();
         handleBlockPos = blockPos;
-        dragHandle.style.left = (rect.left - 26) + "px";
-        dragHandle.style.top = (rect.top + 1) + "px";
-        dragHandle.classList.remove("hide");
+        gutter.style.left = (rect.left - 44) + "px";
+        gutter.style.top = (rect.top - 1) + "px";
+        gutter.classList.remove("hide");
       });
 
       dragHandle.addEventListener("dragstart", e => {
@@ -1191,11 +1530,146 @@ extension BlockEditorView {
         view.dispatch(view.state.tr.setSelection(sel));
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", "block");
-        view.dragging = { slice: sel.content(), move: true };
+        let slice = sel.content();
+        // 拖的是清單項目時包回一層外層清單（開放邊界）：掉進別的清單
+        // 會合併成一項、掉在段落之間會自己長成新清單。
+        if (["taskItem", "listItem"].includes(sel.node.type.name)) {
+          const $item = view.state.doc.resolve(handleBlockPos);
+          const wrapped = $item.parent.type.create($item.parent.attrs, sel.node);
+          const SliceCtor = slice.constructor;   // bundle 沒匯出 Slice，從實例拿
+          slice = new SliceCtor(Fragment.from(wrapped), 1, 1);
+        }
+        view.dragging = { slice, move: true };
+      });
+
+      // ＋：在 hover 的區塊正下方插入新區塊（清單項就插同型項目），
+      // 並自動打上「/」讓 slash 選單跳出來選類型。
+      plusBtn.addEventListener("mousedown", e => e.preventDefault());
+      plusBtn.addEventListener("click", () => {
+        if (handleBlockPos == null) return;
+        const node = editor.state.doc.nodeAt(handleBlockPos);
+        if (!node) return;
+        const at = handleBlockPos + node.nodeSize;
+        const isItem = ["taskItem", "listItem"].includes(node.type.name);
+        const content = isItem
+          ? { type: node.type.name,
+              attrs: node.type.name === "taskItem" ? { checked: false } : undefined,
+              content: [{ type: "paragraph" }] }
+          : { type: "paragraph" };
+        editor.chain()
+          .insertContentAt(at, content)
+          .setTextSelection(at + (isItem ? 2 : 1))
+          .focus()
+          .insertContent("/")   // onUpdate → refreshSlash(true) 會打開 slash 選單
+          .run();
+        hideHandle();
+      });
+
+      // ---- ⋮⋮ 點一下 → 區塊選單：轉換類型 / 複製 / 刪除 ----
+      const blockMenu = document.createElement("div");
+      blockMenu.id = "block-menu";
+      document.body.appendChild(blockMenu);
+      let blockMenuPos = null;
+
+      function closeBlockMenu() {
+        blockMenu.style.display = "none";
+        blockMenuPos = null;
+      }
+
+      // 轉換前先脫離清單包裹，轉出來的結果才是獨立的頂層區塊
+      function liftOutOfLists() {
+        let guard = 0;
+        while (guard++ < 8) {
+          const { $from } = editor.state.selection;
+          let itemName = null;
+          for (let d = $from.depth; d > 0; d--) {
+            const n = $from.node(d).type.name;
+            if (n === "taskItem" || n === "listItem") { itemName = n; break; }
+          }
+          if (!itemName) break;
+          if (!editor.commands.liftListItem(itemName)) break;
+        }
+      }
+
+      const blockMenuItems = [
+        { label: "\#(L("文字"))", hint: "", run: ed => ed.chain().setParagraph().run() },
+        { label: "\#(L("標題 1"))", hint: "#", run: ed => ed.chain().setHeading({ level: 1 }).run() },
+        { label: "\#(L("標題 2"))", hint: "##", run: ed => ed.chain().setHeading({ level: 2 }).run() },
+        { label: "\#(L("標題 3"))", hint: "###", run: ed => ed.chain().setHeading({ level: 3 }).run() },
+        { label: "\#(L("待辦清單"))", hint: "[ ]", run: ed => ed.chain().toggleTaskList().run() },
+        { label: "\#(L("項目清單"))", hint: "•", run: ed => ed.chain().toggleBulletList().run() },
+        { label: "\#(L("編號清單"))", hint: "1.", run: ed => ed.chain().toggleOrderedList().run() },
+        { label: "\#(L("引用"))", hint: ">", run: ed => ed.chain().toggleBlockquote().run() },
+        { label: "\#(L("程式碼"))", hint: "```", run: ed => ed.chain().toggleCodeBlock().run() },
+        { sep: true },
+        { label: "\#(L("複製區塊"))", hint: "", act: "duplicate" },
+        { label: "\#(L("刪除區塊"))", hint: "", act: "delete", danger: true }
+      ];
+
+      function applyBlockMenuItem(item) {
+        const pos = blockMenuPos;
+        closeBlockMenu();
+        if (pos == null) return;
+        const node = editor.state.doc.nodeAt(pos);
+        if (!node) return;
+        if (item.act === "delete") {
+          editor.chain().deleteRange({ from: pos, to: pos + node.nodeSize }).focus().run();
+          hideHandle();
+          return;
+        }
+        if (item.act === "duplicate") {
+          editor.chain().insertContentAt(pos + node.nodeSize, node.toJSON()).focus().run();
+          hideHandle();
+          return;
+        }
+        editor.chain().setTextSelection(pos + 1).focus().run();
+        liftOutOfLists();
+        item.run(editor);
+        hideHandle();
+      }
+
+      function openBlockMenu() {
+        if (handleBlockPos == null) return;
+        blockMenuPos = handleBlockPos;
+        blockMenu.innerHTML = "";
+        blockMenuItems.forEach(item => {
+          if (item.sep) {
+            const s = document.createElement("div");
+            s.className = "menu-sep";
+            blockMenu.appendChild(s);
+            return;
+          }
+          const div = document.createElement("div");
+          div.className = "slash-item" + (item.danger ? " danger" : "");
+          div.innerHTML = "<span>" + item.label + "</span>" +
+            (item.hint ? "<span class='slash-hint'>" + item.hint + "</span>" : "");
+          div.onmousedown = e => { e.preventDefault(); applyBlockMenuItem(item); };
+          blockMenu.appendChild(div);
+        });
+        const r = dragHandle.getBoundingClientRect();
+        blockMenu.style.left = r.left + "px";
+        blockMenu.style.top = (r.bottom + 4) + "px";
+        blockMenu.style.display = "block";
+        // 底下放不下就往上開
+        const mh = blockMenu.offsetHeight;
+        if (r.bottom + 4 + mh > window.innerHeight - 8) {
+          blockMenu.style.top = Math.max(8, r.top - mh - 4) + "px";
+        }
+      }
+
+      dragHandle.addEventListener("click", () => openBlockMenu());
+      document.addEventListener("mousedown", e => {
+        if (blockMenu.style.display === "block" &&
+            !blockMenu.contains(e.target) && !gutter.contains(e.target)) {
+          closeBlockMenu();
+        }
+      });
+      document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && blockMenu.style.display === "block") closeBlockMenu();
       });
 
       document.addEventListener("dragend", () => hideHandle());
-      document.addEventListener("scroll", () => hideHandle(), true);
+      document.addEventListener("scroll", () => { hideHandle(); closeBlockMenu(); }, true);
 
       // ---- 雙擊內容下方的空白處 → 在文末新增空白 block ----
       document.body.addEventListener("dblclick", e => {
@@ -1366,16 +1840,25 @@ extension BlockEditorView {
       // 待辦標記：insert 為插入文字，back 為插入後游標回退格數
       const commandItems = [
         { label: "/todo", hint: "\#(L("新增待辦（可帶 @ 標記）"))", insert: "/todo ", match: "todo 待辦 新增" },
+        { label: "/h1", hint: "\#(L("標題 1"))", insert: "/h1 ", match: "h1 heading 標題" },
+        { label: "/h2", hint: "\#(L("標題 2"))", insert: "/h2 ", match: "h2 heading 標題" },
+        { label: "/h3", hint: "\#(L("標題 3"))", insert: "/h3 ", match: "h3 heading 標題" },
+        { label: "/toggle", hint: "\#(L("摺疊清單"))", insert: "/toggle ", match: "toggle fold 摺疊 折疊" },
+        { label: "/bullet", hint: "\#(L("項目清單"))", insert: "/bullet ", match: "bullet list ul 項目" },
+        { label: "/num", hint: "\#(L("編號清單"))", insert: "/num ", match: "num ordered ol 編號" },
+        { label: "/go", hint: "\#(L("跳到某天（7/10・+3・明天）"))", insert: "/go ", match: "go goto day 跳 日期" },
         { label: "/list", hint: "\#(L("任務總覽：查詢／改／刪"))", insert: "/list", match: "list tasks 任務 總覽 查詢" }
       ];
 
       const markerItems = [
         { label: "@due(7/15)", hint: "\#(L("到期日"))", insert: "@due()", back: 1, match: "@due deadline 到期" },
         { label: "@from(7/5)", hint: "\#(L("開始日"))", insert: "@from()", back: 1, match: "@from start defer 開始 延後" },
+        { label: "@on(7/10,7/14)", hint: "\#(L("指定日期（不連續）"))", insert: "@on()", back: 1, match: "@on dates 指定 不連續" },
         { label: "@est(3h)", hint: "\#(L("預估時長"))", insert: "@est()", back: 1, match: "@est estimate time 預估 時長" },
         { label: "@every(mon,thu)", hint: "\#(L("循環"))", insert: "@every()", back: 1, match: "@every repeat weekly 循環 每週" },
         { label: "@remind(7/20 09:00)", hint: "\#(L("提醒"))", insert: "@remind()", back: 1, match: "@remind notify 提醒 通知" },
         { label: "@line(A)", hint: "\#(L("主線歸屬"))", insert: "@line()", back: 1, match: "@line track 主線" },
+        { label: "@pomo(2)", hint: "\#(L("已投入蕃茄數"))", insert: "@pomo()", back: 1, match: "@pomo 蕃茄 進度" },
         { label: "!high", hint: "\#(L("高優先"))", insert: "!high ", back: 0, match: "!high priority 高" },
         { label: "!low", hint: "\#(L("低優先"))", insert: "!low ", back: 0, match: "!low priority 低" }
       ];
@@ -1397,7 +1880,7 @@ extension BlockEditorView {
             i.match.includes(query) || i.label.toLowerCase().includes(query));
           if (!filtered.length) return hideMenu();
           slashRange = { from: start, to: $from.pos };
-        } else if (inCmd && /^\/?[a-zA-Z]*$/.test(textBefore)) {
+        } else if (inCmd && /^\/?[a-zA-Z0-9]*$/.test(textBefore)) {
           const q = textBefore.replace(/^\//, "").toLowerCase();
           filtered = commandItems.filter(i =>
             i.match.includes(q) || i.insert.replace("/", "").startsWith(q));

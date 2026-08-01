@@ -15,11 +15,14 @@ enum WebResources {
 
 import CoreGraphics
 
-/// 編輯區捲動位置 → 預覽的對應資訊。以「標題」為錨點分段，段內線性內插，
-/// 避免長公式(原始碼很多行、渲染很短)造成左右逐漸對不上。
+/// 預覽端雙擊段落 → 源碼編輯區跳轉的對應資訊。以「標題 + 顯示型公式」為錨點分段、
+/// 段內線性內插，避免長公式(原始碼很多行、渲染很短)造成左右對不上。
 struct ScrollSync: Equatable {
-    var anchor: Int = -1     // 視窗頂端上方最近的標題索引(-1 = 在第一個標題之前)
-    var local: CGFloat = 0   // 在「該標題→下一個標題」這一段內的比例(0...1)
-    var global: CGFloat = 0  // 後備:整份的捲動比例(標題數對不上時用)
-    var count: Int = 0       // 來源端標題總數
+    var anchor: Int = -1     // 目標位置上方最近的錨點索引(-1 = 在第一個錨點之前)
+    var local: CGFloat = 0   // 在「該錨點→下一個錨點」這一段內的比例(0...1)
+    var global: CGFloat = 0  // 後備:整份的比例(錨點數對不上時用)
+    var count: Int = 0       // 來源端錨點總數
+    var word: String = ""    // 雙擊選到的字(空 = 只做位置跳轉,不選字)
+    var occ: Int = 0         // 該字在錨點段落內是第幾次出現(0-based,選字時用)
+    var fn: Int = 0          // >0 = 雙擊的是第 n 條註腳 → 跳到源碼第 n 個 \footnote{...}
 }

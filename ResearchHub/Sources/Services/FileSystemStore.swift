@@ -130,7 +130,7 @@ final class FileSystemStore: ObservableObject {
     | `events.json` | Calendar events + tags: `{tags: [{id,name,colorHex}], events: [{id,title,notes,isAllDay,start,end,tagID}]}` |
     | `todos.json` | Inbox tasks + trash: `{todos: [{id,text,createdAt,done,completedAt}], trash: [{id,text,occurrences,trashedAt,reason}]}` |
     | `claude/insights.json` | AI-written note shown on the home screen: `{updatedAt, message, schedule}`. `schedule` lines in the form `HH:MM–HH:MM task` can be turned into calendar events by the user with one click. |
-    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Items with `@due`/`@every` are seeded as an independent copy into each applicable day's journal — checking one day only records that day. Markers: `!high`/`!low`, `@due(M/d)`, `@from(M/d)`, `@every(mon,thu)`, `@remind(M/d HH:mm)`, `@est(3h)`, `@line(name)`. |
+    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Items with `@due`/`@every` are seeded as an independent copy into each applicable day's journal — checking one day only records that day. Markers: `!high`/`!low`, `@due(M/d)`, `@from(M/d)`, `@every(mon,thu)`, `@on(M/d,M/d)` (exact dates only), `@remind(M/d HH:mm)`, `@est(3h)`, `@line(name)`. |
     | `../Notes/**/*.md` | Notes (plain Markdown, `[[wikilinks]]`, `$…$` math, `\\cite{…}` Zotero keys). `assets/` folders hold images. |
     | `../Pomodoro/pomodoro.json` | Focus sessions: `[{date,minutes,plan,done,startedAt?}]`. Legacy entries have no `startedAt`, empty plan/done, and a 12:00:00 timestamp — exclude them from time-of-day analytics. |
 
@@ -386,11 +386,24 @@ final class FileSystemStore: ObservableObject {
         var noteName: String { noteURL.deletingPathExtension().lastPathComponent }
     }
 
+    /// 安全讀檔：iCloud 佔位檔（尚未下載到本機）同步讀取會阻塞到下載完成，
+    /// 在 iOS 主執行緒上會被 watchdog 砍掉（0x8BADF00D 黑畫面閃退）。
+    /// 尚未下載的檔案改成觸發背景下載、本次視為讀不到，下次掃描自然補上。
+    nonisolated static func safeRead(_ url: URL) -> String? {
+        if let v = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
+           let status = v.ubiquitousItemDownloadingStatus,
+           status == .notDownloaded {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            return nil
+        }
+        return try? String(contentsOf: url, encoding: .utf8)
+    }
+
     /// 彙整所有筆記中的 - [ ] / - [x]，依優先級（高→低）、到期日（近→遠）排序。
     func scanTodos(includeDone: Bool = false) -> [TodoItem] {
         var result: [TodoItem] = []
         for url in allNoteURLs() {
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            guard let content = Self.safeRead(url) else { continue }
             for (i, line) in content.components(separatedBy: "\n").enumerated() {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 let done: Bool
@@ -418,7 +431,7 @@ final class FileSystemStore: ObservableObject {
 
     /// 在原檔打勾 / 取消打勾
     func toggleTodo(_ item: TodoItem) {
-        guard let content = try? String(contentsOf: item.noteURL, encoding: .utf8) else { return }
+        guard let content = Self.safeRead(item.noteURL) else { return }
         var lines = content.components(separatedBy: "\n")
         guard item.lineIndex < lines.count else { return }
         let line = lines[item.lineIndex]
@@ -458,15 +471,15 @@ final class FileSystemStore: ObservableObject {
         var uncheckedMasters: [String] = []
         var seen = Set<String>()
         func addMaster(_ raw: String, unchecked: Bool) {
-            let clean = TodoMeta.parse(raw).cleanText
-            guard !clean.isEmpty else { return }
+            let key = TodoMeta.parse(raw).dedupKey
+            guard !key.isEmpty else { return }
             if unchecked { uncheckedMasters.append(raw) }
-            guard !seen.contains(clean) else { return }
-            seen.insert(clean)
+            guard !seen.contains(key) else { return }
+            seen.insert(key)
             masters.append(raw)
         }
         for (url, _) in journalFiles(dateFormatter: df) {
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            guard let content = Self.safeRead(url) else { continue }
             for line in content.components(separatedBy: "\n") {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 let unchecked = trimmed.hasPrefix("- [ ]")
@@ -480,20 +493,20 @@ final class FileSystemStore: ObservableObject {
         for text in generalTexts { addMaster(text, unchecked: true) }
 
         // 該天已有的（不重複播）
-        let targetContent = (try? String(contentsOf: targetURL, encoding: .utf8)) ?? ""
+        let targetContent = Self.safeRead(targetURL) ?? ""
         var targetExisting = Set<String>()
         for line in targetContent.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("- [ ]") || trimmed.lowercased().hasPrefix("- [x]")
             else { continue }
             let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-            targetExisting.insert(TodoMeta.parse(text).cleanText)
+            targetExisting.insert(TodoMeta.parse(text).dedupKey)
         }
 
         var toSeed: [String] = []
         for raw in masters {
             let meta = TodoMeta.parse(raw)
-            guard !targetExisting.contains(meta.cleanText) else { continue }
+            guard !targetExisting.contains(meta.dedupKey) else { continue }
             let from = meta.from.map { cal.startOfDay(for: $0) }
             var shouldSeed = false
             if let due = meta.due.map({ cal.startOfDay(for: $0) }) {
@@ -504,9 +517,12 @@ final class FileSystemStore: ObservableObject {
             if let days = meta.everyWeekdays, days.contains(weekday) {
                 shouldSeed = true
             }
+            if let dates = meta.onDates, dates.contains(day) {
+                shouldSeed = true   // @on：只在列出的那幾天出現（不連續工作）
+            }
             guard shouldSeed else { continue }
             toSeed.append(raw)
-            targetExisting.insert(meta.cleanText)
+            targetExisting.insert(meta.dedupKey)
         }
         if !toSeed.isEmpty {
             appendTodoLines(toSeed, existingContent: targetContent, to: targetURL)
@@ -551,44 +567,130 @@ final class FileSystemStore: ObservableObject {
 
     // MARK: - 任務總覽（/list）
 
-    /// 帶日期類標記（due/from/every/remind/est）的未完成待辦（日記＋筆記），依到期日排序。
-    func markerTodos() -> [TodoItem] {
+    /// 帶日期類標記（due/from/every/remind/est）的待辦（日記＋筆記），依到期日排序。
+    /// includeDone = true 時連同已完成副本一起回傳（任務總覽用來顯示各天完成度）。
+    func markerTodos(includeDone: Bool = false) -> [TodoItem] {
         func hasDateMarkers(_ meta: TodoMeta) -> Bool {
             meta.due != nil || meta.from != nil || meta.everyWeekdays != nil
-                || meta.remind != nil || meta.estMinutes != nil
+                || meta.onDates != nil || meta.remind != nil || meta.estMinutes != nil
         }
         var result: [TodoItem] = []
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         for (url, _) in journalFiles(dateFormatter: df) {
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            guard let content = Self.safeRead(url) else { continue }
             for (i, line) in content.components(separatedBy: "\n").enumerated() {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard trimmed.hasPrefix("- [ ]") else { continue }
+                let done: Bool
+                if trimmed.hasPrefix("- [ ]") { done = false }
+                else if includeDone && trimmed.lowercased().hasPrefix("- [x]") { done = true }
+                else { continue }
                 let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
                 guard !text.isEmpty else { continue }
                 let meta = TodoMeta.parse(text)
                 guard hasDateMarkers(meta) else { continue }
                 result.append(TodoItem(
-                    noteURL: url, lineIndex: i, text: text, done: false, meta: meta))
+                    noteURL: url, lineIndex: i, text: text, done: done, meta: meta))
             }
         }
-        for item in scanTodos() where hasDateMarkers(item.meta) {
+        for item in scanTodos(includeDone: includeDone) where hasDateMarkers(item.meta) {
             result.append(item)
         }
         return result.sorted { ($0.meta.due ?? .distantFuture) < ($1.meta.due ?? .distantFuture) }
+    }
+
+    /// 關鍵字搜尋：全文掃描日記＋筆記的待辦行（含已完成、含無標記的）。
+    /// 任務總覽用它回答「這個條目哪幾天做完了」。
+    func searchTodos(keyword: String) -> [TodoItem] {
+        let q = keyword.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return [] }
+        var result: [TodoItem] = []
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        for (url, _) in journalFiles(dateFormatter: df) {
+            guard let content = Self.safeRead(url) else { continue }
+            for (i, line) in content.components(separatedBy: "\n").enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                let done: Bool
+                if trimmed.hasPrefix("- [ ]") { done = false }
+                else if trimmed.lowercased().hasPrefix("- [x]") { done = true }
+                else { continue }
+                let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                guard !text.isEmpty, text.localizedCaseInsensitiveContains(q) else { continue }
+                result.append(TodoItem(
+                    noteURL: url, lineIndex: i, text: text, done: done,
+                    meta: TodoMeta.parse(text)))
+            }
+        }
+        for item in scanTodos(includeDone: true)
+        where item.text.localizedCaseInsensitiveContains(q) {
+            result.append(item)
+        }
+        return result
+    }
+
+    /// 歸檔：把同一任務的所有每日副本（含各自的縮排子項目）彙整成
+    /// Notes/Archive/<任務>.md。非破壞性——日記保持原樣，重複執行整份重新生成。
+    @discardableResult
+    func archiveTask(named cleanText: String, copies: [TodoItem]) -> URL? {
+        guard let notes = notesURL else { return nil }
+        let dir = notes.appendingPathComponent("Archive", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let safe = cleanText
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .trimmingCharacters(in: .whitespaces)
+        let fileURL = dir.appendingPathComponent("\(safe.isEmpty ? "任務" : safe).md")
+
+        var sections: [String] = []
+        for copy in copies.sorted(by: { $0.noteName < $1.noteName }) {
+            guard let content = Self.safeRead(copy.noteURL)
+            else { continue }
+            let lines = content.components(separatedBy: "\n")
+            guard copy.lineIndex < lines.count else { continue }
+            var block = [lines[copy.lineIndex]]
+            // 緊接在後、縮排更深的行（子項目）一起帶走
+            let baseIndent = lines[copy.lineIndex].prefix(while: { $0 == " " || $0 == "\t" }).count
+            var j = copy.lineIndex + 1
+            while j < lines.count {
+                let l = lines[j]
+                guard !l.trimmingCharacters(in: .whitespaces).isEmpty,
+                      l.prefix(while: { $0 == " " || $0 == "\t" }).count > baseIndent
+                else { break }
+                block.append(l)
+                j += 1
+            }
+            sections.append("""
+            ## \(copy.noteName) \(copy.done ? "✓" : "—")
+
+            \(block.joined(separator: "\n"))
+
+            [開啟日記](researchhub://journal?date=\(copy.noteName))
+            """)
+        }
+        let doc = """
+        # \(cleanText)
+
+        > 自動生成的任務歸檔（/list → 歸檔）。日記為原始紀錄，本檔可隨時重新生成。
+
+
+        """ + sections.joined(separator: "\n\n") + "\n"
+        try? doc.write(to: fileURL, atomically: true, encoding: .utf8)
+        return fileURL
     }
 
     /// 任務總覽的列編輯：改寫（newText）或刪除（nil／空字串）一行待辦。
     /// 行內容已和掃描時不同就不動，避免蓋錯。呼叫端需確定該檔的編輯器沒開著。
     @discardableResult
     func updateTodoLine(_ item: TodoItem, newText: String?) -> Bool {
-        guard let content = try? String(contentsOf: item.noteURL, encoding: .utf8) else { return false }
+        guard let content = Self.safeRead(item.noteURL) else { return false }
         var lines = content.components(separatedBy: "\n")
         guard item.lineIndex < lines.count else { return false }
         let line = lines[item.lineIndex]
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard trimmed.hasPrefix("- [ ]"),
+        // 已完成副本（- [x]）也允許改寫/刪除：任務總覽的編輯要套用到所有每日副本
+        let low = trimmed.lowercased()
+        guard low.hasPrefix("- [ ]") || low.hasPrefix("- [x]"),
               String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces) == item.text
         else { return false }
         let clean = newText?.trimmingCharacters(in: .whitespaces) ?? ""
@@ -607,7 +709,7 @@ final class FileSystemStore: ObservableObject {
     func appendTodoLine(_ text: String, on date: Date) {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty, let url = journalURL(for: date) else { return }
-        let content = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        let content = Self.safeRead(url) ?? ""
         appendTodoLines([t], existingContent: content, to: url)
     }
 
@@ -631,14 +733,15 @@ final class FileSystemStore: ObservableObject {
         df.dateFormat = "yyyy-MM-dd"
 
         for (url, day) in journalFiles(dateFormatter: df) {
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            guard let content = Self.safeRead(url) else { continue }
             for line in content.components(separatedBy: "\n") {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard trimmed.hasPrefix("- [ ]") else { continue }
                 let raw = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
                 let meta = TodoMeta.parse(raw)
                 // @due/@every/@from 是刻意每天出現的副本，不是拖延，不列入重複統計
-                guard meta.due == nil, meta.everyWeekdays == nil, meta.from == nil else { continue }
+                guard meta.due == nil, meta.everyWeekdays == nil, meta.from == nil,
+                      meta.onDates == nil else { continue }
                 let text = meta.cleanText
                 guard !text.isEmpty else { continue }
                 occurrences[text, default: []].insert(day)
@@ -662,7 +765,7 @@ final class FileSystemStore: ObservableObject {
         var changed = 0
 
         for (url, _) in journalFiles(dateFormatter: df) {
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            guard let content = Self.safeRead(url) else { continue }
             var lines = content.components(separatedBy: "\n")
             var dirty = false
             for i in lines.indices {
@@ -686,7 +789,7 @@ final class FileSystemStore: ObservableObject {
     /// 某天日記裡還沒完成的待辦（原始文字，含標記），給規劃儀式搬移用。
     func unfinishedJournalTodos(on date: Date) -> [String] {
         guard let url = journalURL(for: date),
-              let content = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+              let content = Self.safeRead(url) else { return [] }
         var result: [String] = []
         for line in content.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
