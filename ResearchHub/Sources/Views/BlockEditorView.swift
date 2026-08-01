@@ -1346,10 +1346,14 @@ extension BlockEditorView {
           }
 
           const doms = [];
+          const selFrom = state.selection.from;
           for (const mm of matches) {
             const kind = (mm[1] || mm[3]).toLowerCase();
             const arg = (mm[2] || "").trim();
             const from = base + mm.index, to = from + mm[0].length;
+            // 游標在這顆標記裡（例如 @est 補全後停在括號內正要打數字）→
+            // 先顯示原文讓使用者編輯，游標離開後才渲染成徽章。
+            if (state.selection.empty && selFrom > from && selFrom < to) continue;
             let dom = null;
             if (kind === "due") {
               const d = parseDateArg(arg);
