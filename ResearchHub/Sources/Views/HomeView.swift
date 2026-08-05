@@ -19,6 +19,10 @@ struct HomeView: View {
     @State private var statsPeriod: PomodoroStatsPeriod = .thisWeek
     /// 最近的蕃茄鐘卡片是否展開細項（依天分組、內容不截行）
     @State private var pomoLogExpanded = false
+    /// 展開後的檢視區間（預設最近 7 天；跨收合保留使用者選的範圍）
+    @State private var pomoLogFrom = Calendar.current.date(
+        byAdding: .day, value: -6, to: Calendar.current.startOfDay(for: .now)) ?? .now
+    @State private var pomoLogTo = Calendar.current.startOfDay(for: .now)
     @State private var newGeneralTodo = ""
     @State private var repeatedTodos: [FileSystemStore.RepeatedTodo] = []
     @State private var showTrash = false
@@ -869,14 +873,31 @@ struct HomeView: View {
 
     private var pomodoroLogCard: some View {
         card("list.bullet.rectangle", "最近的蕃茄鐘") {
-            let recent = pomodoro.recentSessions(limit: pomoLogExpanded ? 40 : 6)
-            if recent.isEmpty {
-                emptyHint("還沒有完成紀錄")
-            } else {
-                VStack(spacing: 8) {
-                    if pomoLogExpanded {
+            VStack(spacing: 8) {
+                if pomoLogExpanded {
+                    let ranged = pomoRangeSessions
+                    // 起訖日期選擇器 + 區間總計
+                    HStack(spacing: 6) {
+                        DatePicker("", selection: $pomoLogFrom,
+                                   in: ...pomoLogTo, displayedComponents: .date)
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                        Text("–").foregroundStyle(.tertiary)
+                        DatePicker("", selection: $pomoLogTo,
+                                   in: pomoLogFrom..., displayedComponents: .date)
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                        Spacer(minLength: 0)
+                        Text("\(ranged.count) 顆・\(ranged.reduce(0) { $0 + $1.minutes }) 分")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                    .controlSize(.small)
+                    if ranged.isEmpty {
+                        emptyHint("這段期間沒有蕃茄鐘")
+                    } else {
                         // 依天分組：當日顆數與總分鐘一目了然，內容不截行
-                        ForEach(pomoDayGroups(recent), id: \.day) { g in
+                        ForEach(pomoDayGroups(ranged), id: \.day) { g in
                             VStack(alignment: .leading, spacing: 5) {
                                 HStack(spacing: 6) {
                                     Text(g.day, format: .dateTime.month().day().weekday())
@@ -891,11 +912,18 @@ struct HomeView: View {
                                 }
                             }
                         }
+                    }
+                } else {
+                    let recent = pomodoro.recentSessions(limit: 6)
+                    if recent.isEmpty {
+                        emptyHint("還沒有完成紀錄")
                     } else {
                         ForEach(recent) { s in
                             pomoLogRow(s, expanded: false)
                         }
                     }
+                }
+                if !pomodoro.sessions.isEmpty {
                     Button {
                         withAnimation(.easeInOut(duration: 0.15)) {
                             pomoLogExpanded.toggle()
@@ -915,6 +943,17 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    /// 展開檢視的區間內全部紀錄（含起訖當天，最新在前）。
+    private var pomoRangeSessions: [PomodoroSession] {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: pomoLogFrom)
+        let end = cal.date(byAdding: .day, value: 1,
+                           to: cal.startOfDay(for: pomoLogTo)) ?? pomoLogTo
+        return pomodoro.sessions
+            .filter { $0.date >= start && $0.date < end }
+            .sorted { $0.date > $1.date }
     }
 
     /// 單筆紀錄列。收合模式：日期＋時間、內容截 2 行；
