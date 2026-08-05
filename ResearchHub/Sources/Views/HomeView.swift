@@ -17,6 +17,8 @@ struct HomeView: View {
     @State private var noteCount = 0
     @State private var animateBars = false
     @State private var statsPeriod: PomodoroStatsPeriod = .thisWeek
+    /// 最近的蕃茄鐘卡片是否展開細項（依天分組、內容不截行）
+    @State private var pomoLogExpanded = false
     @State private var newGeneralTodo = ""
     @State private var repeatedTodos: [FileSystemStore.RepeatedTodo] = []
     @State private var showTrash = false
@@ -863,40 +865,110 @@ struct HomeView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    // MARK: - 最近的蕃茄鐘（回顧計畫 → 完成）
+    // MARK: - 最近的蕃茄鐘（回顧計畫 → 完成；可展開看細項）
 
     private var pomodoroLogCard: some View {
         card("list.bullet.rectangle", "最近的蕃茄鐘") {
-            let recent = pomodoro.recentSessions(limit: 6)
+            let recent = pomodoro.recentSessions(limit: pomoLogExpanded ? 40 : 6)
             if recent.isEmpty {
                 emptyHint("還沒有完成紀錄")
             } else {
                 VStack(spacing: 8) {
-                    ForEach(recent) { s in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text(s.date, format: .dateTime.month().day().hour().minute())
-                                .font(.caption2.monospacedDigit())
-                                .foregroundStyle(.tertiary)
-                                .frame(width: 78, alignment: .leading)
-                            VStack(alignment: .leading, spacing: 1) {
-                                if !s.done.isEmpty {
-                                    Text(s.done).font(.caption).lineLimit(2)
-                                } else if !s.plan.isEmpty {
-                                    Text(s.plan).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                                } else {
-                                    Text("（未記錄內容）").font(.caption).foregroundStyle(.tertiary)
+                    if pomoLogExpanded {
+                        // 依天分組：當日顆數與總分鐘一目了然，內容不截行
+                        ForEach(pomoDayGroups(recent), id: \.day) { g in
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack(spacing: 6) {
+                                    Text(g.day, format: .dateTime.month().day().weekday())
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                    Text("\(g.items.count) 顆・\(g.minutes) 分")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
                                 }
-                                if !s.plan.isEmpty && !s.done.isEmpty {
-                                    Text("計畫：\(s.plan)")
-                                        .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                ForEach(g.items) { s in
+                                    pomoLogRow(s, expanded: true)
                                 }
                             }
-                            Spacer(minLength: 0)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        ForEach(recent) { s in
+                            pomoLogRow(s, expanded: false)
+                        }
                     }
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            pomoLogExpanded.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: pomoLogExpanded ? "chevron.up" : "chevron.down")
+                            Text(pomoLogExpanded ? "收合" : "展開細項")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 2)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    /// 單筆紀錄列。收合模式：日期＋時間、內容截 2 行；
+    /// 展開模式：只顯示時間（天在分組標題）、加顆長、內容不截行。
+    @ViewBuilder
+    private func pomoLogRow(_ s: PomodoroSession, expanded: Bool) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(s.date, format: expanded
+                 ? .dateTime.hour().minute()
+                 : .dateTime.month().day().hour().minute())
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
+                .frame(width: expanded ? 52 : 78, alignment: .leading)
+            if expanded {
+                Text("\(s.minutes)′")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 26, alignment: .trailing)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                if !s.done.isEmpty {
+                    Text(s.done).font(.caption)
+                        .lineLimit(expanded ? nil : 2)
+                } else if !s.plan.isEmpty {
+                    Text(s.plan).font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(expanded ? nil : 2)
+                } else {
+                    Text("（未記錄內容）").font(.caption).foregroundStyle(.tertiary)
+                }
+                if !s.plan.isEmpty && !s.done.isEmpty {
+                    Text("計畫：\(s.plan)")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                        .lineLimit(expanded ? nil : 1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 依天分組（輸入已是最新在前，維持該順序）。
+    private func pomoDayGroups(_ sessions: [PomodoroSession])
+        -> [(day: Date, items: [PomodoroSession], minutes: Int)] {
+        let cal = Calendar.current
+        var order: [Date] = []
+        var buckets: [Date: [PomodoroSession]] = [:]
+        for s in sessions {
+            let d = cal.startOfDay(for: s.date)
+            if buckets[d] == nil { order.append(d) }
+            buckets[d, default: []].append(s)
+        }
+        return order.map { d in
+            let items = buckets[d] ?? []
+            return (d, items, items.reduce(0) { $0 + $1.minutes })
         }
     }
 
