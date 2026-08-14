@@ -710,6 +710,11 @@ struct SourceTextView: NSViewRepresentable {
 
         context.coordinator.textView = textView
         context.coordinator.applyHighlighting()
+        // 捲到還沒上色的區域時補色（visibleOnly 模式只上可視區）
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            context.coordinator, selector: #selector(Coordinator.viewDidScroll(_:)),
+            name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
         return scrollView
     }
 
@@ -768,11 +773,13 @@ struct SourceTextView: NSViewRepresentable {
             scheduleHighlight()
         }
 
-        /// 打字中的重新上色延後到停手（0.25s）：全文 setAttributes 會讓長筆記
-        /// 整份重排版面、捲動位置跳動，也省掉每個按鍵掃全文 regex 的開銷。
+        /// 打字中的重新上色延後到停手（0.25s），而且只套可視區
+        /// （visibleOnly；全文套用會在長筆記造成捲動位置跳動）。
         private func scheduleHighlight() {
             highlightWork?.cancel()
-            let w = DispatchWorkItem { [weak self] in self?.applyHighlighting() }
+            let w = DispatchWorkItem { [weak self] in
+                self?.applyHighlighting(visibleOnly: true)
+            }
             highlightWork = w
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
         }
@@ -1026,64 +1033,95 @@ struct SourceTextView: NSViewRepresentable {
 
         // MARK: - Highlighting
 
-        func applyHighlighting() {
+        /// 上次上色套用的視窗（判斷捲動後要不要補色）。
+        private var lastHighlightWindow = NSRange(location: 0, length: 0)
+
+        /// 目前可視範圍對應的字元區間；margin 為上下加的 overscan（以視窗高為單位）。
+        private func visibleCharRange(_ tv: NSTextView, margin: CGFloat) -> NSRange? {
+            guard let lm = tv.layoutManager, let tc = tv.textContainer,
+                  let sv = tv.enclosingScrollView else { return nil }
+            var rect = sv.documentVisibleRect
+            rect.origin.y -= tv.textContainerInset.height + rect.height * margin
+            rect.size.height += rect.height * margin * 2
+            let glyphs = lm.glyphRange(forBoundingRect: rect, in: tc)
+            let chars = lm.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+            guard chars.length > 0 || chars.location == 0 else { return nil }
+            return (tv.string as NSString).lineRange(for: chars)
+        }
+
+        /// 語法上色。visibleOnly = true 時 regex 仍掃全文（跨行的 $$/環境配對才正確），
+        /// 但屬性只套在可視區 ± 一個視窗高：長筆記整份 setAttributes 會讓 layout
+        /// 全域失效、文件高度暫時用估計值，捲動位置被夾走——在文件底部打字時
+        /// 就是上下亂跳的根因。侷限套用範圍後，可視區以上的版面完全不動。
+        func applyHighlighting(visibleOnly: Bool = false) {
             guard let tv = textView, let storage = tv.textStorage else { return }
-            // 全文重上色會觸發整份重排；先記住捲動位置，上完色恢復，避免畫面跳動。
-            let sv = tv.enclosingScrollView
-            let savedOrigin = sv?.contentView.bounds.origin
             let size = parent.fontSize
             let ns = tv.string as NSString
             let full = NSRange(location: 0, length: ns.length)
+            let window = visibleOnly
+                ? (visibleCharRange(tv, margin: 1) ?? full)
+                : full
+            guard window.length > 0 || full.length == 0 else { return }
+            lastHighlightWindow = window
             let baseFont = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
             let boldFont = NSFont.monospacedSystemFont(ofSize: size, weight: .semibold)
+
+            func clipped(_ r: NSRange) -> NSRange? {
+                let c = NSIntersectionRange(r, window)
+                return c.length > 0 ? c : nil
+            }
 
             storage.beginEditing()
             storage.setAttributes([
                 .font: baseFont,
                 .foregroundColor: NSColor.labelColor
-            ], range: full)
+            ], range: window)
 
             // Markdown 結構
-            apply(Self.headerPattern, in: storage, range: full) {
+            apply(Self.headerPattern, in: storage, range: full, clipTo: window) {
                 [.font: boldFont]
             }
-            apply(Self.boldPattern, in: storage, range: full) {
+            apply(Self.boldPattern, in: storage, range: full, clipTo: window) {
                 [.font: boldFont]
             }
-            apply(Self.taskPattern, in: storage, range: full) {
+            apply(Self.taskPattern, in: storage, range: full, clipTo: window) {
                 [.foregroundColor: Palette.task]
             }
-            apply(Self.wikiLinkPattern, in: storage, range: full) {
+            apply(Self.wikiLinkPattern, in: storage, range: full, clipTo: window) {
                 [.foregroundColor: Palette.wikiLink]
             }
 
             // 長文字指令（\footnote/\title/\section…）的內容先整段上參數綠；大括號用計數配對，
             // 所以巢狀（如 \frac{}{}）也不會壞。放在數學之前，數學區段稍後會被蓋回數學色。
             for name in Self.proseArgCommands {
-                highlightBalancedArg("\\" + name, in: storage, color: Palette.argument)
+                highlightBalancedArg("\\" + name, in: storage,
+                                     color: Palette.argument, clipTo: window)
             }
 
             // 數學區域：內容紫 + 定界符橘
             for (regex, delim) in Self.mathPatterns {
                 regex.enumerateMatches(in: tv.string, range: full) { match, _, _ in
                     guard let r = match?.range, r.length >= delim * 2 else { return }
-                    storage.addAttribute(.foregroundColor, value: Palette.mathBody, range: r)
-                    storage.addAttribute(
-                        .foregroundColor, value: Palette.delimiter,
-                        range: NSRange(location: r.location, length: delim))
-                    storage.addAttribute(
-                        .foregroundColor, value: Palette.delimiter,
-                        range: NSRange(location: r.location + r.length - delim, length: delim))
+                    if let c = clipped(r) {
+                        storage.addAttribute(.foregroundColor, value: Palette.mathBody, range: c)
+                    }
+                    if let c = clipped(NSRange(location: r.location, length: delim)) {
+                        storage.addAttribute(.foregroundColor, value: Palette.delimiter, range: c)
+                    }
+                    if let c = clipped(
+                        NSRange(location: r.location + r.length - delim, length: delim)) {
+                        storage.addAttribute(.foregroundColor, value: Palette.delimiter, range: c)
+                    }
                 }
             }
 
             // begin/end 環境整塊內容上紫
-            apply(Self.envBlockPattern, in: storage, range: full) {
+            apply(Self.envBlockPattern, in: storage, range: full, clipTo: window) {
                 [.foregroundColor: Palette.mathBody]
             }
 
             // 指令藍（含數學內的指令）
-            apply(Self.commandPattern, in: storage, range: full) {
+            apply(Self.commandPattern, in: storage, range: full, clipTo: window) {
                 [.foregroundColor: Palette.command]
             }
 
@@ -1093,18 +1131,36 @@ struct SourceTextView: NSViewRepresentable {
                 // 長文字指令上面已用計數配對處理；這裡略過，免得蓋掉裡面的數學色。
                 let name = String(ns.substring(with: m.range).dropFirst().prefix { $0.isLetter })
                 if Self.proseArgCommands.contains(name) { return }
-                let argRange = m.range(at: 1)
-                if argRange.length > 0 {
-                    storage.addAttribute(.foregroundColor, value: Palette.argument, range: argRange)
+                if let c = clipped(m.range(at: 1)) {
+                    storage.addAttribute(.foregroundColor, value: Palette.argument, range: c)
                 }
             }
 
             storage.endEditing()
-            if let sv, let savedOrigin {
-                sv.contentView.setBoundsOrigin(savedOrigin)
-                sv.reflectScrolledClipView(sv.contentView)
-            }
             recomputeAnchors()   // 文字/版面變了 → 更新捲動同步的標題位置
+        }
+
+        // 捲動後補色：可視區露出「上次視窗」以外的區域才重上（debounce 0.12s）。
+        private var scrollWork: DispatchWorkItem?
+
+        @objc func viewDidScroll(_ note: Notification) {
+            scrollWork?.cancel()
+            let w = DispatchWorkItem { [weak self] in self?.rehighlightIfNeeded() }
+            scrollWork = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: w)
+        }
+
+        private func rehighlightIfNeeded() {
+            guard let tv = textView,
+                  let visible = visibleCharRange(tv, margin: 0) else { return }
+            if NSIntersectionRange(visible, lastHighlightWindow).length == visible.length {
+                return   // 可視區還在上次上色的範圍內
+            }
+            applyHighlighting(visibleOnly: true)
+        }
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
         }
 
         /// 長文字指令（內容可能含巢狀大括號或數學）的清單。
@@ -1113,8 +1169,9 @@ struct SourceTextView: NSViewRepresentable {
              "section", "subsection", "subsubsection"]
 
         /// 把 \command{...} 的內容上色，大括號用計數配對，巢狀（\frac{}{} 等）也不會壞。
+        /// 只在 clipTo 範圍內實際套屬性（掃描仍走全文以保持配對正確）。
         private func highlightBalancedArg(
-            _ command: String, in storage: NSTextStorage, color: NSColor
+            _ command: String, in storage: NSTextStorage, color: NSColor, clipTo: NSRange
         ) {
             let ns = storage.string as NSString
             let needle = command + "{"
@@ -1135,9 +1192,10 @@ struct SourceTextView: NSViewRepresentable {
                 }
                 if depth == 0 {
                     let len = (j - 1) - contentStart
-                    if len > 0 {
-                        storage.addAttribute(.foregroundColor, value: color,
-                                             range: NSRange(location: contentStart, length: len))
+                    let c = NSIntersectionRange(
+                        NSRange(location: contentStart, length: max(0, len)), clipTo)
+                    if c.length > 0 {
+                        storage.addAttribute(.foregroundColor, value: color, range: c)
                     }
                     i = j
                 } else { break }
@@ -1148,12 +1206,15 @@ struct SourceTextView: NSViewRepresentable {
             _ regex: NSRegularExpression,
             in storage: NSTextStorage,
             range: NSRange,
+            clipTo: NSRange,
             attributes: () -> [NSAttributedString.Key: Any]
         ) {
             let attrs = attributes()
             regex.enumerateMatches(in: storage.string, range: range) { match, _, _ in
-                if let r = match?.range {
-                    storage.addAttributes(attrs, range: r)
+                guard let r = match?.range else { return }
+                let c = NSIntersectionRange(r, clipTo)
+                if c.length > 0 {
+                    storage.addAttributes(attrs, range: c)
                 }
             }
         }
