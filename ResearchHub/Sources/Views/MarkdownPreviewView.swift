@@ -426,15 +426,29 @@ struct MarkdownPreviewView {
       }
       window.addEventListener("resize", applyScale);
 
+      // 公式捲軸只留給「真的超寬」的：帶 \\tag 編號的 KaTeX 內部寬度常比容器
+      // 多零點幾像素，overflow-x:auto 就會冒出整條捲軸。量一下，
+      // 沒有實質溢出的改成 visible（x/y 要一起改，單留 hidden 會被瀏覽器算回 auto）。
+      function tameEquationScrollbars() {
+        for (const kd of document.querySelectorAll("#content .katex-display")) {
+          const wide = kd.scrollWidth > kd.clientWidth + 3;
+          kd.style.overflowX = wide ? "auto" : "visible";
+          kd.style.overflowY = wide ? "hidden" : "visible";
+        }
+      }
+
       // KaTeX 字型是首次渲染才開始載入：載入前量測的高度不準（也會造成字符重疊），
       // 每批字型載完就把 A4 重新分頁（字型已齊時不會再觸發，不會迴圈）。
       if (document.fonts) {
         document.fonts.addEventListener("loadingdone", () => {
           if (layoutMode === "a4" && lastSrc !== null) {
             const s = lastSrc; lastSrc = null; window.update(s);
+          } else {
+            tameEquationScrollbars();   // 字型到齊後寬度會變，重新量
           }
         });
       }
+      window.addEventListener("resize", tameEquationScrollbars);
 
       window.update = function (text) {
         lastSrc = text;
@@ -460,6 +474,7 @@ struct MarkdownPreviewView {
           tagFootnotes(content);
         }
         applyScale();
+        tameEquationScrollbars();
         window.scrollTo(0, savedY);
         const imgs = Array.from(content.querySelectorAll("img"));
         Promise.allSettled(imgs.map(im => im.decode ? im.decode() : Promise.resolve()))
