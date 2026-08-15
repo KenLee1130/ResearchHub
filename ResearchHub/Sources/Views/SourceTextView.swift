@@ -40,6 +40,9 @@ final class PastingTextView: NSTextView {
     static let commandList: [String] = [
         "\\title{}", "\\subtitle{}", "\\author{}", "\\date{}",
         "\\section{}", "\\subsection{}", "\\subsubsection{}", "\\tableofcontents",
+        "\\appendix", "\\paragraph{}", "\\subparagraph{}", "\\maketitle", "\\newpage",
+        "\\textbf{}", "\\textit{}", "\\emph{}", "\\underline{}", "\\texttt{}", "\\textsc{}",
+        "\\includegraphics{}", "\\caption{}", "\\href{}{}", "\\url{}",
         "\\cite{}", "\\footnote{}", "\\label{}", "\\eqref{}", "\\ref{}",
         "\\begin{}", "\\end{}",
         "\\frac{}{}", "\\sqrt{}", "\\text{}", "\\mathbb{}", "\\mathcal{}", "\\mathbf{}",
@@ -61,6 +64,7 @@ final class PastingTextView: NSTextView {
         "equation", "equation*", "align", "align*", "aligned", "gather", "gather*",
         "cases", "split", "multline", "matrix", "pmatrix", "bmatrix", "vmatrix", "Vmatrix",
         "enumerate", "itemize",
+        "figure", "table", "tabular", "center", "quote", "quotation", "abstract",
     ]
 
     private lazy var completionPopup: CompletionPopup = {
@@ -996,7 +1000,7 @@ struct SourceTextView: NSViewRepresentable {
         /// begin/end 環境整塊（內容上紫色，之後指令/參數再覆蓋）。
         /// enumerate/itemize 是文字清單環境（預覽端轉成 markdown 清單），不算數學。
         private static let envBlockPattern = try! NSRegularExpression(
-            pattern: #"\\begin\{(?!enumerate\}|itemize\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
+            pattern: #"\\begin\{(?!enumerate\}|itemize\}|figure\}|table\}|tabular\}|center\}|quote\}|quotation\}|abstract\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
 
         private static let commandPattern = try! NSRegularExpression(pattern: #"\\[a-zA-Z]+"#)
 
@@ -1013,12 +1017,12 @@ struct SourceTextView: NSViewRepresentable {
             pattern: #"^\s*- \[[ xX]\]"#, options: [.anchorsMatchLines])
         /// 捲動同步的「標題」錨點：markdown # 或 \title/\subtitle/\author/\date/\section…
         private static let anchorLineRegex = try! NSRegularExpression(
-            pattern: #"^[ \t]*(?:#{1,6}\s|\\(?:title|subtitle|author|date|subsubsection|subsection|section)\{)"#,
+            pattern: #"^[ \t]*(?:#{1,6}\s|\\(?:title|subtitle|author|date|subsubsection|subsection|section|subparagraph|paragraph)\*?\{)"#,
             options: [.anchorsMatchLines])
         /// 顯示型數學區塊（每塊對到預覽裡一個 .katex-display），當作捲動同步的細錨點。
         /// enumerate/itemize 在預覽端渲染成清單而非 .katex-display，要排除，否則左右錨點數對不上。
         private static let mathBlockRegex = try! NSRegularExpression(
-            pattern: #"\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{(?!enumerate\}|itemize\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
+            pattern: #"\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{(?!enumerate\}|itemize\}|figure\}|table\}|tabular\}|center\}|quote\}|quotation\}|abstract\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
 
         // MARK: - Colors (Overleaf-ish, adapts to dark mode)
 
@@ -1166,7 +1170,9 @@ struct SourceTextView: NSViewRepresentable {
         /// 長文字指令（內容可能含巢狀大括號或數學）的清單。
         private static let proseArgCommands: Set<String> =
             ["footnote", "title", "subtitle", "author", "date",
-             "section", "subsection", "subsubsection"]
+             "section", "subsection", "subsubsection",
+             "paragraph", "subparagraph", "caption",
+             "textbf", "textit", "emph", "texttt", "underline", "textsc"]
 
         /// 把 \command{...} 的內容上色，大括號用計數配對，巢狀（\frac{}{} 等）也不會壞。
         /// 只在 clipTo 範圍內實際套屬性（掃描仍走全文以保持配對正確）。

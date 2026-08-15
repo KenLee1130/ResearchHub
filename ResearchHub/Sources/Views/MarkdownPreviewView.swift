@@ -264,6 +264,12 @@ struct MarkdownPreviewView {
       .err { color: #c33; font-family: ui-monospace, monospace; font-size: 0.85em; }
       .rh-deadlink { color: #c33; border-bottom: 1px dashed #c33; cursor: help; }
       .rh-tail-head { font-weight: 600; margin: 1em 0 0.4em; }
+      .rh-caption { font-size: 0.88em; opacity: 0.75; margin: 0.2em 0 0.6em; }
+      .rh-abs-head { text-align: center; font-weight: 600; margin: 0.8em 0 0.2em; }
+      .rh-abstract { margin: 0 1.5em 1em; opacity: 0.92; }
+      table { border-collapse: collapse; margin: 0.5em auto; }
+      th, td { border: 1px solid rgba(127,127,127,0.35); padding: 3px 10px; }
+      th { background: rgba(127,127,127,0.12); }
       .rh-fn-head { font-size: 0.85em; opacity: 0.8; }
       /* A4 分頁模式：固定 794×1123（96dpi 的 210×297mm），註腳放當頁底部 */
       #measure { position: absolute; left: -10000px; top: 0; width: 680px; visibility: hidden; }

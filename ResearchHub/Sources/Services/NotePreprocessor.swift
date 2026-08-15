@@ -42,10 +42,82 @@ enum NotePreprocessor {
             }
         }
 
+        // 0.2 全行 % 註解（LaTeX 慣例）：行首（含縮排）以 % 開頭的整行拿掉。
+        //     \% 跳脫不受影響；數學區內的 % 交給 KaTeX 自己處理。
+        text = replaceOutsideMath(text) { seg in
+            replace(seg, pattern: #"(?m)^[ \t]*%[^\n]*\n?"#) { _ in "" }
+        }
+
         // 0.5 文字模式清單環境：\begin{enumerate}/\begin{itemize}（可巢狀、\item 可多行）
         //     → markdown 清單。一定要在數學處理「之前」做：KaTeX 不支援這些文字環境，
         //     不先轉換整塊會被預覽端當數學送去 KaTeX，渲染成錯誤。
         text = convertListEnvironments(text)
+
+        // 0.6 文字環境：quote/quotation → 引用塊、center → 置中、abstract → 摘要。
+        //     （html 區塊前後要留空行，marked 才會繼續解析中間的 markdown。）
+        for env in ["quote", "quotation"] {
+            text = replaceEnvironment(text, env) { c in
+                "\n\n<blockquote>\n\n\(c.trimmingCharacters(in: .whitespacesAndNewlines))\n\n</blockquote>\n\n"
+            }
+        }
+        text = replaceEnvironment(text, "center") { c in
+            "\n\n<div style=\"text-align:center\">\n\n\(c.trimmingCharacters(in: .whitespacesAndNewlines))\n\n</div>\n\n"
+        }
+        text = replaceEnvironment(text, "abstract") { c in
+            "\n\n<div class=\"rh-abs-head\">摘要</div>\n<div class=\"rh-abstract\">\n\n"
+                + c.trimmingCharacters(in: .whitespacesAndNewlines) + "\n\n</div>\n\n"
+        }
+
+        // 0.65 圖與表：\includegraphics → 圖片、figure/table 環境 →
+        //      置中內容 + 「圖 n／表 n：caption」+ \label 錨點（\ref 可引用編號）。
+        var figMap: [String: Int] = [:]
+        var tabMap: [String: Int] = [:]
+        text = replace(text, pattern: #"\\includegraphics(?:\[[^\]\n]*\])?\{([^}]*)\}"#) { g in
+            "![](\(g[1].trimmingCharacters(in: .whitespaces)))"
+        }
+        var figCount = 0
+        text = replaceEnvironment(text, "figure") { content in
+            var body = replace(content, pattern: #"^\s*\[[^\]\n]*\]"#) { _ in "" }  // [h!] 等placement
+            var caption = ""
+            body = replaceBalancedCommand(body, "\\caption") { c in caption = c; return "" }
+            var keys: [String] = []
+            body = replace(body, pattern: #"\\label\{([^}]*)\}"#) { lg in
+                keys.append(lg[1].trimmingCharacters(in: .whitespaces)); return ""
+            }
+            body = replace(body, pattern: #"\\centering(?![a-zA-Z])"#) { _ in "" }
+            figCount += 1
+            for k in keys { figMap[k] = figCount }
+            let anchors = keys.map { "<span id=\"fig-\(anchorID($0))\"></span>" }.joined()
+            let cap = caption.isEmpty ? "" :
+                "\n\n<div class=\"rh-caption\">圖 \(figCount)：\(inlineFormatHTML(caption))</div>\n"
+            return "\n\n<div style=\"text-align:center\">\n\n" + anchors
+                + body.trimmingCharacters(in: .whitespacesAndNewlines) + cap + "\n\n</div>\n\n"
+        }
+        var tabCount = 0
+        text = replaceEnvironment(text, "table") { content in
+            var body = replace(content, pattern: #"^\s*\[[^\]\n]*\]"#) { _ in "" }
+            var caption = ""
+            body = replaceBalancedCommand(body, "\\caption") { c in caption = c; return "" }
+            var keys: [String] = []
+            body = replace(body, pattern: #"\\label\{([^}]*)\}"#) { lg in
+                keys.append(lg[1].trimmingCharacters(in: .whitespaces)); return ""
+            }
+            body = replace(body, pattern: #"\\centering(?![a-zA-Z])"#) { _ in "" }
+            body = replaceEnvironment(body, "tabular") { tb in
+                tabularToMarkdown(tb) ?? ("\\begin{tabular}" + tb + "\\end{tabular}")
+            }
+            tabCount += 1
+            for k in keys { tabMap[k] = tabCount }
+            let anchors = keys.map { "<span id=\"tab-\(anchorID($0))\"></span>" }.joined()
+            let cap = caption.isEmpty ? "" :
+                "<div class=\"rh-caption\" style=\"text-align:center\">表 \(tabCount)：\(inlineFormatHTML(caption))</div>\n"
+            return "\n\n" + anchors + cap
+                + body.trimmingCharacters(in: .whitespacesAndNewlines) + "\n\n"
+        }
+        // 沒包在 table 環境裡的落單 tabular 也轉
+        text = replaceEnvironment(text, "tabular") { tb in
+            tabularToMarkdown(tb) ?? ("\\begin{tabular}" + tb + "\\end{tabular}")
+        }
 
         // 1. 方程式編號（仿 LaTeX）：
         //    - \label 不顯示任何東西，只記錄該式的編號供 \eqref 使用。
@@ -87,11 +159,13 @@ enum NotePreprocessor {
             guard let n = eqMap[key] else { return "(?)" }
             return "[(\(n))](#eq-\(anchorID(key)))"
         }
-        // 3. \ref{key} → 可點擊的 n
+        // 3. \ref{key} → 可點擊的 n（公式、圖、表都能引用）
         text = replace(text, pattern: #"\\ref\{([^}]*)\}"#) { groups in
             let key = groups[1].trimmingCharacters(in: .whitespaces)
-            guard let n = eqMap[key] else { return "?" }
-            return "[\(n)](#eq-\(anchorID(key)))"
+            if let n = eqMap[key] { return "[\(n)](#eq-\(anchorID(key)))" }
+            if let n = figMap[key] { return "[\(n)](#fig-\(anchorID(key)))" }
+            if let n = tabMap[key] { return "[\(n)](#tab-\(anchorID(key)))" }
+            return "?"
         }
 
         // 3.5 文件抬頭：\title / \subtitle / \author / \date → 置中樣式區塊。
@@ -112,26 +186,45 @@ enum NotePreprocessor {
 
         // 3.6 章節：\section / \subsection / \subsubsection → 自動編號標題 + 錨點，並收集目錄。
         //（用同一個 pass 才能依出現順序正確編號）
+        //  \appendix 之後第一層編號改 A、B、C…；\section*{} 星號版不編號、不進目錄。
         var secNums = [0, 0, 0]
+        var inAppendix = false
         var toc: [(level: Int, number: String, title: String, id: String)] = []
-        text = replace(text, pattern: #"\\(sub)?(sub)?section\{([^}]*)\}"#) { g in
+        text = replace(
+            text,
+            pattern: #"\\appendix(?![a-zA-Z])|\\(sub)?(sub)?section(\*)?\{([^}]*)\}"#
+        ) { g in
+            if g[0].hasPrefix("\\appendix") {
+                inAppendix = true
+                secNums = [0, 0, 0]
+                return ""
+            }
             let level = (g[1].isEmpty ? 0 : 1) + (g[2].isEmpty ? 0 : 1) + 1
+            let title = g[4]
+            let hashes = String(repeating: "#", count: level)
+            if !g[3].isEmpty {   // 星號版
+                return "\(hashes) \(title)"
+            }
             switch level {
             case 1: secNums[0] += 1; secNums[1] = 0; secNums[2] = 0
             case 2: secNums[1] += 1; secNums[2] = 0
             default: secNums[2] += 1
             }
+            let l1 = inAppendix ? appendixLetter(secNums[0]) : "\(secNums[0])"
             let number: String
             switch level {
-            case 1: number = "\(secNums[0])"
-            case 2: number = "\(secNums[0]).\(secNums[1])"
-            default: number = "\(secNums[0]).\(secNums[1]).\(secNums[2])"
+            case 1: number = l1
+            case 2: number = "\(l1).\(secNums[1])"
+            default: number = "\(l1).\(secNums[1]).\(secNums[2])"
             }
-            let title = g[3]
             let id = "sec-" + number.replacingOccurrences(of: ".", with: "-")
             toc.append((level, number, title, id))
-            let hashes = String(repeating: "#", count: level)
             return "<span id=\"\(id)\"></span>\n\n\(hashes) \(number) \(title)"
+        }
+
+        // 3.65 段落級標題：\paragraph → h4、\subparagraph → h5（不編號）
+        text = replace(text, pattern: #"\\(sub)?paragraph\*?\{([^}]*)\}"#) { g in
+            "\n\n\(g[1].isEmpty ? "####" : "#####") \(g[2])\n\n"
         }
 
         // 3.7 \tableofcontents → 依章節自動生成目錄（連結可跳到該節）
@@ -144,6 +237,35 @@ enum NotePreprocessor {
             }
             lines.append("")
             return lines.joined(separator: "\n")
+        }
+
+        // 3.8 文字樣式與雜項（只動數學區以外；公式裡的 \textbf 等交給 KaTeX）：
+        //     樣式 → markdown/HTML、\href/\url → 連結、
+        //     排版留白指令拿掉、\newpage/\clearpage → 分隔線。
+        text = replaceOutsideMath(text) { seg in
+            var s = seg
+            s = replaceBalancedCommand(s, "\\textbf") { "**\($0)**" }
+            s = replaceBalancedCommand(s, "\\textit") { "*\($0)*" }
+            s = replaceBalancedCommand(s, "\\emph") { "*\($0)*" }
+            s = replaceBalancedCommand(s, "\\underline") { "<u>\($0)</u>" }
+            s = replaceBalancedCommand(s, "\\texttt") { "`\($0)`" }
+            s = replaceBalancedCommand(s, "\\textsc") {
+                "<span style=\"font-variant:small-caps\">\($0)</span>"
+            }
+            s = replaceBalancedCommand(s, "\\textsuperscript") { "<sup>\($0)</sup>" }
+            s = replaceBalancedCommand(s, "\\textsubscript") { "<sub>\($0)</sub>" }
+            s = replace(s, pattern: #"\\href\{([^}]*)\}\{([^}]*)\}"#) { g in
+                "[\(g[2])](\(g[1]))"
+            }
+            s = replace(s, pattern: #"\\url\{([^}]*)\}"#) { g in "[\(g[1])](\(g[1]))" }
+            s = replace(s, pattern: #"\\(?:vspace|hspace)\*?\{[^}]*\}"#) { _ in " " }
+            s = replace(s, pattern:
+                #"\\(?:maketitle|noindent|centering|raggedright|bigskip|medskip|smallskip|vfill|hfill)(?![a-zA-Z])"#
+            ) { _ in "" }
+            s = replace(s, pattern: #"\\(?:newpage|clearpage)(?![a-zA-Z])"#) { _ in
+                "\n\n---\n\n"
+            }
+            return s
         }
 
         // 4. 註腳：\footnote{文字} → 上標 [n]，文字收集到文末
@@ -314,6 +436,132 @@ enum NotePreprocessor {
         }
         // 前後各留空行，marked 才會把它當獨立清單解析（就算原本卡在段落中間）
         return "\n\n" + lines.joined(separator: "\n") + "\n\n"
+    }
+
+    // MARK: - 通用工具（文字環境 / 數學區外替換 / 表格）
+
+    /// 數學區（$$…$$、\begin{env}…\end{env}、\[…\]、\(…\)、$…$）。
+    /// 文字類替換用它切段，只動數學區以外的內容。
+    private static let mathRegionRegex = try! NSRegularExpression(pattern:
+        #"\$\$[\s\S]+?\$\$|\\begin\{([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$"#)
+
+    /// 只對「數學區以外」的片段套 transform，數學區原樣保留。
+    private static func replaceOutsideMath(
+        _ text: String, transform: (String) -> String
+    ) -> String {
+        let ns = text as NSString
+        var result = ""
+        var last = 0
+        mathRegionRegex.enumerateMatches(
+            in: text, range: NSRange(location: 0, length: ns.length)) { m, _, _ in
+            guard let m else { return }
+            result += transform(
+                ns.substring(with: NSRange(location: last, length: m.range.location - last)))
+            result += ns.substring(with: m.range)
+            last = m.range.location + m.range.length
+        }
+        result += transform(ns.substring(from: last))
+        return result
+    }
+
+    /// 把每個 \begin{env}…\end{env} 的「內容」交給 transform（同名巢狀正確配對）；
+    /// 沒有對應 \end 的原樣保留。
+    private static func replaceEnvironment(
+        _ text: String, _ env: String, transform: (String) -> String
+    ) -> String {
+        let ns = text as NSString
+        let n = ns.length
+        let beginTok = "\\begin{\(env)}"
+        var result = ""
+        var i = 0
+        while i < n {
+            let r = ns.range(of: beginTok, range: NSRange(location: i, length: n - i))
+            guard r.location != NSNotFound,
+                  let (contentEnd, blockEnd) = matchingEnd(
+                    for: env, in: ns, from: r.location + r.length)
+            else {
+                result += ns.substring(from: i)
+                break
+            }
+            result += ns.substring(with: NSRange(location: i, length: r.location - i))
+            let start = r.location + r.length
+            result += transform(
+                ns.substring(with: NSRange(location: start, length: contentEnd - start)))
+            i = blockEnd
+        }
+        return result
+    }
+
+    /// 簡單 tabular → markdown 表格（\\ 分列、& 分欄、\hline/booktabs 線拿掉）。
+    /// 有 \multicolumn/\multirow 或巢狀環境就放棄（回傳 nil，原樣保留）。
+    private static func tabularToMarkdown(_ raw: String) -> String? {
+        var body = raw
+        // 去掉開頭的欄位規格 {…}（可含巢狀，如 p{2cm}）
+        if let specEnd = leadingBraceGroupEnd(body) {
+            body = String(body[specEnd...])
+        }
+        guard !body.contains("\\begin{"), !body.contains("\\multicolumn"),
+              !body.contains("\\multirow") else { return nil }
+        for tok in ["\\hline", "\\toprule", "\\midrule", "\\bottomrule"] {
+            body = body.replacingOccurrences(of: tok, with: "")
+        }
+        // \& 先藏起來，切完欄再還原
+        body = body.replacingOccurrences(of: "\\&", with: "\u{1}")
+        let rows = body.components(separatedBy: "\\\\")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !rows.isEmpty else { return nil }
+        let cells = rows.map { row in
+            row.components(separatedBy: "&").map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: "\u{1}", with: "&")
+                    .replacingOccurrences(of: "|", with: "\\|")
+            }
+        }
+        let cols = cells.map(\.count).max() ?? 1
+        func line(_ row: [String]) -> String {
+            "| " + (0..<cols).map { $0 < row.count ? row[$0] : "" }
+                .joined(separator: " | ") + " |"
+        }
+        var out = ["", line(cells[0]),
+                   "| " + Array(repeating: "---", count: cols).joined(separator: " | ") + " |"]
+        for row in cells.dropFirst() { out.append(line(row)) }
+        out.append("")
+        return out.joined(separator: "\n")
+    }
+
+    /// 開頭（可有空白）第一個平衡的 {…} 群組結束位置之後的 index；沒有就 nil。
+    private static func leadingBraceGroupEnd(_ s: String) -> String.Index? {
+        var i = s.startIndex
+        while i < s.endIndex, s[i].isWhitespace { i = s.index(after: i) }
+        guard i < s.endIndex, s[i] == "{" else { return nil }
+        var depth = 0
+        while i < s.endIndex {
+            if s[i] == "{" { depth += 1 }
+            else if s[i] == "}" {
+                depth -= 1
+                if depth == 0 { return s.index(after: i) }
+            }
+            i = s.index(after: i)
+        }
+        return nil
+    }
+
+    /// caption 等會直接放進 HTML 的文字：樣式指令轉成 HTML 標籤
+    /// （html 區塊內的 markdown 不會被解析，所以不能用 **…**）。
+    private static func inlineFormatHTML(_ s: String) -> String {
+        var t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        t = replaceBalancedCommand(t, "\\textbf") { "<b>\($0)</b>" }
+        t = replaceBalancedCommand(t, "\\textit") { "<i>\($0)</i>" }
+        t = replaceBalancedCommand(t, "\\emph") { "<i>\($0)</i>" }
+        t = replaceBalancedCommand(t, "\\texttt") { "<code>\($0)</code>" }
+        return t
+    }
+
+    /// 附錄章節編號：1 → A、2 → B…（超出 26 就退回數字）。
+    private static func appendixLetter(_ n: Int) -> String {
+        guard n >= 1, n <= 26, let sc = UnicodeScalar(64 + n) else { return "\(n)" }
+        return String(Character(sc))
     }
 
     /// 清單環境裡沒有 \item 時的救援：內容當 markdown 清單，把「出現過的縮排寬度」
