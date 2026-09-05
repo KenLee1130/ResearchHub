@@ -1,15 +1,22 @@
 #!/bin/zsh
 # 自動重簽 ResearchHubMobile 並安裝到 iPhone（免費描述檔 7 天到期，
-# 過期後 app 打不開＋iOS 撤銷開發者信任）。由 com.researchhub.iphone-resign
-# LaunchAgent 每天 20:00 觸發：距上次成功 <5 天就直接跳過，
-# 所以單次失敗（Mac 睡著、手機不在線上）隔天會自動補救，不用等一週。
+# 過期後 app 打不開＋iOS 撤銷開發者信任）。
+#
+# 由 com.researchhub.iphone-resign LaunchAgent 每天 20:00 觸發。
+# ⚠️ launchd 背景行程被 macOS TCC 擋在 ~/Desktop 之外（Operation not permitted），
+# 所以這裡一律用 ~/Library 下的 repo clone 建置；clone 由 install-mac.sh
+# （終端機執行、有 Desktop 權限）在每次 Mac 版安裝時同步。
+# LaunchAgent 也必須指向 clone 裡的這支腳本，不能指 Desktop 原本。
 set -euo pipefail
 
-PROJECT=/Users/kenlee/Desktop/projects/ResearchHub/ResearchHub.xcodeproj
+BASE="$HOME/Library/Application Support/ResearchHub/resign"
+REPO="$BASE/repo"                       # ~/Desktop repo 的 clone（launchd 讀得到）
+PROJECT="$REPO/ResearchHub.xcodeproj"
+DERIVED="$BASE/DerivedData"
 DEVICE_ID=50D8E41A-F2CA-5644-A308-DAB5BAAC61F9   # iPhone「Ken」
-APP=/Users/kenlee/Library/Developer/Xcode/DerivedData/ResearchHub-hiitradpiuupcaafzttbnxivtqhv/Build/Products/Debug-iphoneos/ResearchHubMobile.app
-LOG=/Users/kenlee/Library/Logs/researchhub-iphone-resign.log   # /tmp 會被系統清掉
-STAMP=/Users/kenlee/Library/Logs/researchhub-iphone-resign.stamp
+APP="$DERIVED/Build/Products/Debug-iphoneos/ResearchHubMobile.app"
+LOG="$HOME/Library/Logs/researchhub-iphone-resign.log"   # /tmp 會被系統清掉
+STAMP="$HOME/Library/Logs/researchhub-iphone-resign.stamp"
 
 notify() {
   /usr/bin/osascript -e "display notification \"$1\" with title \"ResearchHub 週更\"" || true
@@ -25,8 +32,14 @@ fi
 
 echo "===== $(date '+%F %T') 開始重簽 =====" >> "$LOG"
 
+# 順手同步 clone（launchd 下讀不到 Desktop 的 origin 會失敗——沒關係，
+# 重簽只需要「能編譯」，用現有版本照樣續命；程式碼同步交給 install-mac.sh）
+git -C "$REPO" pull --ff-only >> "$LOG" 2>&1 \
+  || echo "pull 失敗（launchd 讀不到 Desktop origin），用 clone 現有版本" >> "$LOG"
+
 if ! xcodebuild -project "$PROJECT" -scheme ResearchHubMobile \
     -destination "platform=iOS,id=$DEVICE_ID" \
+    -derivedDataPath "$DERIVED" \
     -configuration Debug -allowProvisioningUpdates build >> "$LOG" 2>&1; then
   notify "編譯失敗，看 $LOG"
   exit 1

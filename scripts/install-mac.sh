@@ -42,3 +42,12 @@ done
 echo "▸ Relaunching…"
 open -a /Applications/ResearchHub.app
 echo "✓ 已安裝並重啟 /Applications/ResearchHub.app"
+
+# 同步 iPhone 重簽用的 repo clone（在 ~/Library，launchd 才讀得到——
+# TCC 擋 launchd 碰 ~/Desktop；這裡是終端機環境，有 Desktop 權限可以 pull）
+RESIGN_REPO="$HOME/Library/Application Support/ResearchHub/resign/repo"
+if [[ -d "$RESIGN_REPO/.git" ]]; then
+  git -C "$RESIGN_REPO" pull --ff-only --quiet \
+    && echo "✓ 重簽 clone 已同步" \
+    || echo "⚠ 重簽 clone 同步失敗（不影響 Mac 版）"
+fi
