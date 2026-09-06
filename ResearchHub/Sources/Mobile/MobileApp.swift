@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// iPhone 版入口：與 macOS 版共用全部 Models/Services（純檔案資料層），
@@ -33,6 +34,32 @@ struct MobileRootView: View {
     @EnvironmentObject private var generalTodos: GeneralTodoStore
     @EnvironmentObject private var pomodoro: PomodoroModel
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
+    @ObservedObject private var gate = ReadingGateStore.shared
+    @State private var gateRequest: GateRequest?
+
+    /// 一次關卡請求（fullScreenCover(item:) 需要 Identifiable）
+    struct GateRequest: Identifiable {
+        let id = UUID()
+        let app: GateApp?
+    }
+
+    /// researchhub://gate?app=instagram
+    /// 不需要攔（沒在專注／還在寬限期）就立刻跳回原本的 app，畫面只會閃一下。
+    private func handleGateURL(_ url: URL) {
+        guard url.scheme == "researchhub", url.host == "gate" else { return }
+        gate.configure(rootURL: store.rootURL)
+        gate.reload()
+        let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let scheme = comps?.queryItems?.first { $0.name == "app" }?.value
+        let target = scheme.flatMap { gate.app(forScheme: $0) }
+        // 黑名單沒勾這個 app，或現在不必攔 → 直接放行
+        let listed = scheme.map { gate.isBlacklisted($0) } ?? false
+        if !listed || gate.shouldPassThrough() {
+            if let u = target?.openURL { UIApplication.shared.open(u) }
+            return
+        }
+        gateRequest = GateRequest(app: target)
+    }
 
     var body: some View {
         Group {
@@ -59,11 +86,18 @@ struct MobileRootView: View {
             eventStore.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
+            gate.configure(rootURL: store.rootURL)
+        }
+        // 閱讀關卡：捷徑自動化在打開黑名單 app 時導到 researchhub://gate?app=<scheme>
+        .onOpenURL { url in handleGateURL(url) }
+        .fullScreenCover(item: $gateRequest) { req in
+            ReadingGateView(target: req.app) { gateRequest = nil }
         }
         .onChange(of: store.rootURL) {
             eventStore.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
+            gate.configure(rootURL: store.rootURL)
         }
     }
 }
@@ -410,6 +444,16 @@ struct MobileSettingsView: View {
                 }
                 .onChange(of: language) { _, newValue in
                     (AppLanguage(rawValue: newValue) ?? .system).apply()
+                }
+
+                Section {
+                    NavigationLink {
+                        ReadingGateSettingsView()
+                    } label: {
+                        Label("閱讀關卡", systemImage: "lock.doc")
+                    }
+                } footer: {
+                    Text("專注時打開 IG／YouTube 等 app，先讀一篇 paper 的 abstract 並答對問題才放行。")
                 }
 
                 LabeledContent("筆記根資料夾") {

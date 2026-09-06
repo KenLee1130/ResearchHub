@@ -171,6 +171,32 @@ final class PomodoroModel: ObservableObject {
         d["phaseEndAt"] = phaseEndAt?.timeIntervalSince1970 ?? 0
         d["activeStartedAt"] = activeStartedAt?.timeIntervalSince1970 ?? 0
         defaults.set(d, forKey: CountKey.savedTimer)
+        writeFocusState()
+    }
+
+    /// 把「現在是否在專注」寫進 .hub/focus_state.json，讓手機端的閱讀關卡讀得到
+    /// （計時狀態本身在 UserDefaults，是本機的，跨不到 iPhone）。
+    /// 一併帶上這顆的計畫，關卡跳出來時可以提醒使用者現在該做什麼。
+    private func writeFocusState() {
+        let state = GateFocusState(
+            pomodoroActive: isRunning,
+            phase: phase.rawValue,
+            phaseEndAt: phaseEndAt,
+            manualGate: defaults.bool(forKey: "gate.manualGate"),
+            plan: currentPlan,
+            pomoIndex: min(cyclePosition + 1, cycleLength),
+            pomoTotal: cycleLength,
+            updatedAt: .now)
+        ReadingGateStore.shared.writeFocusState(state)
+    }
+
+    /// 設定裡的「專注模式」手動開關（不靠蕃茄鐘也能啟用手機端關卡）。
+    var manualGate: Bool {
+        get { defaults.bool(forKey: "gate.manualGate") }
+        set {
+            defaults.set(newValue, forKey: "gate.manualGate")
+            writeFocusState()
+        }
     }
 
     /// 啟動時還原快照。原本在跑 → 依結束時刻回推剩餘秒數接著跑；
@@ -204,6 +230,10 @@ final class PomodoroModel: ObservableObject {
         guard rootURL?.path != self.rootURL?.path else { return }
         self.rootURL = rootURL
         loadSessions()
+        ReadingGateStore.shared.configure(rootURL: rootURL)
+        #if os(macOS)
+        writeFocusState()   // Mac 是狀態的來源；開 app 就先落地一次
+        #endif
     }
 
     private var sessionsFileURL: URL? {

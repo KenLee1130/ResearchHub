@@ -2,9 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- 系統 URL scheme：讓外部工具（Raycast、終端機、其他 app）開啟指定筆記或日記。
-	     researchhub://note?path=<相對 Notes/ 的路徑>
-	     researchhub://journal?date=YYYY-MM-DD（省略 date = 今天） -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -15,6 +12,34 @@
 				<string>researchhub</string>
 			</array>
 		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram</string>
+		<string>barcelona</string>
+		<string>youtube</string>
+		<string>twitter</string>
+		<string>snssdk1128</string>
+		<string>fb</string>
+		<string>reddit</string>
+		<string>line</string>
+		<string>discord</string>
+		<string>tg</string>
+		<string>whatsapp</string>
+		<string>twitch</string>
+		<string>netflix</string>
+		<string>spotify</string>
+		<string>pinterest</string>
+		<string>snapchat</string>
+		<string>linkedin</string>
+		<string>bilibili</string>
+		<string>xhsdiscover</string>
+		<string>weibo</string>
+		<string>ptt</string>
+		<string>dcard</string>
+		<string>shopee</string>
+		<string>momoshop</string>
+		<string>nflx</string>
 	</array>
 </dict>
 </plist>

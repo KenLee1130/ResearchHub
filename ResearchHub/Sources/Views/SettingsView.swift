@@ -124,6 +124,8 @@ struct PomodoroSettingsView: View {
     @AppStorage(PomodoroModel.SettingsKey.requireLastWorkNote) private var reqLastWork = false
     @AppStorage(PomodoroModel.SettingsKey.requirePlannedNote) private var reqPlanned = false
     @AppStorage(PomodoroModel.SettingsKey.requireExtendBreakMinutes) private var reqExtendBreak = true
+    @AppStorage("gate.manualGate") private var manualGate = false
+    @EnvironmentObject private var pomodoro: PomodoroModel
 
     var body: some View {
         Form {
@@ -133,6 +135,14 @@ struct PomodoroSettingsView: View {
                 Stepper("長休息：\(longBreak) 分鐘", value: $longBreak, in: 5...60, step: 5)
                 Stepper("一輪顆數：\(cycle) 顆", value: $cycle, in: 1...12)
                 Text("完成一輪 \(cycle) 顆後進入長休息。設定在目前的鐘尚未開始時立即生效。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("手機閱讀關卡") {
+                Toggle("專注模式（手動啟用）", isOn: $manualGate)
+                    .onChange(of: manualGate) { _, v in pomodoro.manualGate = v }
+                Text("蕃茄鐘的工作階段會自動啟用關卡；這個開關讓你不靠蕃茄鐘也能啟用。手機端在「設定 → 閱讀關卡」選要擋哪些 app。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
