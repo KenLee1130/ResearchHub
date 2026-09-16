@@ -244,6 +244,13 @@ enum NotePreprocessor {
         //     排版留白指令拿掉、\newpage/\clearpage → 分隔線。
         text = replaceOutsideMath(text) { seg in
             var s = seg
+            // 顏色：\textcolor{red}{字}、\textcolor[HTML]{FF8800}{字}、\colorbox{yellow}{字}
+            s = replaceColorCommand(s, "\\textcolor") { color, inner in
+                "<span style=\"color:\(color)\">\(inner)</span>"
+            }
+            s = replaceColorCommand(s, "\\colorbox") { color, inner in
+                "<span style=\"background:\(color);padding:0 .15em;border-radius:3px\">\(inner)</span>"
+            }
             s = replaceBalancedCommand(s, "\\textbf") { "**\($0)**" }
             s = replaceBalancedCommand(s, "\\textit") { "*\($0)*" }
             s = replaceBalancedCommand(s, "\\emph") { "*\($0)*" }
@@ -545,6 +552,114 @@ enum NotePreprocessor {
             i = s.index(after: i)
         }
         return nil
+    }
+
+    /// 把 \command{色}{內容} 或 \command[HTML]{RRGGBB}{內容} 換掉（內容可含巢狀大括號）。
+    /// 只在數學區外呼叫——公式裡的 \textcolor 由 KaTeX 自己處理。
+    private static func replaceColorCommand(
+        _ text: String, _ command: String, transform: (String, String) -> String
+    ) -> String {
+        let ns = text as NSString
+        let n = ns.length
+        var result = ""
+        var i = 0
+        while i < n {
+            let found = ns.range(of: command, range: NSRange(location: i, length: n - i))
+            if found.location == NSNotFound {
+                result += ns.substring(from: i)
+                break
+            }
+            result += ns.substring(with: NSRange(location: i, length: found.location - i))
+            var j = found.location + found.length
+            // 可選的 [HTML] / [RGB] 模式參數
+            var model = ""
+            if j < n, ns.substring(with: NSRange(location: j, length: 1)) == "[" {
+                guard let close = braceEnd(ns, from: j, open: "[", close: "]") else {
+                    result += ns.substring(from: found.location); break
+                }
+                model = ns.substring(with: NSRange(location: j + 1, length: close - j - 2))
+                j = close
+            }
+            // 第一組 {色}
+            guard let colorEnd = braceEnd(ns, from: j, open: "{", close: "}") else {
+                result += ns.substring(from: found.location); break
+            }
+            let rawColor = ns.substring(with: NSRange(location: j + 1, length: colorEnd - j - 2))
+            // 第二組 {內容}
+            guard let innerEnd = braceEnd(ns, from: colorEnd, open: "{", close: "}") else {
+                result += ns.substring(from: found.location); break
+            }
+            let inner = ns.substring(
+                with: NSRange(location: colorEnd + 1, length: innerEnd - colorEnd - 2))
+            result += transform(cssColor(rawColor, model: model), inner)
+            i = innerEnd
+        }
+        return result
+    }
+
+    /// 從 from 位置（必須是 open 字元）找平衡的結尾，回傳「結尾字元的下一個 index」。
+    private static func braceEnd(
+        _ ns: NSString, from: Int, open: String, close: String
+    ) -> Int? {
+        guard from < ns.length, ns.substring(with: NSRange(location: from, length: 1)) == open
+        else { return nil }
+        var depth = 0
+        var j = from
+        while j < ns.length {
+            let c = ns.substring(with: NSRange(location: j, length: 1))
+            if c == open { depth += 1 }
+            else if c == close {
+                depth -= 1
+                if depth == 0 { return j + 1 }
+            }
+            j += 1
+        }
+        return nil
+    }
+
+    /// LaTeX 顏色 → CSS。xcolor 的基本色名對到相近的 CSS 值；
+    /// black/white 改用 CanvasText/Canvas，否則深色模式下會看不見。
+    /// 認不得的值只留安全字元（英數與 #），避免把 style 屬性寫壞。
+    private static func cssColor(_ raw: String, model: String) -> String {
+        let name = raw.trimmingCharacters(in: .whitespaces)
+        if model.uppercased() == "HTML" {
+            let hex = name.filter { $0.isHexDigit }
+            return hex.count == 6 ? "#\(hex)" : "CanvasText"
+        }
+        if model.uppercased() == "RGB" || model.lowercased() == "rgb" {
+            let parts = name.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            if parts.count == 3 {
+                // RGB 模式是 0–255，rgb 模式是 0–1
+                let scale = model == "rgb" ? 255.0 : 1.0
+                let v = parts.map { Int(max(0, min(255, $0 * scale))) }
+                return "rgb(\(v[0]),\(v[1]),\(v[2]))"
+            }
+            return "CanvasText"
+        }
+        switch name.lowercased() {
+        case "black": return "CanvasText"          // 跟隨主題，深色模式才看得見
+        case "white": return "Canvas"
+        case "red": return "#e03131"
+        case "green": return "#2f9e44"             // xcolor 的 green 是純綠，太亮改用可讀版
+        case "blue": return "#1971c2"
+        case "cyan": return "#0c8599"
+        case "magenta": return "#c2255c"
+        case "yellow": return "#e8b100"
+        case "orange": return "#e8590c"
+        case "purple": return "#9c36b5"
+        case "violet": return "#7048e8"
+        case "brown": return "#a9713a"
+        case "pink": return "#e64980"
+        case "olive": return "#5c940d"
+        case "teal": return "#0c8599"
+        case "lime": return "#66a80f"
+        case "gray", "grey": return "#868e96"
+        case "darkgray", "darkgrey": return "#495057"
+        case "lightgray", "lightgrey": return "#adb5bd"
+        default:
+            let safe = name.filter { $0.isLetter || $0.isNumber || $0 == "#" }
+            return safe.isEmpty ? "CanvasText" : safe
+        }
     }
 
     /// caption 等會直接放進 HTML 的文字：樣式指令轉成 HTML 標籤

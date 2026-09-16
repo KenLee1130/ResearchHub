@@ -42,6 +42,8 @@ final class PastingTextView: NSTextView {
         "\\section{}", "\\subsection{}", "\\subsubsection{}", "\\tableofcontents",
         "\\appendix", "\\paragraph{}", "\\subparagraph{}", "\\maketitle", "\\newpage",
         "\\textbf{}", "\\textit{}", "\\emph{}", "\\underline{}", "\\texttt{}", "\\textsc{}",
+        "\\textcolor{red}{}", "\\textcolor{blue}{}", "\\textcolor{green}{}",
+        "\\textcolor{orange}{}", "\\textcolor{purple}{}", "\\colorbox{yellow}{}",
         "\\includegraphics{}", "\\caption{}", "\\href{}{}", "\\url{}",
         "\\cite{}", "\\footnote{}", "\\label{}", "\\eqref{}", "\\ref{}",
         "\\begin{}", "\\end{}",
@@ -279,6 +281,44 @@ final class PastingTextView: NSTextView {
         if selector == #selector(insertTab(_:)), changeListLevel(by: 1) { return }
         if selector == #selector(insertBacktab(_:)), changeListLevel(by: -1) { return }
         super.doCommand(by: selector)
+    }
+
+    // MARK: - 選取文字後打括號 → 包住（不是取代）
+
+    /// 打這些字元時，若有選取範圍就把選取的文字包起來。
+    /// 值是（左, 右）；成對符號打左邊那個就會自動補右邊。
+    private static let wrapPairs: [String: (String, String)] = [
+        "(": ("(", ")"),
+        "[": ("[", "]"),
+        "{": ("{", "}"),
+        "$": ("$", "$"),
+        "（": ("（", "）"),
+        "「": ("「", "」"),
+        "\"": ("\"", "\""),
+    ]
+
+    override func insertText(_ string: Any, replacementRange: NSRange) {
+        let typed = (string as? String) ?? (string as? NSAttributedString)?.string
+        // 輸入法組字中不攔（中文選字過程也會走 insertText）
+        if let typed, let pair = Self.wrapPairs[typed], !hasMarkedText() {
+            let target = replacementRange.location != NSNotFound
+                ? replacementRange : selectedRange()
+            if target.length > 0, target.location != NSNotFound {
+                let ns = self.string as NSString
+                let selected = ns.substring(with: target)
+                let replacement = pair.0 + selected + pair.1
+                if shouldChangeText(in: target, replacementString: replacement) {
+                    textStorage?.replaceCharacters(in: target, with: replacement)
+                    didChangeText()
+                    // 選取維持在原本那段文字上（現在位於括號內），可以連續再包一層
+                    setSelectedRange(NSRange(
+                        location: target.location + (pair.0 as NSString).length,
+                        length: (selected as NSString).length))
+                }
+                return
+            }
+        }
+        super.insertText(string, replacementRange: replacementRange)
     }
 
     private static let imageExtensions: Set<String> =
