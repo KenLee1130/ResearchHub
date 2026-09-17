@@ -106,7 +106,11 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     private var retryCount = 0
 
     private override init() {
+        #if os(macOS)
+        webView = FirstMouseWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        #else
         webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        #endif
         super.init()
         let ucc = webView.configuration.userContentController
         ucc.add(self, name: "contentChanged")
@@ -122,6 +126,11 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
         webView.navigationDelegate = self
+        #if os(macOS)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appBecameActive),
+            name: NSApplication.didBecomeActiveNotification, object: nil)
+        #endif
         #if os(macOS)
         webView.setValue(false, forKey: "drawsBackground")
         #else
@@ -152,6 +161,22 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
             }
         }
     }
+    #if os(macOS)
+    /// 切回 app 時把焦點還給編輯器：macOS 預設第一下點擊只用來啟動視窗，
+    /// 使用者得多點一兩下才能打字。焦點已經在別的文字區（搜尋面板等）就不搶。
+    @objc func appBecameActive() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let win = self.webView.window, win.isKeyWindow,
+                  !(win.firstResponder is NSTextView) else { return }
+            if win.firstResponder !== self.webView {
+                win.makeFirstResponder(self.webView)
+            }
+            self.webView.evaluateJavaScript(
+                "window.__editor && window.__editor.commands.focus()")
+        }
+    }
+    #endif
+
 
     func retry() {
         retryCount = 0
@@ -1323,10 +1348,13 @@ extension BlockEditorView {
         return wrap;
       }
 
-      function buildBadges(state) {
+      // rangeFrom/rangeTo 省略＝整份文件；有給就只處理該範圍內的 textblock
+      // （打字時只重建受影響的那幾塊，不必掃全篇——文件愈長差愈多）。
+      function buildBadgeDecos(state, rangeFrom, rangeTo) {
         const decos = [];
         const todayD = startOfDay(new Date());
-        state.doc.descendants((node, pos) => {
+        const all = rangeFrom === undefined;
+        const walk = (node, pos) => {
           if (!node.isTextblock) return true;
           if (node.type.name === "commandInput") return false;
           const text = node.textContent;
@@ -1401,20 +1429,76 @@ extension BlockEditorView {
           // 徽章一律掛在行尾（依標記出現順序），打字時自動往後退
           const endPos = pos + node.nodeSize - 1;
           doms.forEach((d, i) => {
-            decos.push(Decoration.widget(endPos, d, { side: 1 + i }));
+            // key 讓 ProseMirror 能重用既有 DOM，不必每次重畫徽章；
+            // base 放進 key：前面文字變動時位置會變，closure 抓的 blockBase
+            // 不能留舊的（＋/− 會改到錯的地方）。
+            decos.push(Decoration.widget(endPos, d, {
+              side: 1 + i, key: "badge:" + base + ":" + i + ":" + d.className
+            }));
           });
           return false;
-        });
-        return DecorationSet.create(state.doc, decos);
+        };
+        if (all) {
+          state.doc.descendants(walk);
+        } else {
+          state.doc.nodesBetween(rangeFrom, rangeTo, walk);
+        }
+        return decos;
+      }
+
+      function buildBadges(state) {
+        return DecorationSet.create(state.doc, buildBadgeDecos(state));
+      }
+
+      // 游標所在 textblock 的範圍（游標在標記裡時要顯示原文，所以選取變動也要重算）
+      function textblockRange(doc, pos) {
+        const p = Math.max(0, Math.min(pos, doc.content.size));
+        const $p = doc.resolve(p);
+        for (let d = $p.depth; d >= 0; d--) {
+          if ($p.node(d).isTextblock) return { from: $p.before(d), to: $p.after(d) };
+        }
+        return null;
       }
 
       window.__buildBadges = buildBadges;   // debug 用
       const MarkerBadges = Extension.create({
         name: "markerBadges",
         addProseMirrorPlugins() {
+          const key = new PluginKey("markerBadges");
           return [new Plugin({
-            key: new PluginKey("markerBadges"),
-            props: { decorations: buildBadges }
+            key,
+            state: {
+              init: (_, state) => buildBadges(state),
+              apply(tr, old, oldState, newState) {
+                const selChanged = !oldState.selection.eq(newState.selection);
+                if (!tr.docChanged && !selChanged) return old;
+                let set = tr.docChanged ? old.map(tr.mapping, tr.doc) : old;
+                // 受影響的範圍：這次改動的區段 ＋ 游標離開與進入的那兩塊
+                let from = Infinity, to = -Infinity;
+                if (tr.docChanged) {
+                  tr.mapping.maps.forEach(map => {
+                    map.forEach((os, oe, ns, ne) => {
+                      from = Math.min(from, ns); to = Math.max(to, ne);
+                    });
+                  });
+                }
+                for (const p of [tr.mapping.map(oldState.selection.from),
+                                 newState.selection.from]) {
+                  const r = textblockRange(newState.doc, p);
+                  if (r) { from = Math.min(from, r.from); to = Math.max(to, r.to); }
+                }
+                if (from > to) return set;
+                const a = textblockRange(newState.doc, from);
+                const b = textblockRange(newState.doc, to);
+                from = a ? Math.min(from, a.from) : from;
+                to = b ? Math.max(to, b.to) : to;
+                from = Math.max(0, from);
+                to = Math.min(newState.doc.content.size, to);
+                set = set.remove(set.find(from, to));
+                return set.add(newState.doc, buildBadgeDecos(newState, from, to));
+              }
+            },
+            props: { decorations(state) { return key.getState(state); } }
           })];
         }
       });

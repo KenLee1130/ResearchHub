@@ -393,7 +393,7 @@ struct JournalView: View {
     /// 只在「今天」且日記裡有帶 @est 的待辦時顯示。
     /// 打勾一項 → estRemaining 立刻少掉那項的估時，可對照 🍅 實跑。
     @ViewBuilder private var timeBudgetBar: some View {
-        TimelineView(.periodic(from: .now, by: 5)) { _ in
+        TimelineView(.periodic(from: .now, by: 60)) { _ in
             if let b = todayBudget() {
                 let h = { (m: Int) in Int((Double(m) / 60).rounded()) }
                 let overloaded = b.estRemaining > b.leftMinutes
@@ -423,12 +423,20 @@ struct JournalView: View {
         }
     }
 
-    private func todayBudget() -> DayBudget? {
-        guard calendar.isDateInToday(selectedDay),
-              let url = journalURL(for: selectedDay),
-              let content = try? String(contentsOf: url, encoding: .utf8)
-        else { return nil }
-        var b = DayBudget()
+    /// 讀檔＋解析 @est 的快取（key = 路徑＋修改時間）。timeBudgetBar 是定時重繪的，
+    /// 每次都同步讀 iCloud 檔案會在打字時卡主執行緒。
+    @MainActor private static var estCache: (key: String, total: Int, remaining: Int)?
+
+    /// 從日記檔算出 @est 總量與未完成量；檔案沒變就用快取。
+    private func estMinutes(in url: URL) -> (total: Int, remaining: Int)? {
+        let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey])
+            .contentModificationDate)?.timeIntervalSince1970 ?? 0
+        let key = "\(url.path)|\(mtime)"
+        if let c = Self.estCache, c.key == key {
+            return c.total > 0 ? (c.total, c.remaining) : nil
+        }
+        guard let content = FileSystemStore.safeRead(url) else { return nil }
+        var total = 0, remaining = 0
         for line in content.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             let done: Bool
@@ -437,10 +445,21 @@ struct JournalView: View {
             else { continue }
             let text = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
             guard let est = TodoMeta.parse(text).estMinutes else { continue }
-            b.estTotal += est
-            if !done { b.estRemaining += est }
+            total += est
+            if !done { remaining += est }
         }
-        guard b.estTotal > 0 else { return nil }
+        Self.estCache = (key, total, remaining)
+        return total > 0 ? (total, remaining) : nil
+    }
+
+    private func todayBudget() -> DayBudget? {
+        guard calendar.isDateInToday(selectedDay),
+              let url = journalURL(for: selectedDay),
+              let est = estMinutes(in: url)
+        else { return nil }
+        var b = DayBudget()
+        b.estTotal = est.total
+        b.estRemaining = est.remaining
         b.ranMinutes = pomodoro.sessions
             .filter { calendar.isDateInToday($0.date) }
             .reduce(0) { $0 + $1.minutes }

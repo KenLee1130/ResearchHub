@@ -26,3 +26,14 @@ struct ScrollSync: Equatable {
     var occ: Int = 0         // 該字在錨點段落內是第幾次出現(0-based,選字時用)
     var fn: Int = 0          // >0 = 雙擊的是第 n 條註腳 → 跳到源碼第 n 個 \footnote{...}
 }
+
+#if os(macOS)
+import WebKit
+
+/// 第一次點擊就把事件送進網頁，不要只拿來啟動視窗。
+/// macOS 預設 acceptsFirstMouse = false：從別的 app 切回來時，第一下點擊
+/// 只會 activate，使用者得再點一次才能打字——這正是「點了卻不能馬上輸入」。
+final class FirstMouseWebView: WKWebView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+#endif

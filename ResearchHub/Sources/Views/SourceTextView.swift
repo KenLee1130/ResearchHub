@@ -23,6 +23,10 @@ final class ActiveEditorRegistry {
 final class PastingTextView: NSTextView {
     var onPasteImage: ((NSImage) -> String?)?
 
+    /// 從別的 app 切回來時，第一下點擊就直接放游標、可以馬上打字
+    /// （預設行為是第一下只啟動視窗、被吃掉）。
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func becomeFirstResponder() -> Bool {
         let ok = super.becomeFirstResponder()
         if ok { ActiveEditorRegistry.shared.textView = self }
@@ -754,6 +758,10 @@ struct SourceTextView: NSViewRepresentable {
 
         context.coordinator.textView = textView
         context.coordinator.applyHighlighting()
+        // 切回 app 時自動把焦點還給編輯器（不必先點一下才能打字）
+        NotificationCenter.default.addObserver(
+            context.coordinator, selector: #selector(Coordinator.appBecameActive),
+            name: NSApplication.didBecomeActiveNotification, object: nil)
         // 捲到還沒上色的區域時補色（visibleOnly 模式只上可視區）
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
@@ -1186,6 +1194,16 @@ struct SourceTextView: NSViewRepresentable {
 
         // 捲動後補色：可視區露出「上次視窗」以外的區域才重上（debounce 0.12s）。
         private var scrollWork: DispatchWorkItem?
+
+        /// app 回到前景：焦點原本不在任何文字區時，直接還給編輯器。
+        /// （已經有東西取得焦點——例如搜尋面板——就不搶。）
+        @objc func appBecameActive() {
+            DispatchQueue.main.async { [weak self] in
+                guard let tv = self?.textView, let win = tv.window, win.isKeyWindow,
+                      !(win.firstResponder is NSTextView) else { return }
+                win.makeFirstResponder(tv)
+            }
+        }
 
         @objc func viewDidScroll(_ note: Notification) {
             scrollWork?.cancel()
