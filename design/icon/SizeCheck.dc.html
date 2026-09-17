@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Helvetica Neue", "PingFang TC", system-ui, sans-serif; }
+    a { color: #14514B; } a:hover { color: #0B3833; }
+    .cell { display: flex; align-items: center; justify-content: center; }
+    .lbl { font-size: 14px; font-weight: 600; color: #1C1F23; }
+    .hdr { font-size: 12px; color: #6B7178; letter-spacing: 0.04em; }
+  </style>
+</helmet>
+<div style="width: 760px; height: 700px; background: #EDEEF0; box-sizing: border-box; padding: 36px 40px; display: flex; flex-direction: column; gap: 20px">
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <div style="font-size: 18px; font-weight: 600; color: #1C1F23">實際顯示尺寸</div>
+    <div style="font-size: 13px; color: #5B6167; line-height: 1.5; text-wrap: pretty">四個版本角度相同，只差筆畫粗細與半徑。筆畫越粗、縫隙越窄，看 32px 與 16px 會不會糊掉。</div>
+  </div>
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <defs>
+      <symbol id="icoA" viewBox="0 0 1024 1024"><rect x="100" y="100" width="824" height="824" rx="185" fill="#14514B"></rect><path d="M 357.0 243.5 A 310 310 0 1 0 667.0 243.5" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path><path d="M 677.5 396.1 A 202 202 0 1 0 442.9 701.8" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path><path d="M 592.0 650.6 A 160 160 0 0 0 650.6 592.0" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path><path d="M 512.0 416.0 A 96 96 0 1 1 416.0 512.0" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path></symbol>
+      <symbol id="icoB" viewBox="0 0 1024 1024"><rect x="100" y="100" width="824" height="824" rx="185" fill="#14514B"></rect><path d="M 356.0 241.8 A 312 312 0 1 0 668.0 241.8" fill="none" stroke="#F1EEE4" stroke-width="60" stroke-linecap="round"></path><path d="M 680.7 393.8 A 206 206 0 1 0 441.5 705.6" fill="none" stroke="#F1EEE4" stroke-width="60" stroke-linecap="round"></path><path d="M 595.0 655.8 A 166 166 0 0 0 655.8 595.0" fill="none" stroke="#F1EEE4" stroke-width="60" stroke-linecap="round"></path><path d="M 512.0 422.0 A 90 90 0 1 1 422.0 512.0" fill="none" stroke="#F1EEE4" stroke-width="60" stroke-linecap="round"></path></symbol>
+      <symbol id="icoC" viewBox="0 0 1024 1024"><rect x="100" y="100" width="824" height="824" rx="185" fill="#14514B"></rect><path d="M 357.0 243.5 A 310 310 0 1 0 667.0 243.5" fill="none" stroke="#F1EEE4" stroke-width="52" stroke-linecap="round"></path><path d="M 677.5 396.1 A 202 202 0 1 0 442.9 701.8" fill="none" stroke="#F1EEE4" stroke-width="52" stroke-linecap="round"></path><path d="M 592.0 650.6 A 160 160 0 0 0 650.6 592.0" fill="none" stroke="#F1EEE4" stroke-width="52" stroke-linecap="round"></path><path d="M 512.0 416.0 A 96 96 0 1 1 416.0 512.0" fill="none" stroke="#F1EEE4" stroke-width="52" stroke-linecap="round"></path></symbol>
+      <symbol id="icoD" viewBox="0 0 1024 1024"><rect x="100" y="100" width="824" height="824" rx="185" fill="#14514B"></rect><path d="M 358.0 245.3 A 308 308 0 1 0 666.0 245.3" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path><path d="M 675.8 397.3 A 200 200 0 1 0 443.6 699.9" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path><path d="M 596.0 657.5 A 168 168 0 0 0 657.5 596.0" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path><path d="M 512.0 408.0 A 104 104 0 1 1 408.0 512.0" fill="none" stroke="#F1EEE4" stroke-width="56" stroke-linecap="round"></path></symbol>
+    </defs>
+  </svg>
+  <div style="display: grid; grid-template-columns: 170px 150px 110px 90px 80px; gap: 16px; align-items: center">
+    <div class="hdr"></div>
+    <div class="hdr cell">128</div>
+    <div class="hdr cell">64</div>
+    <div class="hdr cell">32</div>
+    <div class="hdr cell">16</div>
+    <div class="lbl">A・筆畫 56</div>
+    <div class="cell"><svg width="128" height="128"><use href="#icoA"></use></svg></div>
+    <div class="cell"><svg width="64" height="64"><use href="#icoA"></use></svg></div>
+    <div class="cell"><svg width="32" height="32"><use href="#icoA"></use></svg></div>
+    <div class="cell"><svg width="16" height="16"><use href="#icoA"></use></svg></div>
+    <div class="lbl">B・筆畫 60</div>
+    <div class="cell"><svg width="128" height="128"><use href="#icoB"></use></svg></div>
+    <div class="cell"><svg width="64" height="64"><use href="#icoB"></use></svg></div>
+    <div class="cell"><svg width="32" height="32"><use href="#icoB"></use></svg></div>
+    <div class="cell"><svg width="16" height="16"><use href="#icoB"></use></svg></div>
+    <div class="lbl">C・筆畫 52</div>
+    <div class="cell"><svg width="128" height="128"><use href="#icoC"></use></svg></div>
+    <div class="cell"><svg width="64" height="64"><use href="#icoC"></use></svg></div>
+    <div class="cell"><svg width="32" height="32"><use href="#icoC"></use></svg></div>
+    <div class="cell"><svg width="16" height="16"><use href="#icoC"></use></svg></div>
+    <div class="lbl">D・第二部分外移</div>
+    <div class="cell"><svg width="128" height="128"><use href="#icoD"></use></svg></div>
+    <div class="cell"><svg width="64" height="64"><use href="#icoD"></use></svg></div>
+    <div class="cell"><svg width="32" height="32"><use href="#icoD"></use></svg></div>
+    <div class="cell"><svg width="16" height="16"><use href="#icoD"></use></svg></div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

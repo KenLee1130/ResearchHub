@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Helvetica Neue", "PingFang TC", system-ui, sans-serif; }
+    a { color: #14514B; } a:hover { color: #0B3833; }
+    input[type=range] { accent-color: #14514B; height: 22px; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .lab { width: 168px; font-size: 13px; color: #3A4046; }
+    .val { width: 56px; text-align: right; font: 600 13px ui-monospace, monospace; color: #14514B; }
+    .grp { font-size: 12px; font-weight: 700; color: #8A9199; letter-spacing: .06em; margin-top: 6px; }
+    .btn { font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid #C6CCD2;
+           background: #fff; color: #3A4046; cursor: pointer; }
+  </style>
+</helmet>
+<div style="display: flex; gap: 34px; width: 1080px; height: 660px; background: #EDEEF0; box-sizing: border-box; padding: 32px 36px">
+
+  <div style="display: flex; flex-direction: column; gap: 20px; align-items: center">
+    <svg width="330" height="330" viewBox="0 0 1024 1024">
+      <rect x="100" y="100" width="824" height="824" rx="185" fill="{{field}}"></rect>
+      <path d="{{p1}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+      <path d="{{p2a}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+      <path d="{{p2b}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+      <path d="{{p3}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+    </svg>
+    <div style="display: flex; align-items: center; gap: 20px">
+      <svg width="128" height="128" viewBox="0 0 1024 1024">
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="{{field}}"></rect>
+        <path d="{{p1}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2a}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2b}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p3}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+      </svg>
+      <svg width="64" height="64" viewBox="0 0 1024 1024">
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="{{field}}"></rect>
+        <path d="{{p1}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2a}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2b}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p3}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 1024 1024">
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="{{field}}"></rect>
+        <path d="{{p1}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2a}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2b}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p3}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+      </svg>
+      <svg width="16" height="16" viewBox="0 0 1024 1024">
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="{{field}}"></rect>
+        <path d="{{p1}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2a}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p2b}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+        <path d="{{p3}}" fill="none" stroke="{{mark}}" stroke-width="{{w}}" stroke-linecap="round"></path>
+      </svg>
+    </div>
+    <div style="font-size: 12px; color: #8A9199">128 ・ 64 ・ 32 ・ 16 px</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 9px; flex-grow: 1">
+    <sc-for list="{{controls}}" as="c" hint-placeholder-count="12">
+      <div class="row">
+        <div class="lab">{{c.label}}</div>
+        <input type="range" min="{{c.min}}" max="{{c.max}}" step="{{c.step}}" value="{{c.value}}" onInput="{{c.set}}" style="flex-grow: 1">
+        <div class="val">{{c.value}}</div>
+      </div>
+    </sc-for>
+
+    <div class="grp">方向</div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <sc-for list="{{dirs}}" as="d" hint-placeholder-count="4">
+        <button class="btn" onClick="{{d.toggle}}">{{d.text}}</button>
+      </sc-for>
+    </div>
+
+    <div class="grp">目前規格（貼回聊天室給我就能定案）</div>
+    <div style="font: 12px/1.7 ui-monospace, monospace; color: #14514B; background: #fff;
+                border: 1px solid #DCE1E6; border-radius: 10px; padding: 12px 14px; white-space: pre-line">{{spec}}</div>
+    <div style="display: flex; gap: 8px; margin-top: 2px">
+      <button class="btn" onClick="{{reset}}">回到目前這版</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"mark":{"editor":"color","default":"#F1EEE4","options":["#F1EEE4","#FFFFFF","#8CE8CE","#FFD79A"]},"field":{"editor":"color","default":"#14514B","options":["#14514B","#1B2E52","#3B2A4A","#2A2A2E"]}}'>
+const BASE = {
+  w: 56, r1: 310, r2: 202, r2b: 160, r3: 96,
+  a1s: 120, a1e: 60, a2s: 35, a2e: 250, a3s: 300, a3e: 330, a4s: 90, a4e: 180,
+  d1: 0, d2: 0, d3: 0, d4: 1
+};
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = Object.assign({}, BASE);
+  }
+
+  pt(r, th) {
+    const a = th * Math.PI / 180;
+    return [512 + r * Math.cos(a), 512 - r * Math.sin(a)];
+  }
+
+  arc(r, th0, th1, cw) {
+    let sweep = cw ? (((th0 - th1) % 360) + 360) % 360 : (((th1 - th0) % 360) + 360) % 360;
+    const flag = cw ? 1 : 0;
+    if (sweep < 0.5) return '';
+    if (sweep > 359.5) {
+      const [xa, ya] = this.pt(r, th0);
+      const [xb, yb] = this.pt(r, th0 + 180);
+      return 'M ' + xa.toFixed(1) + ' ' + ya.toFixed(1) +
+             ' A ' + r + ' ' + r + ' 0 1 ' + flag + ' ' + xb.toFixed(1) + ' ' + yb.toFixed(1) +
+             ' A ' + r + ' ' + r + ' 0 1 ' + flag + ' ' + xa.toFixed(1) + ' ' + ya.toFixed(1);
+    }
+    const [x0, y0] = this.pt(r, th0);
+    const [x1, y1] = this.pt(r, th1);
+    const large = sweep > 180 ? 1 : 0;
+    return 'M ' + x0.toFixed(1) + ' ' + y0.toFixed(1) +
+           ' A ' + r + ' ' + r + ' 0 ' + large + ' ' + flag + ' ' + x1.toFixed(1) + ' ' + y1.toFixed(1);
+  }
+
+  ctl(key, label, min, max, step) {
+    return {
+      label: label, min: min, max: max, step: step, value: this.state[key],
+      set: (e) => { const o = {}; o[key] = Number(e.target.value); this.setState(o); }
+    };
+  }
+
+  dir(key, label) {
+    const cw = this.state[key] === 1;
+    return {
+      text: label + '：' + (cw ? '順時鐘' : '逆時鐘'),
+      toggle: () => { const o = {}; o[key] = cw ? 0 : 1; this.setState(o); }
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const dtxt = (k) => s[k] === 1 ? '順' : '逆';
+    const spec =
+      '筆畫 ' + s.w + '\n' +
+      '外環     r=' + s.r1 + '  ' + dtxt('d1') + ' ' + s.a1s + '→' + s.a1e + '\n' +
+      '第二環一 r=' + s.r2 + '  ' + dtxt('d2') + ' ' + s.a2s + '→' + s.a2e + '\n' +
+      '第二環二 r=' + s.r2b + '  ' + dtxt('d3') + ' ' + s.a3s + '→' + s.a3e + '\n' +
+      '第三環   r=' + s.r3 + '  ' + dtxt('d4') + ' ' + s.a4s + '→' + s.a4e;
+    return {
+      mark: this.props.mark ?? '#F1EEE4',
+      field: this.props.field ?? '#14514B',
+      w: s.w,
+      p1: this.arc(s.r1, s.a1s, s.a1e, s.d1 === 1),
+      p2a: this.arc(s.r2, s.a2s, s.a2e, s.d2 === 1),
+      p2b: this.arc(s.r2b, s.a3s, s.a3e, s.d3 === 1),
+      p3: this.arc(s.r3, s.a4s, s.a4e, s.d4 === 1),
+      spec: spec,
+      reset: () => this.setState(Object.assign({}, BASE)),
+      dirs: [this.dir('d1', '外環'), this.dir('d2', '第二環一'),
+             this.dir('d3', '第二環二'), this.dir('d4', '第三環')],
+      controls: [
+        this.ctl('w', '筆畫粗細', 20, 90, 1),
+        this.ctl('r1', '外環 半徑', 200, 340, 1),
+        this.ctl('a1s', '外環 起角', 0, 360, 1),
+        this.ctl('a1e', '外環 迄角', 0, 360, 1),
+        this.ctl('r2', '第二環一 半徑', 90, 300, 1),
+        this.ctl('a2s', '第二環一 起角', 0, 360, 1),
+        this.ctl('a2e', '第二環一 迄角', 0, 360, 1),
+        this.ctl('r2b', '第二環二 半徑', 60, 300, 1),
+        this.ctl('a3s', '第二環二 起角', 0, 360, 1),
+        this.ctl('a3e', '第二環二 迄角', 0, 360, 1),
+        this.ctl('r3', '第三環 半徑', 40, 220, 1),
+        this.ctl('a4s', '第三環 起角', 0, 360, 1),
+        this.ctl('a4e', '第三環 迄角', 0, 360, 1)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

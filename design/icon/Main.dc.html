@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: "Helvetica Neue", "PingFang TC", system-ui, sans-serif; }
+    a { color: #14514B; } a:hover { color: #0B3833; }
+  </style>
+</helmet>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; width: 520px; height: 540px; background: #EDEEF0; box-sizing: border-box; padding: 40px">
+  <svg width="340" height="340" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><rect x="100" y="100" width="824" height="824" rx="185" fill="{{field}}"></rect><path d="M 357.0 243.5 A 310 310 0 1 0 667.0 243.5" fill="none" stroke="{{mark}}" stroke-width="56" stroke-linecap="round"></path><path d="M 677.5 396.1 A 202 202 0 1 0 442.9 701.8" fill="none" stroke="{{mark}}" stroke-width="56" stroke-linecap="round"></path><path d="M 592.0 650.6 A 160 160 0 0 0 650.6 592.0" fill="none" stroke="{{mark}}" stroke-width="56" stroke-linecap="round"></path><path d="M 512.0 416.0 A 96 96 0 1 1 416.0 512.0" fill="none" stroke="{{mark}}" stroke-width="56" stroke-linecap="round"></path></svg>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+    <div style="font-size: 17px; font-weight: 600; color: #1C1F23">A・筆畫 56</div>
+    <div style="font-size: 13px; color: #5B6167; text-align: center; max-width: 350px; line-height: 1.5; text-wrap: pretty">半徑 310 / 202 / 96，第二部分落在 160（二、三環之間偏外）。比你選的 52 再粗一點，縫隙仍然清楚。</div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"mark":{"editor":"color","default":"#F1EEE4","options":["#F1EEE4","#FFFFFF","#8CE8CE","#FFD79A"]},"field":{"editor":"color","default":"#14514B","options":["#14514B","#1B2E52","#3B2A4A","#2A2A2E"]}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      mark: this.props.mark ?? '#F1EEE4',
+      field: this.props.field ?? '#14514B'
+    };
+  }
+}
+</script>
+</body>
+</html>
