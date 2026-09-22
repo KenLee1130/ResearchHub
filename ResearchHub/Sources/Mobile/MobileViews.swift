@@ -25,7 +25,11 @@ struct MobileNotesView: View {
             .navigationTitle("筆記")
             .searchable(text: $query, prompt: Text("搜尋筆記名稱…"))
             .navigationDestination(for: URL.self) { url in
-                MobileNotePreview(noteURL: url)
+                if LatexProject.isProject(url) {
+                    MobileProjectView(projectURL: url)
+                } else {
+                    MobileNotePreview(noteURL: url)
+                }
             }
             .onAppear { tree = store.noteTree() }
             .refreshable { tree = store.noteTree() }
@@ -38,7 +42,10 @@ struct MobileNotesView: View {
             Label(node.name, systemImage: "folder")
         } else {
             NavigationLink(value: node.url) {
-                Label(node.name, systemImage: "doc.text")
+                Label(node.name,
+                      systemImage: node.isProject ? "curlybraces.square.fill" : "doc.text")
+                    .symbolRenderingMode(node.isProject ? .hierarchical : .monochrome)
+                    .foregroundStyle(node.isProject ? AnyShapeStyle(.teal) : AnyShapeStyle(.primary))
             }
         }
     }
@@ -51,7 +58,7 @@ struct MobileNotesView: View {
                     walk(children)
                 } else if n.name.localizedCaseInsensitiveContains(query) {
                     result.append(FileSystemStore.TreeNode(
-                        url: n.url, isFolder: false, children: nil))
+                        url: n.url, isFolder: false, isProject: n.isProject, children: nil))
                 }
             }
         }

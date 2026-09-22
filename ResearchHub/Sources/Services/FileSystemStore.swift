@@ -322,11 +322,14 @@ final class FileSystemStore: ObservableObject {
     struct TreeNode: Identifiable, Hashable {
         let url: URL
         let isFolder: Bool
+        /// LaTeX 專案：本身是資料夾，但當成一篇筆記看待（不展開內容）
+        var isProject: Bool = false
         var children: [TreeNode]?
 
         var id: URL { url }
         var name: String {
-            isFolder ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
+            (isFolder || isProject) ? url.lastPathComponent
+                                    : url.deletingPathExtension().lastPathComponent
         }
     }
 
@@ -349,6 +352,12 @@ final class FileSystemStore: ObservableObject {
             let isFolder = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
             if isFolder {
                 guard url.lastPathComponent != "assets" else { continue }
+                // LaTeX 專案是「一個資料夾＝一篇筆記」，所以當成葉節點，不展開裡面的 .tex
+                if LatexProject.isProject(url) {
+                    nodes.append(TreeNode(url: url, isFolder: false,
+                                          isProject: true, children: nil))
+                    continue
+                }
                 nodes.append(TreeNode(
                     url: url, isFolder: true,
                     children: treeChildren(of: url, depth: depth + 1)))
