@@ -125,7 +125,7 @@ struct EditorCore: View {
             }
         }
             // 編輯區墊一層厚材質，避免環境色彩場干擾閱讀
-            .background(.thickMaterial)
+            .surface(.editor, ambient: .thickMaterial)
             .onAppear(perform: load)
             .onDisappear {
                 saveNow()

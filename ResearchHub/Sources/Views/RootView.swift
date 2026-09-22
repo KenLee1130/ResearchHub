@@ -8,6 +8,7 @@ struct RootView: View {
     @EnvironmentObject private var pomodoro: PomodoroModel
     @EnvironmentObject private var generalTodos: GeneralTodoStore
     @AppStorage("settings.appearance") private var appearance = AppAppearance.system.rawValue
+    @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @State private var tab: AppTab? = .home
     @State private var noteTree: [FileSystemStore.TreeNode] = []
@@ -53,6 +54,7 @@ struct RootView: View {
                 }
             }
             .listStyle(.sidebar)
+            .inkSurface(.chrome)
             // 不蓋任何自訂背景 → 直接用 NavigationSplitView 內建的原生側欄材質。
             .scrollContentBackground(.hidden)
             // 右緣自訂拖曳把手:更新 sidebarWidth,夾在 170...260。
@@ -106,7 +108,8 @@ struct RootView: View {
                     .environmentObject(pomodoro)
             }
         }
-        .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme)
+        .preferredColorScheme(AppTheme(rawValue: themeRaw)?.forcedColorScheme
+            ?? AppAppearance(rawValue: appearance)?.colorScheme)
         // 即時套用語言到日期/數字格式。
         .environment(\.locale, AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent)
         // 語言改變時強制整棵重建，讓所有子畫面的字串即時重新解析。

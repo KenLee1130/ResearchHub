@@ -26,6 +26,7 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @EnvironmentObject private var store: FileSystemStore
     @AppStorage("settings.appearance") private var appearance = AppAppearance.system.rawValue
+    @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @AppStorage("settings.userName") private var userName = ""
@@ -34,12 +35,25 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            Picker("主題", selection: $themeRaw) {
+                ForEach(AppTheme.allCases) { t in
+                    Text(t.label).tag(t.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text((AppTheme(rawValue: themeRaw) ?? .ambient).summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Picker("外觀", selection: $appearance) {
                 ForEach(AppAppearance.allCases) { a in
                     Text(a.label).tag(a.rawValue)
                 }
             }
             .pickerStyle(.segmented)
+            // 墨黑本來就是深色，淺色的語意色壓在黑底上會看不見，所以這裡鎖住
+            .disabled(AppTheme(rawValue: themeRaw) == .ink)
 
             Picker("語言", selection: $language) {
                 ForEach(AppLanguage.allCases) { l in

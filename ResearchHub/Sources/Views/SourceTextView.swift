@@ -743,6 +743,9 @@ struct SourceJumpRequest: Equatable {
 }
 
 struct SourceTextView: NSViewRepresentable {
+    /// 只是為了讓主題切換時 SwiftUI 會重跑 updateNSView（底色在那裡套用）
+    @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
+
     @Binding var text: String
     var fontSize: CGFloat = 14
     var jump: SourceJumpRequest?
@@ -750,6 +753,25 @@ struct SourceTextView: NSViewRepresentable {
     var onPasteImage: ((NSImage) -> String?)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    /// 編輯器底色。這是全 app 唯一自己畫底色的 view：
+    /// 系統預設的 textBackgroundColor 在深色模式是 #1E1E1E，跟墨黑主題的面板亮度太接近，
+    /// 兩塊會糊在一起，所以墨黑主題改用最深的那一層（#08080A），周圍的面板自然浮起來。
+    /// 內文顏色。純白（labelColor）壓在近黑底上會有光暈，墨黑主題降一點亮度。
+    static var bodyTextColor: NSColor {
+        AppTheme.current == .ink ? NSColor(InkPalette.textPrimary) : .labelColor
+    }
+
+    static func applyTheme(to textView: NSTextView, scrollView: NSScrollView) {
+        let ink = AppTheme.current == .ink
+        let background: NSColor = ink ? NSColor(InkPalette.editor) : .textBackgroundColor
+        textView.drawsBackground = true
+        textView.backgroundColor = background
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = background
+        // 游標在近黑底上要亮一點才看得到
+        textView.insertionPointColor = ink ? NSColor(InkPalette.textPrimary) : .textColor
+    }
 
     func makeNSView(context: Context) -> NSScrollView {
         let textView = PastingTextView()
@@ -783,6 +805,7 @@ struct SourceTextView: NSViewRepresentable {
         textView.isAutomaticTextCompletionEnabled = false
         textView.textContainerInset = NSSize(width: 14, height: 14)
         textView.string = text
+        Self.applyTheme(to: textView, scrollView: scrollView)
 
         context.coordinator.textView = textView
         context.coordinator.applyHighlighting()
@@ -802,6 +825,7 @@ struct SourceTextView: NSViewRepresentable {
         context.coordinator.parent = self
         guard let tv = nsView.documentView as? PastingTextView else { return }
         tv.onPasteImage = onPasteImage
+        Self.applyTheme(to: tv, scrollView: nsView)
         var needsHighlight = false
         // hasMarkedText = 輸入法（注音/拼音等）正在組字：此時 tv.string 含組字暫存、
         // binding 還是舊值，若在這裡回寫會把組字狀態整個抹掉（中文打到一半跳掉）。
@@ -1187,7 +1211,7 @@ struct SourceTextView: NSViewRepresentable {
             storage.beginEditing()
             storage.setAttributes([
                 .font: baseFont,
-                .foregroundColor: NSColor.labelColor
+                .foregroundColor: SourceTextView.bodyTextColor
             ], range: window)
 
             // Markdown 結構

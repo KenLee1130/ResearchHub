@@ -228,7 +228,7 @@ struct PapersView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(.thickMaterial)
+        .surface(.panel, ambient: .thickMaterial)
     }
 
     private func select(_ item: ZoteroItem) {

@@ -58,7 +58,7 @@ struct LatexProjectView: View {
                 }
             }
         }
-        .background(.thickMaterial)
+        .surface(.canvas, ambient: .thickMaterial)
         .onAppear(perform: start)
         .onDisappear { watcher?.stop() }
         .alert("匯出失敗", isPresented: .constant(exportError != nil)) {
@@ -230,6 +230,7 @@ struct LatexProjectView: View {
             copyIn(urls)
             return true
         }
+        .inkSurface(.chrome)
     }
 
     @ViewBuilder

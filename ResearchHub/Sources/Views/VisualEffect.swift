@@ -33,9 +33,27 @@ struct AmbientBackground: View {
     /// 定格的相位（取原本動畫中構圖最平衡的一刻）
     private static let t: Double = 7.0
 
+    @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
+
     var body: some View {
+        if AppTheme(rawValue: themeRaw) == .ink {
+            // 墨黑主題：不透桌布、不上漸層，純粹的底色。
+            // 一點點 highlight 留在左上角，免得整片死黑失去深度。
+            ZStack {
+                InkPalette.canvas
+                RadialGradient(
+                    colors: [Color.white.opacity(0.035), .clear],
+                    center: .topLeading, startRadius: 0, endRadius: 720)
+            }
+            .ignoresSafeArea()
+        } else {
+            ambient
+        }
+    }
+
+    private var ambient: some View {
         let t = Self.t
-        ZStack {
+        return ZStack {
             VisualEffectView(material: .underWindowBackground, blending: .behindWindow)
             MeshGradient(
                 width: 3, height: 3,
