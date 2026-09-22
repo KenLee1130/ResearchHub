@@ -70,9 +70,21 @@ enum JournalQuickAction {
     case list         // /list 開任務總覽
 }
 
+/// 貼上圖片時要插入什麼語法。
+enum ImageInsertion: Equatable {
+    case markdown                      // ![](assets/xxx.png)
+    case latex(projectRoot: URL)       // \includegraphics{figures/xxx.png}
+}
+
 struct EditorCore: View {
     let fileURL: URL
     @Binding var mode: EditorMode
+    /// 貼圖語法：markdown 筆記用 ![]()，LaTeX 專案用 \includegraphics
+    var imageInsertion: ImageInsertion = .markdown
+    /// 存檔完成（LaTeX 專案用來觸發重新編譯）
+    var onSaved: (() -> Void)?
+    /// 跳到某一行（編譯錯誤點過來）
+    var lineJump: LineJumpRequest?
     /// 顯示底部快速命令列（日記用）。
     var quickCmdBar: Bool = false
     var onJournalCommand: ((JournalQuickAction) -> Bool)? = nil
@@ -162,6 +174,7 @@ struct EditorCore: View {
                     text: $text,
                     fontSize: CGFloat(editorFontSize),
                     jump: jumpRequest,
+                    lineJump: lineJump,
                     onPasteImage: saveImage
                 )
                 // minWidth 壓低:窄視窗時雙欄仍能縮進可用寬度,不會把側欄擠歪、
@@ -178,6 +191,7 @@ struct EditorCore: View {
             SourceTextView(
                 text: $text,
                 fontSize: CGFloat(editorFontSize),
+                lineJump: lineJump,
                 onPasteImage: saveImage
             )
         case .preview:
@@ -248,19 +262,32 @@ struct EditorCore: View {
             guard ok else { return }             // 寫入失敗保持靜默，下次 autosave 再試
             initialText = snapshot
             fileExisted = true
+            onSaved?()
         }
     }
 
     // MARK: - Paste image
 
     private func saveImage(_ image: NSImage) -> String? {
+        switch imageInsertion {
+        case .markdown:
+            return saveImage(image, into: fileDir.appendingPathComponent("assets", isDirectory: true))
+                .map { "![](assets/\($0))\n" }
+        case .latex(let root):
+            // LaTeX 的圖片路徑是相對主檔（＝專案根目錄），所以固定放 figures/
+            return saveImage(image, into: root.appendingPathComponent("figures", isDirectory: true))
+                .map { "\\includegraphics[width=0.8\\linewidth]{figures/\($0)}\n" }
+        }
+    }
+
+    /// 存成 PNG，回傳檔名。
+    private func saveImage(_ image: NSImage, into dir: URL) -> String? {
         guard
             let tiff = image.tiffRepresentation,
             let rep = NSBitmapImageRep(data: tiff),
             let png = rep.representation(using: .png, properties: [:])
         else { return nil }
 
-        let dir = fileDir.appendingPathComponent("assets", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         let f = DateFormatter()
@@ -271,7 +298,7 @@ struct EditorCore: View {
         } catch {
             return nil
         }
-        return "![](assets/\(name))\n"
+        return name
     }
 }
 

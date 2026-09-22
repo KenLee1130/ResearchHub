@@ -104,3 +104,45 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
         }
     }
 }
+
+/// 監看一整個資料夾：裡面任何檔案被改動（包含另一台裝置經 iCloud 同步進來）都會回報。
+/// LaTeX 專案用它來更新檔案樹、並在來源檔變動時重新編譯。
+nonisolated final class DirectoryWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
+    let presentedItemURL: URL?
+    let presentedItemOperationQueue: OperationQueue
+    private let onChange: @MainActor @Sendable (URL?) -> Void
+    private var registered = false
+
+    init(url: URL, onChange: @escaping @MainActor @Sendable (URL?) -> Void) {
+        presentedItemURL = url
+        let q = OperationQueue()
+        q.maxConcurrentOperationCount = 1
+        presentedItemOperationQueue = q
+        self.onChange = onChange
+        super.init()
+        NSFileCoordinator.addFilePresenter(self)
+        registered = true
+    }
+
+    func stop() {
+        guard registered else { return }
+        NSFileCoordinator.removeFilePresenter(self)
+        registered = false
+    }
+
+    deinit { stop() }
+
+    func presentedItemDidChange() {
+        let cb = onChange
+        Task { @MainActor in cb(nil) }
+    }
+
+    func presentedSubitemDidChange(at url: URL) {
+        // app 自己的狀態資料夾（output.pdf 等）不算使用者的改動，否則會編譯到無窮迴圈
+        guard !url.path.contains("/\(LatexProject.stateDirName)/"),
+              !url.lastPathComponent.hasPrefix(".") else { return }
+        let cb = onChange
+        Task { @MainActor in cb(url) }
+    }
+}
+

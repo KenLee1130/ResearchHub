@@ -1,0 +1,105 @@
+#!/bin/bash
+# ResearchHub 的沙盒外小幫手。
+#
+# Mac 版 ResearchHub 是沙盒 app，不能直接執行 /Library/TeX 底下的 LaTeX 編譯器。
+# Apple 給沙盒 app 的官方做法是：把腳本放在 ~/Library/Application Scripts/<bundle id>/，
+# app 用 NSUserUnixTask 呼叫，腳本在沙盒外執行。install-mac.sh 會把這支裝過去。
+#
+# ⚠️ 這支腳本是被 com.apple.foundation.UserScriptService 執行的，那個 XPC 服務沒有
+# iCloud Drive 的存取權：碰 ~/Library/Mobile Documents 底下的路徑會被 file provider
+# 無限期擋住（不回錯、不跳視窗，整支就掛住）。所以這裡只收 app 容器裡的純本機路徑，
+# iCloud 那側的檔案搬運由 app 自己做（見 LatexStaging.swift）。
+#
+# 子指令（輸出最後幾行是 KEY=VALUE，給 app 解析）：
+#   compile <工作資料夾> <主檔.tex> <engine: xelatex|pdflatex|lualatex|auto>
+#   zip     <來源資料夾> <目的 .zip>            （內容放在 zip 根目錄，跟 Overleaf 下載的格式一樣）
+#   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
+#   version
+set -u
+export PATH="/Library/TeX/texbin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+export LANG="en_US.UTF-8"
+
+# 防呆：萬一哪天又把 iCloud 路徑傳進來，寧可立刻報錯，也不要整支卡死
+require_local() {
+  case "$1" in
+    *"/Mobile Documents/"*|*"/com~apple~CloudDocs"*)
+      echo "RC=5"
+      echo "ERR=小幫手不能存取 iCloud 路徑（$1），請改傳 app 容器裡的暫存路徑"
+      exit 0 ;;
+  esac
+}
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+  version)
+    echo "HELPER=2"
+    command -v latexmk >/dev/null && echo "LATEXMK=$(command -v latexmk)" || echo "LATEXMK="
+    ;;
+
+  compile)
+    work="$1"; main="$2"; engine="$3"
+    require_local "$work"
+    cd "$work" || { echo "RC=2"; echo "ERR=找不到編譯工作資料夾"; exit 0; }
+    case "$engine" in
+      xelatex)  flag="-xelatex" ;;
+      lualatex) flag="-lualatex" ;;
+      pdflatex) flag="-pdf" ;;
+      *)        flag="" ;;   # auto：交給專案自己的 latexmkrc
+    esac
+    base="${main%.tex}"
+    # 就地編譯：中間檔跟來源放在一起，\include{chapters/x} 的 .aux 自然就有地方寫
+    latexmk $flag -interaction=nonstopmode -file-line-error -synctex=1 \
+      "$main" > ".rh-latexmk.out" 2>&1 &
+    pid=$!
+    # 看門狗：卡住（例如套件在等輸入）超過 120 秒就砍掉
+    for _ in $(seq 1 240); do
+      kill -0 $pid 2>/dev/null || break
+      sleep 0.5
+    done
+    if kill -0 $pid 2>/dev/null; then
+      pkill -P $pid 2>/dev/null; kill $pid 2>/dev/null
+      echo "TIMEOUT=1"
+    fi
+    wait $pid 2>/dev/null
+    rc=$?
+    [ -f "$work/$base.pdf" ] && echo "PDF=$work/$base.pdf"
+    echo "LOG=$work/$base.log"
+    echo "RC=$rc"
+    ;;
+
+  zip)
+    proj="$1"; dest="$2"
+    require_local "$proj"; require_local "$dest"
+    cd "$proj" || { echo "RC=2"; exit 0; }
+    rm -f "$dest"
+    # 排除 app 自己的狀態與 LaTeX 編譯中間檔（Overleaf 下載的 zip 也不含這些）；.bbl 保留（arXiv 會用）
+    /usr/bin/zip -q -r -X "$dest" . -x ".researchhub/*" -x "*.DS_Store" -x "__MACOSX/*" \
+      -x "*.aux" -x "*.log" -x "*.fls" -x "*.fdb_latexmk" -x "*.xdv" -x "*.synctex.gz" \
+      -x "*.out" -x "*.toc" -x "*.blg" -x "*.bcf" -x "*.run.xml" -x "*.lof" -x "*.lot"
+    echo "RC=$?"
+    ;;
+
+  unzip)
+    zip="$1"; parent="$2"; name="$3"
+    require_local "$zip"; require_local "$parent"
+    dest="$parent/$name"; n=2
+    while [ -e "$dest" ]; do dest="$parent/$name $n"; n=$((n+1)); done
+    tmp=$(mktemp -d)
+    /usr/bin/ditto -x -k "$zip" "$tmp" || { echo "RC=3"; rm -rf "$tmp"; exit 0; }
+    rm -rf "$tmp/__MACOSX"
+    # 解開後若只有一個資料夾（常見：專案被包在一層資料夾裡），就用它當專案根目錄
+    count=$(find "$tmp" -mindepth 1 -maxdepth 1 -not -name '.DS_Store' | wc -l | tr -d ' ')
+    only=$(find "$tmp" -mindepth 1 -maxdepth 1 -not -name '.DS_Store' | head -1)
+    if [ "$count" = "1" ] && [ -d "$only" ]; then src="$only"; else src="$tmp"; fi
+    mkdir -p "$dest"
+    /usr/bin/ditto "$src" "$dest"
+    rm -rf "$tmp"
+    echo "DEST=$dest"
+    echo "RC=0"
+    ;;
+
+  *)
+    echo "RC=64"; echo "ERR=未知的子指令：$cmd"
+    ;;
+esac

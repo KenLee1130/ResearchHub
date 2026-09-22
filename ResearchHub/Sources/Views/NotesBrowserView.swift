@@ -10,12 +10,20 @@ struct NotesBrowserView: View {
     @State private var renamingURL: URL?
     @State private var renameText = ""
     @State private var editingNote: FileItem?
+    /// 正在開啟的 LaTeX 專案（資料夾）
+    @State private var editingProject: URL?
+    @State private var importing = false
     @State private var showFolderPicker = false
 
     var body: some View {
         Group {
             if store.rootURL == nil {
                 ChooseRootView(showPicker: $showFolderPicker)
+            } else if let project = editingProject {
+                LatexProjectView(projectURL: project) {
+                    editingProject = nil
+                    store.refresh()
+                }
             } else if let note = editingNote {
                 NoteEditorView(noteURL: note.url) {
                     editingNote = nil
@@ -42,7 +50,13 @@ struct NotesBrowserView: View {
     private func consumePendingOpen() {
         guard let url = store.pendingOpenNote else { return }
         store.pendingOpenNote = nil
-        editingNote = FileItem(url: url, isFolder: false, modified: .now)
+        var isDir: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+        if isDir.boolValue {
+            if LatexProject.isProject(url) { editingProject = url }
+        } else {
+            editingNote = FileItem(url: url, isFolder: false, modified: .now)
+        }
     }
 
     // MARK: - Browser
@@ -79,7 +93,15 @@ struct NotesBrowserView: View {
             .contextMenu {
                 Button("新增資料夾") { createAndRename(folder: true) }
                 Button("新增筆記") { createAndRename(folder: false) }
+                Button("新增 LaTeX 專案") { createProject() }
+                Divider()
+                Button("匯入 Overleaf 專案…") { importing = true }
             }
+        }
+        .fileImporter(isPresented: $importing,
+                      allowedContentTypes: [.zip, .folder],
+                      allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first { importProject(url) }
         }
         .toolbar {
             ToolbarItemGroup {
@@ -92,6 +114,12 @@ struct NotesBrowserView: View {
                     createAndRename(folder: false)
                 } label: {
                     Label("新增筆記", systemImage: "doc.badge.plus")
+                }
+                Menu {
+                    Button("新增 LaTeX 專案") { createProject() }
+                    Button("匯入 Overleaf 專案…（.zip 或資料夾）") { importing = true }
+                } label: {
+                    Label("LaTeX 專案", systemImage: "curlybraces.square")
                 }
             }
         }
@@ -121,7 +149,9 @@ struct NotesBrowserView: View {
     // MARK: - Actions
 
     private func open(_ item: FileItem) {
-        if item.isFolder {
+        if item.isProject {
+            editingProject = item.url
+        } else if item.isFolder {
             store.open(item)
             selection = nil
         } else {
@@ -141,9 +171,103 @@ struct NotesBrowserView: View {
         renamingURL = url
     }
 
+    /// 新增 LaTeX 專案：建好範本（可直接帶去 Overleaf 編譯）後，名稱進入就地編輯。
+    private func createProject() {
+        guard let current = store.currentURL else { return }
+        do {
+            let url = try LatexProject.create(in: current, name: "新專案")
+            store.refresh()
+            selection = url
+            renameText = ""
+            renamingURL = url
+        } catch {
+            store.errorMessage = error.localizedDescription
+        }
+    }
+
+    /// 匯入 Overleaf 下載的 zip 或整個資料夾。
+    private func importProject(_ url: URL) {
+        guard let current = store.currentURL else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        let name = url.deletingPathExtension().lastPathComponent
+        if url.pathExtension.lowercased() == "zip" {
+            // 小幫手碰不到 iCloud（見 LatexStaging）：zip 先複製進容器、在容器裡解開，
+            // 再由 app 把內容搬進筆記資料夾。
+            let scratch: URL
+            let localZip: URL
+            do {
+                scratch = try LatexStaging.scratchDir()
+                localZip = scratch.appendingPathComponent("import.zip")
+                try FileManager.default.copyItem(at: url, to: localZip)
+            } catch {
+                if scoped { url.stopAccessingSecurityScopedResource() }
+                store.errorMessage = error.localizedDescription
+                return
+            }
+            if scoped { url.stopAccessingSecurityScopedResource() }
+            let unpacked = scratch.appendingPathComponent("out", isDirectory: true)
+            try? FileManager.default.createDirectory(at: unpacked, withIntermediateDirectories: true)
+            LatexCompiler.runHelper(["unzip", localZip.path, unpacked.path, name]) { output, error in
+                defer { try? FileManager.default.removeItem(at: scratch) }
+                if let error {
+                    store.errorMessage = error.localizedDescription
+                    return
+                }
+                let fields = LatexCompiler.parseFields(output)
+                guard fields["RC"] == "0", let dest = fields["DEST"] else {
+                    store.errorMessage = "解壓縮失敗：\(output)"
+                    return
+                }
+                var folder = current.appendingPathComponent(name, isDirectory: true)
+                var n = 2
+                while FileManager.default.fileExists(atPath: folder.path) {
+                    folder = current.appendingPathComponent("\(name) \(n)", isDirectory: true)
+                    n += 1
+                }
+                do {
+                    try LatexStaging.copyTree(from: URL(fileURLWithPath: dest), to: folder)
+                } catch {
+                    store.errorMessage = error.localizedDescription
+                    return
+                }
+                store.refresh()
+                if LatexProject.isProject(folder) {
+                    editingProject = folder
+                } else {
+                    store.errorMessage = "匯入完成，但裡面找不到含 \\documentclass 的 .tex，"
+                        + "所以不會當成 LaTeX 專案開啟。"
+                }
+            }
+        } else {
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            var dest = current.appendingPathComponent(name, isDirectory: true)
+            var n = 2
+            while FileManager.default.fileExists(atPath: dest.path) {
+                dest = current.appendingPathComponent("\(name) \(n)", isDirectory: true)
+                n += 1
+            }
+            do {
+                try FileManager.default.copyItem(at: url, to: dest)
+                store.refresh()
+                if LatexProject.isProject(dest) { editingProject = dest }
+            } catch {
+                store.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     private func beginRename(_ item: FileItem) {
         renameText = item.name
         renamingURL = item.url
+    }
+
+    /// 專案改名後，如果主檔的 \title 還是舊名稱就一起更新。
+    private func renameProjectTitle(in folder: URL, from old: String, to new: String) {
+        guard let main = LatexProject.mainFile(in: folder),
+              let text = try? String(contentsOf: main, encoding: .utf8),
+              text.contains("\\title{\(old)}") else { return }
+        try? text.replacingOccurrences(of: "\\title{\(old)}", with: "\\title{\(new.trimmingCharacters(in: .whitespaces))}")
+            .write(to: main, atomically: true, encoding: .utf8)
     }
 
     private func commitRename(_ item: FileItem) {
@@ -151,6 +275,7 @@ struct NotesBrowserView: View {
         guard !renameText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         if let newURL = store.rename(item, to: renameText) {
             selection = newURL
+            if item.isProject { renameProjectTitle(in: newURL, from: item.name, to: renameText) }
         }
     }
 }
@@ -218,7 +343,7 @@ struct FileIconCell: View {
                 .onTapGesture(count: 2) { onOpen() }
                 .simultaneousGesture(TapGesture().onEnded { onSelect() })
                 .contextMenu {
-                    Button(item.isFolder ? "開啟" : "編輯") { onOpen() }
+                    Button(item.isProject ? "開啟專案" : (item.isFolder ? "開啟" : "編輯")) { onOpen() }
                     Button("重新命名") { onRename() }
                     Divider()
                     Button("移到垃圾桶", role: .destructive) { onTrash() }
@@ -230,9 +355,13 @@ struct FileIconCell: View {
 
     private var tile: some View {
         VStack(spacing: 6) {
-            Image(systemName: item.isFolder ? "folder.fill" : "doc.text")
+            Image(systemName: item.isProject
+                  ? "curlybraces.square.fill"
+                  : (item.isFolder ? "folder.fill" : "doc.text"))
                 .font(.system(size: 40))
-                .foregroundStyle(item.isFolder ? Color.accentColor : Color.secondary)
+                .foregroundStyle(item.isProject
+                                 ? Color.teal
+                                 : (item.isFolder ? Color.accentColor : Color.secondary))
                 .frame(height: 48)
             if isRenaming {
                 InlineRenameField(
@@ -264,38 +393,6 @@ struct FileIconCell: View {
         if isSelected { return Color.secondary.opacity(0.18) }
         if isDropTarget { return Color.accentColor.opacity(0.08) }
         return .clear
-    }
-}
-
-/// 格子裡的就地改名欄：出現就自動取得焦點。
-/// Enter 或點到別處＝確定（跟 Finder 一樣），Esc＝取消。
-private struct InlineRenameField: View {
-    @Binding var text: String
-    let placeholder: String
-    let onCommit: () -> Void
-    let onCancel: () -> Void
-
-    @FocusState private var focused: Bool
-    @State private var finished = false
-
-    var body: some View {
-        TextField(placeholder, text: $text)
-            .textFieldStyle(.roundedBorder)
-            .font(.callout)
-            .multilineTextAlignment(.center)
-            .focused($focused)
-            .onAppear { DispatchQueue.main.async { focused = true } }
-            .onSubmit { finish(commit: true) }
-            .onExitCommand { finish(commit: false) }
-            .onChange(of: focused) { _, isFocused in
-                if !isFocused { finish(commit: true) }
-            }
-    }
-
-    private func finish(commit: Bool) {
-        guard !finished else { return }
-        finished = true
-        commit ? onCommit() : onCancel()
     }
 }
 

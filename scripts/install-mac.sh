@@ -43,6 +43,13 @@ echo "▸ Relaunching…"
 open -a /Applications/ResearchHub.app
 echo "✓ 已安裝並重啟 /Applications/ResearchHub.app"
 
+# LaTeX 專案用的沙盒外小幫手：沙盒 app 只能透過 NSUserUnixTask 執行
+# ~/Library/Application Scripts/<bundle id>/ 裡的腳本（app 自己不能寫那裡，所以由這裡安裝）
+SCRIPTS_DIR="$HOME/Library/Application Scripts/com.ken.ResearchHub"
+mkdir -p "$SCRIPTS_DIR"
+install -m 755 scripts/researchhub-helper.sh "$SCRIPTS_DIR/researchhub-helper.sh" \
+  && echo "✓ LaTeX 小幫手已安裝"
+
 # 同步 iPhone 重簽用的 repo clone（在 ~/Library，launchd 才讀得到——
 # TCC 擋 launchd 碰 ~/Desktop；這裡是終端機環境，有 Desktop 權限可以 pull）
 RESIGN_REPO="$HOME/Library/Application Support/ResearchHub/resign/repo"

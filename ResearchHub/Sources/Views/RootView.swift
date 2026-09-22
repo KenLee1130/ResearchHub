@@ -143,6 +143,7 @@ struct RootView: View {
         }
         // 系統 URL scheme（researchhub://…）：外部工具的入口。
         //   note?path=<相對 Notes/ 的路徑> → 開啟筆記
+        //   project?path=<相對 Notes/ 的資料夾> → 開啟 LaTeX 專案
         //   journal?date=YYYY-MM-DD → 開啟該日日記（省略 = 今天）
         .onOpenURL { url in
             guard url.scheme == "researchhub" else { return }
@@ -152,6 +153,12 @@ struct RootView: View {
                 if let rel = comps?.queryItems?.first(where: { $0.name == "path" })?.value,
                    let fileURL = NoteLinkIndex.shared.url(forRelativePath: rel) {
                     store.openNote(fileURL)
+                }
+            case "project":
+                // researchhub://project?path=<相對 Notes/ 的資料夾>
+                if let rel = comps?.queryItems?.first(where: { $0.name == "path" })?.value,
+                   let notes = store.notesURL {
+                    store.openNote(notes.appendingPathComponent(rel, isDirectory: true))
                 }
             case "journal":
                 let f = DateFormatter()

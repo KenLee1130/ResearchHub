@@ -730,6 +730,12 @@ final class PastingTextView: NSTextView {
 
 // （ScrollSync 移到 Services/WebResources.swift，iOS 版共用）
 
+/// 跳到某一行的一次性請求（編譯錯誤清單點過來）。
+struct LineJumpRequest: Equatable {
+    let id = UUID()
+    let line: Int
+}
+
 /// 右欄預覽雙擊段落 → 左欄源碼跳轉的一次性請求（id 變了才執行，避免重複觸發）。
 struct SourceJumpRequest: Equatable {
     let id = UUID()
@@ -740,6 +746,7 @@ struct SourceTextView: NSViewRepresentable {
     @Binding var text: String
     var fontSize: CGFloat = 14
     var jump: SourceJumpRequest?
+    var lineJump: LineJumpRequest?
     var onPasteImage: ((NSImage) -> String?)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -813,6 +820,10 @@ struct SourceTextView: NSViewRepresentable {
             context.coordinator.lastJumpID = jump.id
             context.coordinator.jump(to: jump.sync)
         }
+        if let lineJump, lineJump.id != context.coordinator.lastLineJumpID {
+            context.coordinator.lastLineJumpID = lineJump.id
+            context.coordinator.jump(toLine: lineJump.line)
+        }
     }
 
     // MARK: - Coordinator
@@ -824,6 +835,7 @@ struct SourceTextView: NSViewRepresentable {
         var isEditing = false
         var lastFontSize: CGFloat
         var lastJumpID: UUID?
+        var lastLineJumpID: UUID?
         /// 各「標題」行的字元起點（供跳轉對位；隨文字變動由 applyHighlighting 重算）。
         private var anchorCharIndices: [Int] = []
         /// 各 \footnote{...} 的內容範圍（跳轉對位用，順序 = 預覽端的註腳編號）。
@@ -861,6 +873,34 @@ struct SourceTextView: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let pv = textView as? PastingTextView else { return }
             DispatchQueue.main.async { [weak pv] in pv?.updateCompletion() }
+        }
+
+        /// 跳到第 line 行（1 起算）：選取整行、捲到中間、閃一下。
+        func jump(toLine line: Int) {
+            guard let tv = textView, let sv = tv.enclosingScrollView,
+                  let lm = tv.layoutManager, let tc = tv.textContainer else { return }
+            let ns = tv.string as NSString
+            var index = 0, current = 1
+            var range = NSRange(location: 0, length: 0)
+            while index < ns.length {
+                let r = ns.lineRange(for: NSRange(location: index, length: 0))
+                if current == line { range = r; break }
+                index = r.location + r.length
+                current += 1
+            }
+            guard range.length > 0 || current == line else { return }
+            let trimmed = NSRange(
+                location: range.location,
+                length: max(0, range.length - (ns.substring(with: range).hasSuffix("\n") ? 1 : 0)))
+            tv.setSelectedRange(trimmed)
+            tv.window?.makeFirstResponder(tv)
+            flash(trimmed)
+            let gr = lm.glyphRange(forCharacterRange: trimmed, actualCharacterRange: nil)
+            let rect = lm.boundingRect(forGlyphRange: gr, in: tc)
+            let inset = tv.textContainerInset.height
+            let maxOffset = max(0, tv.bounds.height - sv.contentView.bounds.height)
+            let centered = rect.midY + inset - sv.contentView.bounds.height / 2
+            scroll(sv, to: max(0, min(maxOffset, centered)))
         }
 
         /// 右欄預覽雙擊 → 優先在對應的源碼區段（錨點段或第 n 個 \footnote{...}）

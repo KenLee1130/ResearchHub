@@ -174,7 +174,8 @@ final class FileSystemStore: ObservableObject {
                 return FileItem(
                     url: url,
                     isFolder: isFolder,
-                    modified: values?.contentModificationDate ?? .distantPast
+                    modified: values?.contentModificationDate ?? .distantPast,
+                    isProject: isFolder && LatexProject.isProject(url)
                 )
             }
             .sorted { a, b in
