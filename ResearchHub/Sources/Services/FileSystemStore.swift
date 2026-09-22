@@ -201,42 +201,59 @@ final class FileSystemStore: ObservableObject {
 
     // MARK: - File operations
 
-    func createFolder(named name: String) {
-        guard let current = currentURL else { return }
+    /// 建立後回傳路徑，讓瀏覽器馬上進入改名狀態。
+    @discardableResult
+    func createFolder(named name: String) -> URL? {
+        guard let current = currentURL else { return nil }
         let url = uniqueURL(in: current, baseName: name.isEmpty ? "新資料夾" : name, ext: nil)
         do {
             try fm.createDirectory(at: url, withIntermediateDirectories: false)
             refresh()
+            return url
         } catch {
             errorMessage = error.localizedDescription
+            return nil
         }
     }
 
-    func createNote(named name: String) {
-        guard let current = currentURL else { return }
+    @discardableResult
+    func createNote(named name: String) -> URL? {
+        guard let current = currentURL else { return nil }
         let base = name.isEmpty ? "未命名筆記" : name
         let url = uniqueURL(in: current, baseName: base, ext: "md")
         let content = "# \(base)\n\n"
         do {
             try content.write(to: url, atomically: true, encoding: .utf8)
             refresh()
+            return url
         } catch {
             errorMessage = error.localizedDescription
+            return nil
         }
     }
 
-    func rename(_ item: FileItem, to newName: String) {
+    /// 改名；回傳新路徑（沒改或失敗回 nil）。
+    @discardableResult
+    func rename(_ item: FileItem, to newName: String) -> URL? {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, trimmed != item.name else { return }
+        guard !trimmed.isEmpty, trimmed != item.name else { return nil }
         let dir = item.url.deletingLastPathComponent()
         let dest = item.isFolder
             ? dir.appendingPathComponent(trimmed, isDirectory: true)
             : dir.appendingPathComponent(trimmed).appendingPathExtension(item.url.pathExtension)
         do {
             try fm.moveItem(at: item.url, to: dest)
+            // 剛建立、內容還是預設標題的筆記：標題跟著改名
+            if !item.isFolder, dest.pathExtension == "md",
+               let body = try? String(contentsOf: dest, encoding: .utf8),
+               body == "# \(item.name)\n\n" {
+                try? "# \(trimmed)\n\n".write(to: dest, atomically: true, encoding: .utf8)
+            }
             refresh()
+            return dest
         } catch {
             errorMessage = error.localizedDescription
+            return nil
         }
     }
 

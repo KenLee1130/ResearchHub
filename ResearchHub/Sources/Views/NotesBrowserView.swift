@@ -6,7 +6,8 @@ struct NotesBrowserView: View {
     @EnvironmentObject private var store: FileSystemStore
 
     @State private var selection: URL?
-    @State private var renamingItem: FileItem?
+    /// 正在就地改名的項目（新建後自動進入；右鍵「重新命名」也走這裡）
+    @State private var renamingURL: URL?
     @State private var renameText = ""
     @State private var editingNote: FileItem?
     @State private var showFolderPicker = false
@@ -62,7 +63,11 @@ struct NotesBrowserView: View {
                             onSelect: { selection = item.url },
                             onOpen: { open(item) },
                             onRename: { beginRename(item) },
-                            onTrash: { store.trash(item) }
+                            onTrash: { store.trash(item) },
+                            isRenaming: renamingURL == item.url,
+                            renameText: $renameText,
+                            onCommitRename: { commitRename(item) },
+                            onCancelRename: { renamingURL = nil }
                         )
                     }
                 }
@@ -72,33 +77,23 @@ struct NotesBrowserView: View {
             .contentShape(Rectangle())
             .onTapGesture { selection = nil }
             .contextMenu {
-                Button("新增資料夾") { store.createFolder(named: "新資料夾") }
-                Button("新增筆記") { store.createNote(named: "未命名筆記") }
+                Button("新增資料夾") { createAndRename(folder: true) }
+                Button("新增筆記") { createAndRename(folder: false) }
             }
         }
         .toolbar {
             ToolbarItemGroup {
                 Button {
-                    store.createFolder(named: "新資料夾")
+                    createAndRename(folder: true)
                 } label: {
                     Label("新增資料夾", systemImage: "folder.badge.plus")
                 }
                 Button {
-                    store.createNote(named: "未命名筆記")
+                    createAndRename(folder: false)
                 } label: {
                     Label("新增筆記", systemImage: "doc.badge.plus")
                 }
             }
-        }
-        .alert("重新命名", isPresented: renameAlertShown) {
-            TextField("名稱", text: $renameText)
-            Button("確定") {
-                if let item = renamingItem {
-                    store.rename(item, to: renameText)
-                }
-                renamingItem = nil
-            }
-            Button("取消", role: .cancel) { renamingItem = nil }
         }
     }
 
@@ -134,16 +129,29 @@ struct NotesBrowserView: View {
         }
     }
 
-    private func beginRename(_ item: FileItem) {
-        renameText = item.name
-        renamingItem = item
+    /// 新建後名稱直接進入編輯：欄位留空、預設名稱當提示字，直接打字就是新名字；
+    /// 按 Enter 或點別處＝確定，Esc 或留空＝保留預設名稱。
+    private func createAndRename(folder: Bool) {
+        let url = folder
+            ? store.createFolder(named: "新資料夾")
+            : store.createNote(named: "未命名筆記")
+        guard let url else { return }
+        selection = url
+        renameText = ""
+        renamingURL = url
     }
 
-    private var renameAlertShown: Binding<Bool> {
-        Binding(
-            get: { renamingItem != nil },
-            set: { if !$0 { renamingItem = nil } }
-        )
+    private func beginRename(_ item: FileItem) {
+        renameText = item.name
+        renamingURL = item.url
+    }
+
+    private func commitRename(_ item: FileItem) {
+        defer { renamingURL = nil }
+        guard !renameText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        if let newURL = store.rename(item, to: renameText) {
+            selection = newURL
+        }
     }
 }
 
@@ -195,19 +203,47 @@ struct FileIconCell: View {
     let onOpen: () -> Void
     let onRename: () -> Void
     let onTrash: () -> Void
+    var isRenaming = false
+    var renameText: Binding<String> = .constant("")
+    var onCommitRename: () -> Void = {}
+    var onCancelRename: () -> Void = {}
 
     @State private var isDropTarget = false
 
     var body: some View {
+        if isRenaming {
+            tile   // 改名中：不掛點擊／拖曳手勢，免得搶走輸入框的點擊與選字
+        } else {
+            tile
+                .onTapGesture(count: 2) { onOpen() }
+                .simultaneousGesture(TapGesture().onEnded { onSelect() })
+                .contextMenu {
+                    Button(item.isFolder ? "開啟" : "編輯") { onOpen() }
+                    Button("重新命名") { onRename() }
+                    Divider()
+                    Button("移到垃圾桶", role: .destructive) { onTrash() }
+                }
+                .draggable(item.url)
+                .modifier(FolderDropModifier(item: item, isTargeted: $isDropTarget))
+        }
+    }
+
+    private var tile: some View {
         VStack(spacing: 6) {
             Image(systemName: item.isFolder ? "folder.fill" : "doc.text")
                 .font(.system(size: 40))
                 .foregroundStyle(item.isFolder ? Color.accentColor : Color.secondary)
                 .frame(height: 48)
-            Text(item.name)
-                .font(.callout)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
+            if isRenaming {
+                InlineRenameField(
+                    text: renameText, placeholder: item.name,
+                    onCommit: onCommitRename, onCancel: onCancelRename)
+            } else {
+                Text(item.name)
+                    .font(.callout)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
         }
         .padding(8)
         .frame(width: 110)
@@ -222,22 +258,44 @@ struct FileIconCell: View {
                     lineWidth: 2
                 )
         )
-        .onTapGesture(count: 2) { onOpen() }
-        .simultaneousGesture(TapGesture().onEnded { onSelect() })
-        .contextMenu {
-            Button(item.isFolder ? "開啟" : "編輯") { onOpen() }
-            Button("重新命名") { onRename() }
-            Divider()
-            Button("移到垃圾桶", role: .destructive) { onTrash() }
-        }
-        .draggable(item.url)
-        .modifier(FolderDropModifier(item: item, isTargeted: $isDropTarget))
     }
 
     private var backgroundColor: Color {
         if isSelected { return Color.secondary.opacity(0.18) }
         if isDropTarget { return Color.accentColor.opacity(0.08) }
         return .clear
+    }
+}
+
+/// 格子裡的就地改名欄：出現就自動取得焦點。
+/// Enter 或點到別處＝確定（跟 Finder 一樣），Esc＝取消。
+private struct InlineRenameField: View {
+    @Binding var text: String
+    let placeholder: String
+    let onCommit: () -> Void
+    let onCancel: () -> Void
+
+    @FocusState private var focused: Bool
+    @State private var finished = false
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .textFieldStyle(.roundedBorder)
+            .font(.callout)
+            .multilineTextAlignment(.center)
+            .focused($focused)
+            .onAppear { DispatchQueue.main.async { focused = true } }
+            .onSubmit { finish(commit: true) }
+            .onExitCommand { finish(commit: false) }
+            .onChange(of: focused) { _, isFocused in
+                if !isFocused { finish(commit: true) }
+            }
+    }
+
+    private func finish(commit: Bool) {
+        guard !finished else { return }
+        finished = true
+        commit ? onCommit() : onCancel()
     }
 }
 

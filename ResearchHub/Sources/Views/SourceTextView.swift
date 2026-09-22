@@ -38,6 +38,27 @@ final class PastingTextView: NSTextView {
         return super.resignFirstResponder()
     }
 
+    // MARK: - 剪下／拷貝／貼上／全選：自己接手，不靠選單轉送
+    //
+    // 使用者回報筆記源碼區選字後 ⌘C 複製不到（2026-09-22），靜態查不出攔截點；
+    // 改成文字區是焦點時直接處理這四個快捷鍵後就正常了。
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        guard mods == [.command], ["c", "x", "v", "a"].contains(key),
+              window?.firstResponder === self else {
+            return super.performKeyEquivalent(with: event)
+        }
+        switch key {
+        case "c": copy(nil)
+        case "x": cut(nil)
+        case "v": paste(nil)
+        default: selectAll(nil)
+        }
+        return true
+    }
+
     // MARK: - 自動補全（Overleaf 式浮動清單：不強制插入；方向鍵選、Tab 接受、Esc 關閉）
 
     /// 打 \ 之後可選的指令。
