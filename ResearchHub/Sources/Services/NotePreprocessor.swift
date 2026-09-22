@@ -48,6 +48,19 @@ enum NotePreprocessor {
             replace(seg, pattern: #"(?m)^[ \t]*%[^\n]*\n?"#) { _ in "" }
         }
 
+        // 0.3 波浪號：marked 的 GFM 會把「單個」~ 成對當刪除線，時段寫法
+        //     「0910~1200 助教課\n1420~1620 專討」就被吃掉波浪號、中間整段劃掉。
+        //     只保留 ~~雙波浪~~ 當刪除線；單個 ~ 轉義成字面波浪號。
+        //     LaTeX 的 Eq.~\eqref{} / Fig.~\ref{} / ~\cite{} 轉成不斷行空格。
+        //     數學區不動；`行內程式碼` 與 ``` 區塊也不動。
+        text = replaceOutsideMath(text) { seg in
+            var t = replace(seg, pattern: #"~(?=\\(?:eq)?ref\{|\\cite\{)"#) { _ in "\u{00A0}" }
+            t = replace(t, pattern: #"(`+)[\s\S]*?\1|(?<![~\\])~(?!~)"#) { g in
+                g[1].isEmpty ? "\\~" : g[0]
+            }
+            return t
+        }
+
         // 0.5 文字模式清單環境：\begin{enumerate}/\begin{itemize}（可巢狀、\item 可多行）
         //     → markdown 清單。一定要在數學處理「之前」做：KaTeX 不支援這些文字環境，
         //     不先轉換整塊會被預覽端當數學送去 KaTeX，渲染成錯誤。
@@ -171,17 +184,21 @@ enum NotePreprocessor {
         // 3.5 文件抬頭：\title / \subtitle / \author / \date → 置中樣式區塊。
         //（前後一定要留空行，否則 marked 會把 <div> 當成 HTML 區塊，把後面的內容
         //  整段當原始 HTML 吞掉、不再解析 markdown／連結。）
-        text = replaceBalancedCommand(text, "\\title") { inner in
-            "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:1.9em;font-weight:700;margin:.3em 0 .1em;\">\(inner)</div>\n\n"
+        text = replaceBalancedCommand(text, "\\title") { raw in
+            let inner = unescapeTilde(raw)
+            return "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:1.9em;font-weight:700;margin:.3em 0 .1em;\">\(inner)</div>\n\n"
         }
-        text = replaceBalancedCommand(text, "\\subtitle") { inner in
-            "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:1.25em;font-weight:500;opacity:.8;margin:0 0 .4em;\">\(inner)</div>\n\n"
+        text = replaceBalancedCommand(text, "\\subtitle") { raw in
+            let inner = unescapeTilde(raw)
+            return "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:1.25em;font-weight:500;opacity:.8;margin:0 0 .4em;\">\(inner)</div>\n\n"
         }
-        text = replaceBalancedCommand(text, "\\author") { inner in
-            "\n\n<div class=\"rh-head\" style=\"text-align:center;opacity:.85;margin:.1em 0;\">\(inner)</div>\n\n"
+        text = replaceBalancedCommand(text, "\\author") { raw in
+            let inner = unescapeTilde(raw)
+            return "\n\n<div class=\"rh-head\" style=\"text-align:center;opacity:.85;margin:.1em 0;\">\(inner)</div>\n\n"
         }
-        text = replaceBalancedCommand(text, "\\date") { inner in
-            "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:.9em;opacity:.7;margin:0 0 .6em;\">\(inner)</div>\n\n"
+        text = replaceBalancedCommand(text, "\\date") { raw in
+            let inner = unescapeTilde(raw)
+            return "\n\n<div class=\"rh-head\" style=\"text-align:center;font-size:.9em;opacity:.7;margin:0 0 .6em;\">\(inner)</div>\n\n"
         }
 
         // 3.6 章節：\section / \subsection / \subsubsection → 自動編號標題 + 錨點，並收集目錄。
@@ -665,12 +682,18 @@ enum NotePreprocessor {
     /// caption 等會直接放進 HTML 的文字：樣式指令轉成 HTML 標籤
     /// （html 區塊內的 markdown 不會被解析，所以不能用 **…**）。
     private static func inlineFormatHTML(_ s: String) -> String {
-        var t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        var t = unescapeTilde(s.trimmingCharacters(in: .whitespacesAndNewlines))
         t = replaceBalancedCommand(t, "\\textbf") { "<b>\($0)</b>" }
         t = replaceBalancedCommand(t, "\\textit") { "<i>\($0)</i>" }
         t = replaceBalancedCommand(t, "\\emph") { "<i>\($0)</i>" }
         t = replaceBalancedCommand(t, "\\texttt") { "<code>\($0)</code>" }
         return t
+    }
+
+    /// 步驟 0.3 把單個 ~ 轉義成 \~ 給 marked 看；但內容若會直接放進 HTML 區塊
+    /// （\title、caption…），marked 不處理 HTML 裡的跳脫，反斜線就會露出來 → 還原。
+    private static func unescapeTilde(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\~", with: "~")
     }
 
     /// 附錄章節編號：1 → A、2 → B…（超出 26 就退回數字）。

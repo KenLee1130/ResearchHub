@@ -167,7 +167,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     @objc func appBecameActive() {
         DispatchQueue.main.async { [weak self] in
             guard let self, let win = self.webView.window, win.isKeyWindow,
-                  !(win.firstResponder is NSTextView) else { return }
+                  nothingFocused(in: win) else { return }
             if win.firstResponder !== self.webView {
                 win.makeFirstResponder(self.webView)
             }

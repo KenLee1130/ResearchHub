@@ -1195,12 +1195,13 @@ struct SourceTextView: NSViewRepresentable {
         // 捲動後補色：可視區露出「上次視窗」以外的區域才重上（debounce 0.12s）。
         private var scrollWork: DispatchWorkItem?
 
-        /// app 回到前景：焦點原本不在任何文字區時，直接還給編輯器。
-        /// （已經有東西取得焦點——例如搜尋面板——就不搶。）
+        /// app 回到前景：焦點「完全沒落在任何東西上」時，才還給編輯器。
+        /// 以前的條件是「不是 NSTextView 就搶」，但右欄預覽是 WKWebView：
+        /// 從別的 app 切回來在預覽裡選字，焦點會被搶回左欄，⌘C 就複製不到。
         @objc func appBecameActive() {
             DispatchQueue.main.async { [weak self] in
                 guard let tv = self?.textView, let win = tv.window, win.isKeyWindow,
-                      !(win.firstResponder is NSTextView) else { return }
+                      nothingFocused(in: win) else { return }
                 win.makeFirstResponder(tv)
             }
         }
@@ -1283,5 +1284,13 @@ struct SourceTextView: NSViewRepresentable {
             }
         }
     }
+}
+
+/// 視窗裡是否沒有任何元件取得焦點（焦點停在視窗本身或其內容容器）。
+/// 預覽網頁、搜尋欄、表單等只要已經拿到焦點，就不該被「自動還焦點」搶走。
+@MainActor
+func nothingFocused(in win: NSWindow) -> Bool {
+    guard let r = win.firstResponder else { return true }
+    return r === win || r === win.contentView
 }
 #endif
