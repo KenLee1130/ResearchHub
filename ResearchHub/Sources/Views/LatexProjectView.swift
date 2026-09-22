@@ -22,6 +22,13 @@ struct LatexProjectView: View {
     @State private var renameText = ""
     @State private var addFiles = false
     @State private var exportError: String?
+    @State private var issueHeight: CGFloat = 0
+    /// 版面：跟 Overleaf 一樣可以只看原始碼、只看 PDF、或並排
+    @AppStorage("latexPaneLayout") private var layoutRaw = Layout.split.rawValue
+    @AppStorage("latexShowFileTree") private var showTree = true
+
+    enum Layout: String { case editor, split, pdf }
+    private var layout: Layout { Layout(rawValue: layoutRaw) ?? .split }
 
     init(projectURL: URL, onClose: @escaping () -> Void) {
         self.projectURL = projectURL
@@ -37,12 +44,18 @@ struct LatexProjectView: View {
             header
             Divider()
             HSplitView {
-                fileTree
-                    .frame(minWidth: 170, idealWidth: 210, maxWidth: 320)
-                editorPane
-                    .frame(minWidth: 280)
-                previewPane
-                    .frame(minWidth: 300)
+                if showTree {
+                    fileTree
+                        .frame(minWidth: 150, idealWidth: 210, maxWidth: 420)
+                }
+                if layout != .pdf {
+                    editorPane
+                        .frame(minWidth: 280)
+                }
+                if layout != .editor {
+                    previewPane
+                        .frame(minWidth: 300)
+                }
             }
         }
         .background(.thickMaterial)
@@ -62,6 +75,13 @@ struct LatexProjectView: View {
             Button(action: onClose) { Image(systemName: "chevron.left") }
                 .buttonStyle(.plain)
                 .keyboardShortcut("[", modifiers: .command)
+
+            Button { showTree.toggle() } label: {
+                Image(systemName: showTree ? "sidebar.leading" : "sidebar.left")
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("0", modifiers: .command)
+            .help("顯示／隱藏檔案列表（⌘0）")
 
             Text(projectURL.lastPathComponent)
                 .font(.headline)
@@ -94,6 +114,28 @@ struct LatexProjectView: View {
                 }
             }
 
+            Picker("", selection: $layoutRaw) {
+                Image(systemName: "doc.plaintext").tag(Layout.editor.rawValue)
+                Image(systemName: "rectangle.split.2x1").tag(Layout.split.rawValue)
+                Image(systemName: "doc.richtext").tag(Layout.pdf.rawValue)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 112)
+            .help("只看原始碼（⌘1）／並排（⌘2）／只看 PDF（⌘3）")
+
+            // 鍵盤捷徑用：segmented picker 本身掛不了快捷鍵
+            Group {
+                Button("") { layoutRaw = Layout.editor.rawValue }
+                    .keyboardShortcut("1", modifiers: .command)
+                Button("") { layoutRaw = Layout.split.rawValue }
+                    .keyboardShortcut("2", modifiers: .command)
+                Button("") { layoutRaw = Layout.pdf.rawValue }
+                    .keyboardShortcut("3", modifiers: .command)
+            }
+            .opacity(0)
+            .frame(width: 0, height: 0)
+
             Picker("", selection: $continuous) {
                 Text("連續").tag(true)
                 Text("分頁").tag(false)
@@ -101,6 +143,7 @@ struct LatexProjectView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(width: 96)
+            .disabled(layout == .editor)
             .onChange(of: continuous) { _, v in
                 var s = LatexProject.settings(of: projectURL)
                 s.viewMode = v ? "continuous" : "paged"
@@ -358,8 +401,13 @@ struct LatexProjectView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    // ScrollView 會把提議的高度全吃掉，只有一兩則警告時下面會空一大塊，
+                    // 所以量一下內容高度，上限 160
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                        issueHeight = $0
+                    }
                 }
-                .frame(maxHeight: 160)
+                .frame(height: min(max(issueHeight, 22), 160))
             }
         }
         .background(.quaternary.opacity(0.35))
