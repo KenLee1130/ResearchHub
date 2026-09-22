@@ -198,6 +198,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 self.webView.evaluateJavaScript(
                     "window.__markersEnabled = \(self.markersEnabled); "
                     + "window.__pomoMinutes = \(Self.pomoMinutes)")
+                self.lastMarkersSent = (self.markersEnabled, Self.pomoMinutes)
                 if let pending = self.pendingText {
                     self.pendingText = nil
                     self.push(pending)
@@ -234,9 +235,15 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     /// @/! 待辦標記補全開關（只有日記啟用）。ready 之後重新套用，重載也不會丟。
     private var markersEnabled = false
 
+    private var lastMarkersSent: (Bool, Int)?
+
     func setMarkersEnabled(_ enabled: Bool) {
         markersEnabled = enabled
+        // sync() 在每次 SwiftUI 更新都會呼叫；值沒變就別再跨行程送 JS
+        let sig = (enabled, Self.pomoMinutes)
+        if let last = lastMarkersSent, last == sig { return }
         if isReady {
+            lastMarkersSent = sig
             webView.evaluateJavaScript(
                 "window.__markersEnabled = \(enabled); "
                 + "window.__pomoMinutes = \(Self.pomoMinutes)")

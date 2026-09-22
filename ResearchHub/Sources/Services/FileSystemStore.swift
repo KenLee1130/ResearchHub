@@ -394,10 +394,15 @@ final class FileSystemStore: ObservableObject {
     /// 尚未下載的檔案改成觸發背景下載、本次視為讀不到，下次掃描自然補上。
     nonisolated static func safeRead(_ url: URL) -> String? {
         if let v = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
-           let status = v.ubiquitousItemDownloadingStatus,
-           status == .notDownloaded {
-            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-            return nil
+           let status = v.ubiquitousItemDownloadingStatus {
+            if status == .notDownloaded {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+                return nil
+            }
+            if status == .downloaded {
+                // 本機有一份但不是最新的（另一台裝置改過）：背景請 iCloud 抓，先回本機這份
+                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            }
         }
         return try? String(contentsOf: url, encoding: .utf8)
     }

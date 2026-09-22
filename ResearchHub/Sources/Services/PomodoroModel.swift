@@ -89,7 +89,16 @@ final class PomodoroModel: ObservableObject {
     // MARK: - State
 
     @Published private(set) var phase: Phase = .work
-    @Published private(set) var remaining: Int = 25 * 60
+    /// 每秒跳動的倒數獨立放在 clock。PomodoroModel 是 ObservableObject，任何
+    /// @Published 一變，所有觀察者（根畫面、首頁、日記…共 8 個）整個 body 重算；
+    /// 以前 remaining 放在這裡，蕃茄鐘一跑整個 app 就每秒全部重畫——打字卡頓、
+    /// 背景也吃掉 50% CPU（系統有 cpu_resource 報告）。現在只有真的顯示倒數的
+    /// PomodoroCountdownText 觀察 clock。
+    let clock = PomodoroClock()
+    private(set) var remaining: Int {
+        get { clock.remaining }
+        set { if clock.remaining != newValue { clock.remaining = newValue } }
+    }
     @Published private(set) var isRunning = false
     @Published private(set) var todayCount = 0
     @Published private(set) var totalCount = 0
@@ -356,9 +365,7 @@ final class PomodoroModel: ObservableObject {
 
     // MARK: - Controls
 
-    var timeString: String {
-        String(format: "%02d:%02d", remaining / 60, remaining % 60)
-    }
+    var timeString: String { clock.timeString }
 
     func toggle() {
         isRunning ? pause() : start()
@@ -880,7 +887,7 @@ struct PomodoroPanelView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(pomodoro.timeString)
+            PomodoroCountdownText(clock: pomodoro.clock)
                 .font(.system(size: 36, weight: .medium, design: .monospaced))
             Text(pomodoro.phase.label)
                 .font(.caption)
@@ -1002,7 +1009,7 @@ struct PomodoroMiniView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Text(pomodoro.timeString)
+            PomodoroCountdownText(clock: pomodoro.clock)
                 .font(.system(size: 20, weight: .medium, design: .monospaced))
             Text(LocalizedStringKey(pomodoro.phase.label))
                 .font(.caption)
@@ -1072,3 +1079,25 @@ struct PomodoroMiniView: View {
     }
 }
 #endif
+
+// MARK: - 每秒倒數（隔離出來的觀察對象）
+
+/// 只裝每秒會變的倒數。觀察它的只有 PomodoroCountdownText，
+/// 所以每秒重畫的範圍就是那一行數字。
+@MainActor
+final class PomodoroClock: ObservableObject {
+    @Published var remaining: Int = 25 * 60
+
+    var timeString: String {
+        String(format: "%02d:%02d", remaining / 60, remaining % 60)
+    }
+}
+
+/// 顯示倒數的唯一元件：外觀（字體等）由呼叫端加 modifier。
+struct PomodoroCountdownText: View {
+    @ObservedObject var clock: PomodoroClock
+
+    var body: some View {
+        Text(clock.timeString)
+    }
+}

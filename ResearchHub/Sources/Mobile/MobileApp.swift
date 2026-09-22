@@ -146,6 +146,11 @@ struct MobileTodayView: View {
     @State private var showTaskManager = false
     @State private var selectedDate = Calendar.current.startOfDay(for: .now)
     @State private var showDatePicker = false
+    /// 監看當天日記被 Mac（經 iCloud）改動
+    @State private var watcher: FileWatcher?
+    /// 檔案在 iCloud 上但還沒下載：這時不能存檔，否則會用空內容蓋掉雲端那份
+    @State private var awaitingDownload = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private let calendar = Calendar.current
     private var isToday: Bool { calendar.isDateInToday(selectedDate) }
@@ -227,6 +232,16 @@ struct MobileTodayView: View {
                                     .padding(16)
                                 } else if !editorHost.isReady {
                                     ProgressView()
+                                } else if awaitingDownload {
+                                    VStack(spacing: 8) {
+                                        ProgressView()
+                                        Text("正在從 iCloud 下載…")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(16)
+                                    .background(.regularMaterial,
+                                                in: RoundedRectangle(cornerRadius: 12))
                                 }
                             }
                     }
@@ -273,8 +288,20 @@ struct MobileTodayView: View {
                 TaskManagerSheet()
             }
             .onAppear(perform: load)
-            .onDisappear(perform: saveNow)
+            .onDisappear {
+                saveNow()
+                watcher?.stop()
+            }
             .onChange(of: journalText) { scheduleSave() }
+            .onChange(of: scenePhase) { _, phase in
+                // 從背景回來：Mac 可能改過今天的日記 → 請 iCloud 抓最新版，沒有未存修改就重讀
+                if phase == .active {
+                    watcher?.requestLatest()
+                    reloadIfClean()
+                } else if phase == .background {
+                    saveNow()
+                }
+            }
             .refreshable {
                 generalTodos.reload()
                 load()
@@ -321,33 +348,51 @@ struct MobileTodayView: View {
         load()
     }
 
-    private func load() { load(retriesLeft: 5) }
-
-    private func load(retriesLeft: Int) {
+    private func load() {
         // @due/@from/@every 播進當天 + @remind 排通知（冪等；要在讀檔之前；
         // seedTodos 內部只對今天以後的日期生效，翻舊日記不會被改動）
         store.seedTodos(
             for: selectedDate,
             generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
 
+        watcher?.stop()
         guard let url = journalURL else {
+            watcher = nil
             journalText = ""
             loadedText = ""
+            awaitingDownload = false
             return
         }
+        let w = FileWatcher(url: url) { reloadIfClean() }
+        watcher = w
         if let content = FileSystemStore.safeRead(url) {
             journalText = content
             loadedText = content
-        } else if (try? url.checkResourceIsReachable()) == true, retriesLeft > 0 {
-            // 檔案在 iCloud 還沒下載完（safeRead 已觸發下載）：稍後重試。
-            // 別當成空檔——使用者一打字存檔會蓋掉雲端那份
-            Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if journalText == loadedText { load(retriesLeft: retriesLeft - 1) }
-            }
+            awaitingDownload = false
+            w.requestLatest()           // 本機這份可能是舊的：背景跟 iCloud 要最新版
+        } else if (try? url.checkResourceIsReachable()) == true {
+            // 在 iCloud 上但還沒下載：顯示下載中，下載完 watcher 會通知 → reloadIfClean。
+            // 以前這裡重試 5 次後就當成空檔，使用者一打字就把雲端那份蓋掉了。
+            awaitingDownload = true
+            w.requestLatest()
         } else {
             journalText = ""
             loadedText = ""
+            awaitingDownload = false
+        }
+    }
+
+    /// 檔案被外部改動（Mac 經 iCloud 同步進來）時重讀；本機有未存修改就以本機為準。
+    private func reloadIfClean() {
+        guard journalText == loadedText, let w = watcher else { return }
+        w.read { content in
+            guard let content, w === watcher else { return }  // 讀檔期間換了日期
+            guard journalText == loadedText else { return }   // 讀檔期間又打字了
+            awaitingDownload = false
+            if content != journalText {
+                journalText = content
+                loadedText = content
+            }
         }
     }
 
@@ -361,12 +406,13 @@ struct MobileTodayView: View {
     }
 
     private func saveNow() {
-        guard let url = journalURL, journalText != loadedText,
+        guard !awaitingDownload, journalText != loadedText,
               !journalText.isEmpty || !loadedText.isEmpty else { return }
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if (try? journalText.write(to: url, atomically: true, encoding: .utf8)) != nil {
-            loadedText = journalText
+        let snapshot = journalText
+        let w = watcher
+        w?.write(snapshot) { ok in
+            // 換日時同一個畫面會換檔：回呼晚到就別把前一天的狀態套到新的一天
+            if ok, w === watcher { loadedText = snapshot }
         }
     }
 }

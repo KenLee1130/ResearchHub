@@ -98,6 +98,10 @@ struct EditorCore: View {
     /// 右欄預覽雙擊段落 → 左欄源碼跳轉（兩欄捲動各自獨立，只有雙擊會觸發跳轉）。
     @State private var jumpRequest: SourceJumpRequest?
     @State private var saveTask: Task<Void, Never>?
+    /// 監看這個檔案被另一台裝置（iCloud）或其他程式改動
+    @State private var watcher: FileWatcher?
+    /// 檔案在 iCloud 上但還沒下載到本機：這時絕不能存檔，否則會用空內容蓋掉雲端那份
+    @State private var awaitingDownload = false
 
     private var fileDir: URL { fileURL.deletingLastPathComponent() }
 
@@ -111,7 +115,28 @@ struct EditorCore: View {
             // 編輯區墊一層厚材質，避免環境色彩場干擾閱讀
             .background(.thickMaterial)
             .onAppear(perform: load)
-            .onDisappear { saveNow() }
+            .onDisappear {
+                saveNow()
+                watcher?.stop()
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification)) { _ in
+                // 切回 app：另一台裝置可能改過 → 請 iCloud 抓最新版，沒有未存修改就重讀
+                watcher?.requestLatest()
+                reloadIfClean()
+            }
+            .overlay {
+                if awaitingDownload {
+                    VStack(spacing: 10) {
+                        ProgressView()
+                        Text("正在從 iCloud 下載…")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(22)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                }
+            }
             .onChange(of: text) { scheduleAutosave() }
             .onReceive(NotificationCenter.default.publisher(for: Self.appendNotification)) { note in
                 guard let url = note.userInfo?["url"] as? URL, url == fileURL,
@@ -166,14 +191,40 @@ struct EditorCore: View {
     // MARK: - Load & save
 
     private func load() {
-        if let content = try? String(contentsOf: fileURL, encoding: .utf8) {
+        watcher?.stop()
+        let w = FileWatcher(url: fileURL) { reloadIfClean() }
+        watcher = w
+        if let content = FileSystemStore.safeRead(fileURL) {
             text = content
             initialText = content
             fileExisted = true
+            awaitingDownload = false
+            w.requestLatest()           // 本機這份可能不是最新的：背景跟 iCloud 要
+        } else if (try? fileURL.checkResourceIsReachable()) == true {
+            // 檔案在 iCloud 還沒下載：先顯示下載中，下載完 watcher 會通知 → reloadIfClean
+            awaitingDownload = true
+            w.requestLatest()
         } else {
             text = ""
             initialText = ""
             fileExisted = false
+            awaitingDownload = false
+        }
+    }
+
+    /// 檔案被外部改動（另一台裝置同步進來）時重讀。
+    /// 本機有還沒存的修改就以本機為準（autosave 0.8 秒內就會寫出去）。
+    private func reloadIfClean() {
+        guard text == initialText, let w = watcher else { return }
+        w.read { content in
+            guard let content else { return }
+            guard text == initialText else { return }     // 讀檔期間使用者又打字了
+            awaitingDownload = false
+            fileExisted = true
+            if content != text {
+                text = content
+                initialText = content
+            }
         }
     }
 
@@ -187,17 +238,16 @@ struct EditorCore: View {
     }
 
     private func saveNow() {
+        guard !awaitingDownload else { return }   // 還沒拿到雲端那份，寫出去就是蓋掉它
         // 檔案原本不存在且內容仍是空的 → 不落地，避免製造空檔案
         guard fileExisted || !text.isEmpty else { return }
         guard text != initialText || !fileExisted else { return }
-        try? FileManager.default.createDirectory(
-            at: fileDir, withIntermediateDirectories: true)
-        do {
-            try text.write(to: fileURL, atomically: true, encoding: .utf8)
-            initialText = text
+        let snapshot = text
+        // 協調寫入：iCloud 會正確接手上傳，也不會通知回自己的 watcher
+        watcher?.write(snapshot) { ok in
+            guard ok else { return }             // 寫入失敗保持靜默，下次 autosave 再試
+            initialText = snapshot
             fileExisted = true
-        } catch {
-            // 寫入失敗保持靜默，下次 autosave 再試
         }
     }
 

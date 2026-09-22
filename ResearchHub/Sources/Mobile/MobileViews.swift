@@ -103,7 +103,7 @@ struct MobilePomodoroView: View {
             VStack(spacing: 24) {
                 Spacer()
 
-                Text(pomodoro.timeString)
+                PomodoroCountdownText(clock: pomodoro.clock)
                     .font(.system(size: 76, weight: .medium, design: .monospaced))
                     .monospacedDigit()
                 Text(LocalizedStringKey(pomodoro.phase.label))
@@ -241,6 +241,8 @@ struct MobilePlanningSheet: View {
 
     @State private var journalText = ""
     @State private var loadedText = ""
+    /// 明天的日記在 iCloud 上但一直沒下載完：不能存檔，否則會蓋掉雲端那份
+    @State private var blockSave = false
     @State private var saveTask: Task<Void, Never>?
     @State private var leftovers: [String] = []
     @State private var moved: Set<String> = []
@@ -423,13 +425,19 @@ struct MobilePlanningSheet: View {
         if let content = FileSystemStore.safeRead(url) {
             journalText = content
             loadedText = content
-        } else if (try? url.checkResourceIsReachable()) == true, retriesLeft > 0 {
-            // iCloud 還沒下載完（safeRead 已觸發下載）：稍後重試，別當成空檔
-            Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if journalText == loadedText { load(retriesLeft: retriesLeft - 1) }
+            blockSave = false
+        } else if (try? url.checkResourceIsReachable()) == true {
+            // iCloud 還沒下載完（safeRead 已觸發下載）：稍後重試，別當成空檔。
+            // 重試用完也一樣——以前這裡會清成空白，一打字就把雲端那份蓋掉。
+            blockSave = true
+            if retriesLeft > 0 {
+                Task {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    if journalText == loadedText { load(retriesLeft: retriesLeft - 1) }
+                }
             }
         } else {
+            blockSave = false
             journalText = ""
             loadedText = ""
         }
@@ -445,7 +453,7 @@ struct MobilePlanningSheet: View {
     }
 
     private func saveNow() {
-        guard let url = tomorrowURL, journalText != loadedText,
+        guard !blockSave, let url = tomorrowURL, journalText != loadedText,
               !journalText.isEmpty || !loadedText.isEmpty else { return }
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
