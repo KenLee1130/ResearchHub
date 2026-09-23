@@ -4,7 +4,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 /// LaTeX 專案編輯畫面：左邊檔案樹、中間源碼、右邊編譯出來的 PDF（像 Overleaf）。
-/// 存檔後自動重新編譯；錯誤可以點過去跳到那一行。
+/// 編譯是手動的（⌘S／Shift+Return／編譯鈕），不即時渲染；錯誤可以點過去跳到那一行。
 struct LatexProjectView: View {
     let projectURL: URL
     var onClose: () -> Void
@@ -26,12 +26,17 @@ struct LatexProjectView: View {
     /// 版面：跟 Overleaf 一樣可以只看原始碼、只看 PDF、或並排
     @AppStorage("latexPaneLayout") private var layoutRaw = Layout.split.rawValue
     @AppStorage("latexShowFileTree") private var showTree = true
+    @Environment(\.openWindow) private var openWindow
+
+    /// 這個畫面是不是已經在自己的視窗裡（獨立視窗就不再顯示「彈出視窗」按鈕）
+    var isStandaloneWindow = false
 
     enum Layout: String { case editor, split, pdf }
     private var layout: Layout { Layout(rawValue: layoutRaw) ?? .split }
 
-    init(projectURL: URL, onClose: @escaping () -> Void) {
+    init(projectURL: URL, isStandaloneWindow: Bool = false, onClose: @escaping () -> Void) {
         self.projectURL = projectURL
+        self.isStandaloneWindow = isStandaloneWindow
         self.onClose = onClose
         _compiler = StateObject(wrappedValue: LatexCompiler(projectURL: projectURL))
     }
@@ -46,7 +51,7 @@ struct LatexProjectView: View {
             HSplitView {
                 if showTree {
                     fileTree
-                        .frame(minWidth: 150, idealWidth: 210, maxWidth: 420)
+                        .frame(minWidth: 150, idealWidth: 210, maxWidth: 460)
                 }
                 if layout != .pdf {
                     editorPane
@@ -91,13 +96,24 @@ struct LatexProjectView: View {
 
             Spacer(minLength: 8)
 
-            Button {
-                compiler.compileNow()
-            } label: {
+            Button(action: compile) {
                 Label("編譯", systemImage: "hammer")
             }
-            .keyboardShortcut("s", modifiers: .command)
-            .help("重新編譯（⌘S）")
+            .help("重新編譯（Shift+Return）")
+
+            if !isStandaloneWindow {
+                Button {
+                    openWindow(id: "latex", value: projectURL)
+                    NotificationCenter.default.post(
+                        name: RootView.collapseSidebarNotification, object: nil)
+                    onClose()   // 已彈到新視窗，關掉內嵌這份，避免同專案兩開
+                } label: {
+                    Image(systemName: "macwindow.on.rectangle")
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .help("在新視窗開啟（⌘⇧N）")
+            }
 
             Button {
                 showFormat = true
@@ -272,7 +288,6 @@ struct LatexProjectView: View {
                 try? FileManager.default.trashItem(at: node.url, resultingItemURL: nil)
                 if selected == node.url { selected = mainURL }
                 refreshTree()
-                compiler.requestCompile()
             }
         }
     }
@@ -298,9 +313,9 @@ struct LatexProjectView: View {
                     fileURL: selected,
                     mode: $editorMode,
                     imageInsertion: .latex(projectRoot: projectURL),
-                    onSaved: { compiler.requestCompile() },
-                    lineJump: lineJump)
-                    .id(selected)
+                    onSaved: nil,
+                    lineJump: lineJump,
+                    onShiftReturn: { compiler.compileNow() })
             } else if LatexProject.isImageFile(selected) {
                 imagePreview(selected)
             } else {
@@ -420,13 +435,16 @@ struct LatexProjectView: View {
         continuous = LatexProject.settings(of: projectURL).viewMode != "paged"
         refreshTree()
         selected = mainURL
-        watcher = DirectoryWatcher(url: projectURL) { changed in
+        // 只更新檔案樹，不自動編譯——編譯一律由使用者按（⌘S／Shift+Return／編譯鈕）
+        watcher = DirectoryWatcher(url: projectURL) { _ in
             refreshTree()
-            if let changed, LatexProject.isTextFile(changed) || LatexProject.isImageFile(changed) {
-                compiler.requestCompile(after: 1.2)
-            }
         }
-        compiler.compileNow()
+    }
+
+    /// 編譯前先叫編輯器存檔：編譯讀的是磁碟上的檔案，沒存會編到舊內容。
+    private func compile() {
+        NotificationCenter.default.post(name: EditorCore.saveNowNotification, object: nil)
+        DispatchQueue.main.async { compiler.compileNow() }
     }
 
     private func refreshTree() {
@@ -558,6 +576,27 @@ struct LatexProjectView: View {
                 NSWorkspace.shared.activateFileViewerSelecting([dest])
             } catch {
                 exportError = error.localizedDescription
+            }
+        }
+    }
+}
+
+/// 把 LaTeX 專案彈到獨立視窗（跟筆記的 NoteWindowView 一樣）。
+struct LatexProjectWindowView: View {
+    let projectURL: URL?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            AmbientBackground()
+            if let projectURL {
+                LatexProjectView(projectURL: projectURL, isStandaloneWindow: true) {
+                    dismiss()
+                }
+                .id(projectURL)
+                .navigationTitle(projectURL.lastPathComponent)
+            } else {
+                Text("找不到這個專案").foregroundStyle(.secondary)
             }
         }
     }

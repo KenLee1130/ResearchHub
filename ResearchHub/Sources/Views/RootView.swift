@@ -14,6 +14,9 @@ struct RootView: View {
     @State private var noteTree: [FileSystemStore.TreeNode] = []
     @State private var notesExpanded = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+
+    /// 把筆記／LaTeX 專案彈到小視窗時，主視窗的導覽欄就用不到了 → 順手收起來
+    static let collapseSidebarNotification = Notification.Name("RootView.collapseSidebar")
     // 側欄寬度完全由這個 state 控制(夾在 170...260)。給固定值 → 系統的分隔線不可拖,
     // 改用右緣自訂把手調整,確保最大鎖得住、最小停得住、永不自動收合。
     @State private var sidebarWidth: CGFloat = 200
@@ -107,6 +110,10 @@ struct RootView: View {
                 PomodoroCompletionSheet(prompt: prompt)
                     .environmentObject(pomodoro)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: Self.collapseSidebarNotification)) { _ in
+            columnVisibility = .detailOnly
         }
         .preferredColorScheme(AppTheme(rawValue: themeRaw)?.forcedColorScheme
             ?? AppAppearance(rawValue: appearance)?.colorScheme)

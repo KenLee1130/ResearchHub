@@ -36,6 +36,8 @@ struct NoteEditorView: View {
                 if !isStandaloneWindow {
                     Button {
                         openWindow(id: "note", value: noteURL)
+                        NotificationCenter.default.post(
+                            name: RootView.collapseSidebarNotification, object: nil)
                         onClose()   // 已彈出到新視窗，關掉這裡的內嵌編輯器避免同檔兩開
                     } label: {
                         Image(systemName: "macwindow.on.rectangle")

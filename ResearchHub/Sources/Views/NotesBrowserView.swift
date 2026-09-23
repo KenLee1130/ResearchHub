@@ -24,6 +24,7 @@ struct NotesBrowserView: View {
                     editingProject = nil
                     store.refresh()
                 }
+                .id(project)
             } else if let note = editingNote {
                 NoteEditorView(noteURL: note.url) {
                     editingNote = nil

@@ -22,6 +22,23 @@ final class ActiveEditorRegistry {
 /// 支援 Cmd+V 貼上圖片的 NSTextView：圖片交給 onPasteImage 存檔，插入回傳的 markdown。
 final class PastingTextView: NSTextView {
     var onPasteImage: ((NSImage) -> String?)?
+    /// Shift+Return。LaTeX 專案拿來當「編譯」。
+    /// 直接攔 keyDown：AppKit 的標準鍵綁定沒有把 Shift+Return 對到 insertLineBreak:，
+    /// 它會跟一般 Return 一樣走 insertNewline:，所以改不了行為。
+    var onShiftReturn: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if let onShiftReturn,
+           event.keyCode == 36,                       // Return
+           flags.contains(.shift),
+           flags.isDisjoint(with: [.command, .option, .control]),
+           !hasMarkedText() {                         // 輸入法組字中不攔
+            onShiftReturn()
+            return
+        }
+        super.keyDown(with: event)
+    }
 
     /// 從別的 app 切回來時，第一下點擊就直接放游標、可以馬上打字
     /// （預設行為是第一下只啟動視窗、被吃掉）。
@@ -751,6 +768,8 @@ struct SourceTextView: NSViewRepresentable {
     var jump: SourceJumpRequest?
     var lineJump: LineJumpRequest?
     var onPasteImage: ((NSImage) -> String?)?
+    /// Shift+Return 要做的事（LaTeX 專案＝編譯）。沒給就是原本的插入軟換行。
+    var onShiftReturn: (() -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -790,6 +809,7 @@ struct SourceTextView: NSViewRepresentable {
         textView.textContainer?.widthTracksTextView = true
 
         textView.onPasteImage = onPasteImage
+        textView.onShiftReturn = onShiftReturn
         // 接受從 Finder/瀏覽器拖進來的圖片檔與圖片資料（保留原本已註冊的型別）。
         textView.registerForDraggedTypes(
             Array(Set(textView.registeredDraggedTypes + [.fileURL, .png, .tiff])))
@@ -825,6 +845,7 @@ struct SourceTextView: NSViewRepresentable {
         context.coordinator.parent = self
         guard let tv = nsView.documentView as? PastingTextView else { return }
         tv.onPasteImage = onPasteImage
+        tv.onShiftReturn = onShiftReturn
         Self.applyTheme(to: tv, scrollView: nsView)
         var needsHighlight = false
         // hasMarkedText = 輸入法（注音/拼音等）正在組字：此時 tv.string 含組字暫存、

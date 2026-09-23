@@ -49,6 +49,18 @@ struct ResearchHubApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
 
+        // LaTeX 專案也可以彈到獨立視窗（跟筆記一樣，以專案資料夾 URL 為值）
+        WindowGroup(id: "latex", for: URL.self) { $url in
+            LatexProjectWindowView(projectURL: url)
+                .environmentObject(store)
+                .environmentObject(pomodoro)
+                .environmentObject(eventStore)
+                .environmentObject(generalTodos)
+                .frame(minWidth: 640, minHeight: 460)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified(showsTitle: false))
+
         Settings {
             SettingsView()
                 .environmentObject(store)

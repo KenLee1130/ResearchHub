@@ -85,6 +85,8 @@ struct EditorCore: View {
     var onSaved: (() -> Void)?
     /// 跳到某一行（編譯錯誤點過來）
     var lineJump: LineJumpRequest?
+    /// Shift+Return：LaTeX 專案用來手動觸發編譯（會先存檔）
+    var onShiftReturn: (() -> Void)?
     /// 顯示底部快速命令列（日記用）。
     var quickCmdBar: Bool = false
     var onJournalCommand: ((JournalQuickAction) -> Bool)? = nil
@@ -92,6 +94,8 @@ struct EditorCore: View {
     /// 外部（如規劃儀式）要求把文字附加到某檔案的編輯器尾端。
     /// 走通知而不是直接改檔案：檔案正被編輯器持有，直接寫檔會被 autosave 蓋掉。
     static let appendNotification = Notification.Name("EditorCore.append")
+    /// 外部要求立刻存檔（LaTeX 專案編譯前會發，免得編到還沒寫進磁碟的舊內容）
+    static let saveNowNotification = Notification.Name("EditorCore.saveNow")
 
     static func requestAppend(to url: URL, text: String) {
         NotificationCenter.default.post(
@@ -150,6 +154,13 @@ struct EditorCore: View {
                 }
             }
             .onChange(of: text) { scheduleAutosave() }
+            // 換檔案時只換內容、不重建整個 view。
+            // （以前 LaTeX 專案是靠 .id(fileURL) 換檔，但那會連帶重建 HSplitView 的子畫面，
+            //   把使用者拖好的欄寬重置回預設值。）
+            .onChange(of: fileURL) { _, _ in switchFile() }
+            .onReceive(NotificationCenter.default.publisher(for: Self.saveNowNotification)) { _ in
+                saveNow()
+            }
             .onReceive(NotificationCenter.default.publisher(for: Self.appendNotification)) { note in
                 guard let url = note.userInfo?["url"] as? URL, url == fileURL,
                       let appended = note.userInfo?["text"] as? String else { return }
@@ -175,7 +186,8 @@ struct EditorCore: View {
                     fontSize: CGFloat(editorFontSize),
                     jump: jumpRequest,
                     lineJump: lineJump,
-                    onPasteImage: saveImage
+                    onPasteImage: saveImage,
+                    onShiftReturn: compileAction
                 )
                 // minWidth 壓低:窄視窗時雙欄仍能縮進可用寬度,不會把側欄擠歪、
                 // 造成選單位置與首頁/日記不一致。
@@ -192,7 +204,8 @@ struct EditorCore: View {
                 text: $text,
                 fontSize: CGFloat(editorFontSize),
                 lineJump: lineJump,
-                onPasteImage: saveImage
+                onPasteImage: saveImage,
+                onShiftReturn: compileAction
             )
         case .preview:
             MarkdownPreviewView(
@@ -249,6 +262,24 @@ struct EditorCore: View {
             guard !Task.isCancelled else { return }
             saveNow()
         }
+    }
+
+    /// Shift+Return：先把目前內容寫進檔案，再交給外面編譯
+    private var compileAction: (() -> Void)? {
+        guard let onShiftReturn else { return nil }
+        return {
+            saveNow()
+            onShiftReturn()
+        }
+    }
+
+    /// 切到另一個檔案：先把目前這份寫出去，再載入新的。
+    /// 不走 saveNow()，因為它的完成回呼會改 initialText——那時候已經是新檔案了。
+    private func switchFile() {
+        if !awaitingDownload, text != initialText, fileExisted || !text.isEmpty {
+            watcher?.write(text) { _ in }
+        }
+        load()
     }
 
     private func saveNow() {
