@@ -120,7 +120,8 @@ struct LatexProjectView: View {
             Button(action: compile) {
                 Label("編譯", systemImage: "hammer")
             }
-            .help("重新編譯（Shift+Return）")
+            .keyboardShortcut("s", modifiers: .command)
+            .help("重新編譯（⌘S 或 Shift+Return）")
 
             if !isStandaloneWindow {
                 Button {
