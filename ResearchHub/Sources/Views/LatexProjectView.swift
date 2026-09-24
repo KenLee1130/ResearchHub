@@ -255,11 +255,12 @@ struct LatexProjectView: View {
         HStack(spacing: 6) {
             Image(systemName: icon(for: node))
                 .foregroundStyle(isMain ? Color.accentColor : .secondary)
-            if renamingURL == node.url {
+            if same(renamingURL, node.url) {
                 InlineRenameField(
                     text: $renameText, placeholder: node.name,
                     onCommit: { commitRename(node) },
-                    onCancel: { renamingURL = nil })
+                    onCancel: { renamingURL = nil },
+                    centered: false)
             } else {
                 Text(node.name)
                     .fontWeight(isMain ? .semibold : .regular)
@@ -267,6 +268,12 @@ struct LatexProjectView: View {
             }
         }
         .tag(node.url)
+        .draggable(node.url)
+        .dropDestination(for: URL.self) { urls, _ in
+            // 丟到資料夾＝放進去；丟到檔案＝放到它旁邊那層
+            moveIn(urls, to: node.isFolder ? node.url : node.url.deletingLastPathComponent())
+            return true
+        }
         .contextMenu {
             if node.url.pathExtension.lowercased() == "tex", !isMain {
                 Button("設為主檔案") {
@@ -286,7 +293,7 @@ struct LatexProjectView: View {
             Divider()
             Button("移到垃圾桶", role: .destructive) {
                 try? FileManager.default.trashItem(at: node.url, resultingItemURL: nil)
-                if selected == node.url { selected = mainURL }
+                if same(selected, node.url) { selected = mainURL }
                 refreshTree()
             }
         }
@@ -451,6 +458,12 @@ struct LatexProjectView: View {
         tree = LatexProject.tree(of: projectURL)
     }
 
+    /// URL 相等比較太脆弱（資料夾會多一條結尾斜線），一律比 path。
+    private func same(_ a: URL?, _ b: URL?) -> Bool {
+        guard let a, let b else { return false }
+        return a.standardizedFileURL.path == b.standardizedFileURL.path
+    }
+
     private func relativePath(_ url: URL) -> String {
         url.path.replacingOccurrences(of: projectURL.path + "/", with: "")
     }
@@ -469,13 +482,23 @@ struct LatexProjectView: View {
         }
     }
 
+    /// 新東西要放哪：選到資料夾就放進去，選到檔案就放在它旁邊，什麼都沒選就放專案根目錄。
+    private var newItemParent: URL {
+        guard let selected else { return projectURL }
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: selected.path, isDirectory: &isDir)
+        else { return projectURL }
+        return isDir.boolValue ? selected : selected.deletingLastPathComponent()
+    }
+
     private func newFile(folder: Bool) {
         let fm = FileManager.default
+        let parent = newItemParent
         let base = folder ? "新資料夾" : "untitled.tex"
-        var url = projectURL.appendingPathComponent(base)
+        var url = parent.appendingPathComponent(base)
         var n = 2
         while fm.fileExists(atPath: url.path) {
-            url = projectURL.appendingPathComponent(
+            url = parent.appendingPathComponent(
                 folder ? "新資料夾 \(n)" : "untitled-\(n).tex")
             n += 1
         }
@@ -496,27 +519,63 @@ struct LatexProjectView: View {
         guard !trimmed.isEmpty, trimmed != node.name else { return }
         let dest = node.url.deletingLastPathComponent().appendingPathComponent(trimmed)
         try? FileManager.default.moveItem(at: node.url, to: dest)
-        if selected == node.url { selected = dest }
+        if same(selected, node.url) { selected = dest }
         var s = LatexProject.settings(of: projectURL)
         if s.main == relativePath(node.url) {
             s.main = relativePath(dest)
             LatexProject.save(s, to: projectURL)
         }
         refreshTree()
-        compiler.requestCompile()
+    }
+
+    /// 把東西放進 dest 資料夾：本來就在專案裡的用搬的，外面來的用複製的。
+    private func moveIn(_ urls: [URL], to dest: URL) {
+        let fm = FileManager.default
+        for src in urls {
+            let inProject = src.path.hasPrefix(projectURL.path + "/")
+            // 不能把資料夾丟進自己（或自己的子資料夾）裡
+            if dest.path == src.path || dest.path.hasPrefix(src.path + "/") { continue }
+            if src.deletingLastPathComponent().path == dest.path { continue }
+            let needsScope = inProject ? false : src.startAccessingSecurityScopedResource()
+            defer { if needsScope { src.stopAccessingSecurityScopedResource() } }
+
+            var target = dest.appendingPathComponent(src.lastPathComponent)
+            var n = 2
+            while fm.fileExists(atPath: target.path) {
+                let base = src.deletingPathExtension().lastPathComponent
+                let ext = src.pathExtension
+                target = dest.appendingPathComponent(
+                    ext.isEmpty ? "\(base) \(n)" : "\(base) \(n).\(ext)")
+                n += 1
+            }
+            if inProject {
+                guard (try? fm.moveItem(at: src, to: target)) != nil else { continue }
+                if same(selected, src) { selected = target }
+                // 主檔案被搬走的話，設定裡的路徑也要跟著改
+                var settings = LatexProject.settings(of: projectURL)
+                if settings.main == relativePath(src) {
+                    settings.main = relativePath(target)
+                    LatexProject.save(settings, to: projectURL)
+                }
+            } else {
+                try? fm.copyItem(at: src, to: target)
+            }
+        }
+        refreshTree()
     }
 
     private func copyIn(_ urls: [URL]) {
         let fm = FileManager.default
+        let parent = newItemParent
         for src in urls {
             let needsScope = src.startAccessingSecurityScopedResource()
             defer { if needsScope { src.stopAccessingSecurityScopedResource() } }
-            var dest = projectURL.appendingPathComponent(src.lastPathComponent)
+            var dest = parent.appendingPathComponent(src.lastPathComponent)
             var n = 2
             while fm.fileExists(atPath: dest.path) {
                 let base = src.deletingPathExtension().lastPathComponent
                 let ext = src.pathExtension
-                dest = projectURL.appendingPathComponent(
+                dest = parent.appendingPathComponent(
                     ext.isEmpty ? "\(base) \(n)" : "\(base) \(n).\(ext)")
                 n += 1
             }

@@ -104,6 +104,15 @@ struct NotesBrowserView: View {
                       allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first { importProject(url) }
         }
+        // ⌘⌫ 丟垃圾桶（跟 Finder 一樣）。正在改名時不作用——
+        // 那時候 ⌘⌫ 是文字欄位的「刪到行首」。
+        .background {
+            Button("") { trashSelected() }
+                .keyboardShortcut(.delete, modifiers: .command)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .disabled(renamingURL != nil || selection == nil)
+        }
         .toolbar {
             ToolbarItemGroup {
                 Button {
@@ -148,6 +157,14 @@ struct NotesBrowserView: View {
     }
 
     // MARK: - Actions
+
+    /// ⌘⌫：把選到的檔案／資料夾／專案丟到垃圾桶（可從垃圾桶救回來，所以不另外問）
+    private func trashSelected() {
+        guard renamingURL == nil, let url = selection,
+              let item = store.items.first(where: { $0.url == url }) else { return }
+        selection = nil
+        store.trash(item)
+    }
 
     private func open(_ item: FileItem) {
         if item.isProject {
