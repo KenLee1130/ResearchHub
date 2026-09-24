@@ -21,7 +21,9 @@ REPO="$BASE/repo"
 PROJECT="$REPO/ResearchHub.xcodeproj"
 DERIVED="$BASE/DerivedData"
 BUNDLE_ID=com.ken.ResearchHub.mobile
-DEVICE_ID=50D8E41A-F2CA-5644-A308-DAB5BAAC61F9   # iPhone「Ken」
+# iPhone「Ken」的硬體 UDID。別改回 devicectl 的 CoreDevice 識別碼（50D8E41A-…那種）：
+# 那是配對時產生的，Xcode 更新／重新登入 Apple ID 後重新配對就會換掉，安裝會一直失敗。
+DEVICE_ID=00008140-000E349E3E42801C
 APP="$DERIVED/Build/Products/Debug-iphoneos/ResearchHubMobile.app"
 LOG="$HOME/Library/Logs/researchhub-iphone-resign.log"
 # 內容＝目前裝在手機上那張描述檔的到期時刻（ISO 8601）
