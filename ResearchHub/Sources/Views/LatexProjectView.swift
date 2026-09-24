@@ -23,6 +23,7 @@ struct LatexProjectView: View {
     @State private var addFiles = false
     @State private var exportError: String?
     @State private var issueHeight: CGFloat = 0
+    @EnvironmentObject private var store: FileSystemStore
     @State private var hostWindow: NSWindow?
     @State private var deleteKeyMonitor: Any?
     /// 版面：跟 Overleaf 一樣可以只看原始碼、只看 PDF、或並排
@@ -50,20 +51,17 @@ struct LatexProjectView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            HSplitView {
-                if showTree {
-                    fileTree
-                        .frame(minWidth: 110, idealWidth: 210, maxWidth: 460)
-                }
-                if layout != .pdf {
-                    editorPane
-                        .frame(minWidth: 200, maxWidth: .infinity)
-                }
-                if layout != .editor {
-                    previewPane
-                        .frame(minWidth: 200, maxWidth: .infinity)
-                }
-            }
+            // 分隔位置只有使用者拖的時候才會變，而且會記住（見 PersistentSplitView）。
+            // 檔案樹的 holdingPriority 比較高：視窗縮放時由編輯區與預覽分攤。
+            PersistentSplitView(autosaveName: "LatexProjectPanes", panes: [
+                .init(id: "tree", minWidth: 120, initialWidth: 210,
+                      holdingPriority: .init(260), isVisible: showTree,
+                      content: hosted(fileTree)),
+                .init(id: "editor", minWidth: 220,
+                      isVisible: layout != .pdf, content: hosted(editorPane)),
+                .init(id: "preview", minWidth: 220,
+                      isVisible: layout != .editor, content: hosted(previewPane)),
+            ])
         }
         .surface(.canvas, ambient: .thickMaterial)
         .background(WindowReader { hostWindow = $0 })
@@ -81,6 +79,14 @@ struct LatexProjectView: View {
         } message: {
             Text(exportError ?? "")
         }
+    }
+
+    /// 放進 NSSplitView 的每一欄：撐滿分到的空間，並補上環境物件
+    /// （AppKit 容器裡的 SwiftUI 不會繼承外面的 environment）。
+    private func hosted<V: View>(_ view: V) -> AnyView {
+        AnyView(view
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environmentObject(store))
     }
 
     // MARK: - 標題列

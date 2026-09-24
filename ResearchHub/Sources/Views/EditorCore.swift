@@ -180,26 +180,29 @@ struct EditorCore: View {
                 BlockEditorStatusOverlay()
             }
         case .split:
-            HSplitView {
-                SourceTextView(
-                    text: $text,
-                    fontSize: CGFloat(editorFontSize),
-                    jump: jumpRequest,
-                    lineJump: lineJump,
-                    onPasteImage: saveImage,
-                    onShiftReturn: compileAction,
-                    projectRoot: latexRoot
-                )
-                // minWidth 壓低:窄視窗時雙欄仍能縮進可用寬度,不會把側欄擠歪、
-                // 造成選單位置與首頁/日記不一致。
-                .frame(minWidth: 150)
-                MarkdownPreviewView(
-                    text: text, baseDir: fileDir,
-                    citationItems: zotero.items, onOpenNote: { store.openNote($0) },
-                    onJumpToSource: { jumpRequest = SourceJumpRequest(sync: $0) },
-                    layout: previewLayout)
-                    .frame(minWidth: 150)
-            }
+            // 跟 LaTeX 專案同一個分割元件：分隔位置只有拖的時候才變、會記住、好抓
+            PersistentSplitView(autosaveName: "NoteEditorPanes", panes: [
+                .init(id: "source", minWidth: 150, content: AnyView(
+                    SourceTextView(
+                        text: $text,
+                        fontSize: CGFloat(editorFontSize),
+                        jump: jumpRequest,
+                        lineJump: lineJump,
+                        onPasteImage: saveImage,
+                        onShiftReturn: compileAction,
+                        projectRoot: latexRoot
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .environmentObject(store))),
+                .init(id: "preview", minWidth: 150, content: AnyView(
+                    MarkdownPreviewView(
+                        text: text, baseDir: fileDir,
+                        citationItems: zotero.items, onOpenNote: { store.openNote($0) },
+                        onJumpToSource: { jumpRequest = SourceJumpRequest(sync: $0) },
+                        layout: previewLayout)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .environmentObject(store))),
+            ])
         case .source:
             SourceTextView(
                 text: $text,

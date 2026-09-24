@@ -59,6 +59,32 @@ final class PastingTextView: NSTextView {
         return super.resignFirstResponder()
     }
 
+    // 浮動清單是掛在視窗上的子視窗：擁有它的編輯器被移除（換版面、換檔案、彈出視窗）時，
+    // 如果不主動關，它會一直掛在畫面上，而且再也沒有人會去關它。
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow !== window {
+            completionPopup.hide()
+            if let old = window {
+                NotificationCenter.default.removeObserver(
+                    self, name: NSWindow.didResignKeyNotification, object: old)
+            }
+        }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        // 切到別的視窗時編輯器本身沒有失去焦點（resignFirstResponder 不會被叫），也要關
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowResignedKey),
+            name: NSWindow.didResignKeyNotification, object: window)
+    }
+
+    @objc private func windowResignedKey(_ note: Notification) {
+        completionPopup.hide()
+    }
+
     // MARK: - 剪下／拷貝／貼上／全選：自己接手，不靠選單轉送
     //
     // 使用者回報筆記源碼區選字後 ⌘C 複製不到（2026-09-22），靜態查不出攔截點；
@@ -293,8 +319,9 @@ final class PastingTextView: NSTextView {
 
     /// 重新計算情境並更新浮動清單（由選取/輸入變動時呼叫）。
     func updateCompletion() {
-        // 輸入法組字中不要動補全清單，避免干擾候選字視窗。
-        if hasMarkedText() { return }
+        // 輸入法組字中不要重新計算清單（組字暫存會干擾判斷），但開著的要關掉——
+        // 以前這裡直接 return，清單會一路卡在畫面上。關清單不影響選字視窗。
+        if hasMarkedText() { completionPopup.hide(); return }
         if suppressCompletionOnce { suppressCompletionOnce = false; completionPopup.hide(); return }
         guard let win = window, let ctx = currentContext() else { completionPopup.hide(); return }
         let partial = (string as NSString).substring(with: ctx.range)
