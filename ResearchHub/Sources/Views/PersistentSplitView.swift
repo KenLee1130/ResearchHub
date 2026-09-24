@@ -26,18 +26,46 @@ struct PersistentSplitView: NSViewControllerRepresentable {
     let autosaveName: String
     let panes: [Pane]
 
-    func makeNSViewController(context: Context) -> Controller {
-        Controller(autosaveName: autosaveName, panes: panes)
+    func makeNSViewController(context: Context) -> Container {
+        Container(split: Controller(autosaveName: autosaveName, panes: panes))
     }
 
-    func updateNSViewController(_ controller: Controller, context: Context) {
-        controller.update(panes)
+    func updateNSViewController(_ container: Container, context: Context) {
+        container.split.update(panes)
     }
 
     /// 分隔視圖本身不需要內容的寬度——給多少就用多少（見 AdaptiveSizing.swift）
-    func sizeThatFits(_ proposal: ProposedViewSize, nsViewController: Controller,
+    func sizeThatFits(_ proposal: ProposedViewSize, nsViewController: Container,
                       context: Context) -> CGSize? {
         proposal.adaptive
+    }
+
+    /// 分割視圖＋疊在上面的分隔線高亮層。
+    /// 不能用 NSSplitView 子類別自己畫（替換 NSSplitViewController 的 splitView 會閃退），
+    /// 所以另外疊一層：不收任何點擊，只負責在滑鼠靠近分隔線時畫藍色。
+    final class Container: NSViewController {
+        let split: Controller
+        private let highlight = DividerHighlightView()
+
+        init(split: Controller) {
+            self.split = split
+            super.init(nibName: nil, bundle: nil)
+        }
+
+        required init?(coder: NSCoder) { fatalError("not used") }
+
+        override func loadView() {
+            let root = NSView()
+            addChild(split)
+            split.view.frame = root.bounds
+            split.view.autoresizingMask = [.width, .height]
+            root.addSubview(split.view)
+            highlight.frame = root.bounds
+            highlight.autoresizingMask = [.width, .height]
+            highlight.splitView = split.splitView
+            root.addSubview(highlight)   // 疊在最上面
+            view = root
+        }
     }
 
     final class Controller: NSSplitViewController {
@@ -116,4 +144,77 @@ struct PersistentSplitView: NSViewControllerRepresentable {
     }
 }
 
+/// 分隔線高亮層：滑鼠移到可以拖的範圍內（或正在拖）時，在分隔線上畫一條藍色。
+/// hitTest 永遠回 nil，所以點擊、拖曳都直接穿透到下面的分割視圖。
+final class DividerHighlightView: NSView {
+    /// 跟 effectiveRect 的放寬一致：線的兩側各 5pt 都算「在線上」
+    static let grabSlop: CGFloat = 5
+    private static let barWidth: CGFloat = 3
+
+    weak var splitView: NSSplitView? {
+        didSet {
+            NotificationCenter.default.removeObserver(self)
+            if let splitView {
+                // 拖曳時 NSSplitView 自己跑事件迴圈，這裡收不到 mouseMoved——
+                // 改聽「欄寬變了」來讓藍線跟著分隔線走
+                NotificationCenter.default.addObserver(
+                    self, selector: #selector(splitResized),
+                    name: NSSplitView.didResizeSubviewsNotification, object: splitView)
+            }
+        }
+    }
+
+    private var litDivider: Int? {
+        didSet { if oldValue != litDivider { needsDisplay = true } }
+    }
+    private var tracking: NSTrackingArea?
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    /// 每條看得到的分隔線中心的 x（本視圖座標）
+    private var dividerCenters: [CGFloat] {
+        guard let splitView else { return [] }
+        let visible = splitView.arrangedSubviews.filter { !$0.isHidden && $0.frame.width > 1 }
+        return visible.dropLast().map { pane in
+            let edge = pane.frame.maxX + splitView.dividerThickness / 2
+            return convert(NSPoint(x: edge, y: 0), from: splitView).x
+        }
+    }
+
+    private func divider(near x: CGFloat) -> Int? {
+        dividerCenters.firstIndex { abs($0 - x) <= Self.grabSlop + 1 }
+    }
+
+    override func updateTrackingAreas() {
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self, userInfo: nil)
+        addTrackingArea(area)
+        tracking = area
+        super.updateTrackingAreas()
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        litDivider = divider(near: convert(event.locationInWindow, from: nil).x)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if NSEvent.pressedMouseButtons == 0 { litDivider = nil }
+    }
+
+    @objc private func splitResized(_ note: Notification) {
+        // 正在拖：保持亮著，位置重新算；放開之後由下一次 mouseMoved 決定
+        if NSEvent.pressedMouseButtons != 0, litDivider != nil { needsDisplay = true }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let index = litDivider, index < dividerCenters.count else { return }
+        let x = dividerCenters[index]
+        NSColor.controlAccentColor.setFill()
+        NSRect(x: x - Self.barWidth / 2, y: bounds.minY,
+               width: Self.barWidth, height: bounds.height).fill()
+    }
+}
 #endif
