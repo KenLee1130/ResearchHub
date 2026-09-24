@@ -50,7 +50,8 @@ struct PersistentSplitView: NSViewControllerRepresentable {
             self.autosave = autosaveName
             self.initialPanes = panes
             super.init(nibName: nil, bundle: nil)
-            splitView = HoverSplitView()   // 滑鼠移上去／拖曳時分隔線變藍
+            // ⚠️ 不能替換 splitView（連空白的 NSSplitView 子類別都會在 viewDidLoad 當掉，
+            // 2026-09-24 實測閃退）。分隔線的外觀要改只能另想辦法。
         }
 
         required init?(coder: NSCoder) { fatalError("not used") }
@@ -110,84 +111,9 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
                                 forDrawnRect drawnRect: NSRect,
                                 ofDividerAt dividerIndex: Int) -> NSRect {
-            drawnRect.insetBy(dx: -HoverSplitView.grabSlop, dy: 0)
+            drawnRect.insetBy(dx: -5, dy: 0)
         }
     }
 }
 
-/// 分隔線：平常是一條細灰線，滑鼠移到可以拖的範圍內（或正在拖）時整條變成藍色，
-/// 一看就知道「這裡可以拉」。
-final class HoverSplitView: NSSplitView {
-    /// 分隔線兩側各多幾 pt 算「在線上」（跟 effectiveRect 的放寬一致）
-    static let grabSlop: CGFloat = 5
-
-    private var hoveredDivider: NSRect? {
-        didSet { if oldValue != hoveredDivider { needsDisplay = true } }
-    }
-    private var dragging = false {
-        didSet { needsDisplay = true }
-    }
-    private var tracking: NSTrackingArea?
-
-    // 3pt：平常只在中間畫 1pt 的線，另外 2pt 透出底色，看起來還是細線；
-    // 變藍時整條 3pt 一起亮，才看得清楚
-    override var dividerThickness: CGFloat { 3 }
-
-    override func drawDivider(in rect: NSRect) {
-        if dragging || hoveredDivider.map({ abs($0.midX - rect.midX) < 1 }) == true {
-            NSColor.controlAccentColor.setFill()
-            rect.fill()
-        } else {
-            NSColor.separatorColor.setFill()
-            NSRect(x: rect.midX - 0.5, y: rect.minY, width: 1, height: rect.height).fill()
-        }
-    }
-
-    /// 目前看得到的每條分隔線的位置（收起來的欄旁邊那條不算）
-    private var dividerRects: [NSRect] {
-        let visible = arrangedSubviews.filter { !$0.isHidden && $0.frame.width > 0 }
-        return visible.dropLast().map {
-            NSRect(x: $0.frame.maxX, y: bounds.minY, width: dividerThickness, height: bounds.height)
-        }
-    }
-
-    override func updateTrackingAreas() {
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(
-            rect: .zero,
-            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
-            owner: self, userInfo: nil)
-        addTrackingArea(area)
-        tracking = area
-        super.updateTrackingAreas()
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        super.mouseMoved(with: event)
-        let point = convert(event.locationInWindow, from: nil)
-        hoveredDivider = dividerRects.first {
-            $0.insetBy(dx: -Self.grabSlop, dy: 0).contains(point)
-        }
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        super.mouseExited(with: event)
-        hoveredDivider = nil
-    }
-
-    // NSSplitView 的拖曳是在 mouseDown 裡自己跑迴圈，放開滑鼠才回來——
-    // 所以前後各設一次，拖的整段時間都維持藍色
-    override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        let onDivider = dividerRects.contains {
-            $0.insetBy(dx: -Self.grabSlop, dy: 0).contains(point)
-        }
-        if onDivider { dragging = true }
-        super.mouseDown(with: event)
-        if onDivider {
-            dragging = false
-            hoveredDivider = nil
-        }
-    }
-}
 #endif
