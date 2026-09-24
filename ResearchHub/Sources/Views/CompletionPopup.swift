@@ -5,8 +5,12 @@ import AppKit
 struct CompletionItem {
     let display: String
     let insert: String
-    enum Kind { case command, cite, env, eqref, noteLink }
+    /// 參數補全：texFile＝\input{、image＝\includegraphics{、package＝\usepackage{、
+    /// docClass＝\documentclass{、bibFile＝\bibliography{
+    enum Kind { case command, cite, env, eqref, noteLink, texFile, image, package, docClass, bibFile }
     let kind: Kind
+    /// 清單上跟在後面的灰字（指令說明、符號長相）
+    var detail: String = ""
 }
 
 /// Overleaf 式浮動補全清單：非啟用面板（不搶焦點），由編輯器用方向鍵/Tab 控制，
@@ -23,7 +27,7 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     override init() {
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 180),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 180),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: true)
         super.init()
@@ -77,7 +81,7 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
         let rowH = table.rowHeight + table.intercellSpacing.height
         let visible = min(max(items.count, 1), 9)
         let height = CGFloat(visible) * rowH + 6
-        let width: CGFloat = 380
+        let width: CGFloat = 440   // 多了一欄灰字說明
         let frame = NSRect(x: caretRect.minX,
                            y: caretRect.minY - height - 2,
                            width: width, height: height)
@@ -136,7 +140,20 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
             tf.drawsBackground = false
             return tf
         }()
-        field.stringValue = items[row].display
+        let item = items[row]
+        if item.detail.isEmpty {
+            field.stringValue = item.display
+        } else {
+            let text = NSMutableAttributedString(
+                string: item.display,
+                attributes: [.font: NSFont.systemFont(ofSize: 12),
+                             .foregroundColor: NSColor.labelColor])
+            text.append(NSAttributedString(
+                string: "   " + item.detail,
+                attributes: [.font: NSFont.systemFont(ofSize: 11),
+                             .foregroundColor: NSColor.secondaryLabelColor]))
+            field.attributedStringValue = text
+        }
         return field
     }
 }

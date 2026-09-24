@@ -22,6 +22,10 @@ final class ActiveEditorRegistry {
 /// 支援 Cmd+V 貼上圖片的 NSTextView：圖片交給 onPasteImage 存檔，插入回傳的 markdown。
 final class PastingTextView: NSTextView {
     var onPasteImage: ((NSImage) -> String?)?
+    /// LaTeX 專案的根目錄。有值時補全會多出專案才有意義的指令，
+    /// 以及 \input{ 列檔案、\ref{ 列整個專案的 label 等（見 LatexProjectIndex）。
+    var completionRoot: URL?
+
     /// Shift+Return。LaTeX 專案拿來當「編譯」。
     /// 直接攔 keyDown：AppKit 的標準鍵綁定沒有把 Shift+Return 對到 insertLineBreak:，
     /// 它會跟一般 Return 一樣走 insertNewline:，所以改不了行為。
@@ -78,31 +82,6 @@ final class PastingTextView: NSTextView {
 
     // MARK: - 自動補全（Overleaf 式浮動清單：不強制插入；方向鍵選、Tab 接受、Esc 關閉）
 
-    /// 打 \ 之後可選的指令。
-    static let commandList: [String] = [
-        "\\title{}", "\\subtitle{}", "\\author{}", "\\date{}",
-        "\\section{}", "\\subsection{}", "\\subsubsection{}", "\\tableofcontents",
-        "\\appendix", "\\paragraph{}", "\\subparagraph{}", "\\maketitle", "\\newpage",
-        "\\textbf{}", "\\textit{}", "\\emph{}", "\\underline{}", "\\texttt{}", "\\textsc{}",
-        "\\textcolor{red}{}", "\\textcolor{blue}{}", "\\textcolor{green}{}",
-        "\\textcolor{orange}{}", "\\textcolor{purple}{}", "\\colorbox{yellow}{}",
-        "\\includegraphics{}", "\\caption{}", "\\href{}{}", "\\url{}",
-        "\\cite{}", "\\footnote{}", "\\label{}", "\\eqref{}", "\\ref{}",
-        "\\begin{}", "\\end{}",
-        "\\frac{}{}", "\\sqrt{}", "\\text{}", "\\mathbb{}", "\\mathcal{}", "\\mathbf{}",
-        "\\hat{}", "\\bar{}", "\\tilde{}", "\\vec{}", "\\overline{}", "\\underline{}",
-        "\\sum", "\\prod", "\\int", "\\oint", "\\lim", "\\partial", "\\nabla", "\\infty",
-        "\\langle", "\\rangle", "\\otimes", "\\oplus", "\\times", "\\cdot", "\\approx",
-        "\\equiv", "\\sim", "\\propto", "\\leq", "\\geq", "\\neq", "\\rightarrow", "\\to",
-        "\\Rightarrow", "\\mapsto", "\\forall", "\\exists", "\\in", "\\subset", "\\cup", "\\cap",
-        "\\alpha", "\\beta", "\\gamma", "\\delta", "\\epsilon", "\\varepsilon", "\\zeta",
-        "\\eta", "\\theta", "\\kappa", "\\lambda", "\\mu", "\\nu", "\\xi", "\\pi", "\\rho",
-        "\\sigma", "\\tau", "\\phi", "\\varphi", "\\chi", "\\psi", "\\omega",
-        "\\Gamma", "\\Delta", "\\Theta", "\\Lambda", "\\Xi", "\\Pi", "\\Sigma",
-        "\\Phi", "\\Psi", "\\Omega",
-        "\\left(", "\\right)", "\\left[", "\\right]", "\\left\\{", "\\right\\}",
-    ]
-
     /// \begin{} 內可選的環境名稱。
     static let envList: [String] = [
         "equation", "equation*", "align", "align*", "aligned", "gather", "gather*",
@@ -150,9 +129,38 @@ final class PastingTextView: NSTextView {
                 return (.eqref, NSRange(location: caret - len, length: len))
             }
         }
+        if let arg = argumentContext(before, caret: caret) { return arg }
         if let r = before.range(of: #"\\[a-zA-Z]*$"#, options: .regularExpression) {
             let len = (String(before[r]) as NSString).length                  // 含反斜線
             return (.command, NSRange(location: caret - len, length: len))
+        }
+        return nil
+    }
+
+    /// 指令參數裡的補全：\input{ 列 .tex、\includegraphics{ 列圖片、\usepackage{ 列套件…
+    /// 只在 LaTeX 專案裡才有（Markdown 筆記沒有這些檔案的概念）。
+    private func argumentContext(_ before: String, caret: Int) -> (kind: CompletionItem.Kind, range: NSRange)? {
+        guard completionRoot != nil else { return nil }
+        let rules: [(pattern: String, kind: CompletionItem.Kind)] = [
+            (#"\\(?:input|include|includeonly|subfile)\{([^}]*)$"#, .texFile),
+            (#"\\includegraphics(?:\[[^\]]*\])?\{([^}]*)$"#, .image),
+            (#"\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{([^}]*)$"#, .package),
+            (#"\\documentclass(?:\[[^\]]*\])?\{([^}]*)$"#, .docClass),
+            (#"\\(?:bibliography|addbibresource)\{([^}]*)$"#, .bibFile),
+        ]
+        for rule in rules {
+            guard let re = try? NSRegularExpression(pattern: rule.pattern),
+                  let m = re.firstMatch(in: before, range: NSRange(location: 0, length: (before as NSString).length))
+            else { continue }
+            var typed = (before as NSString).substring(with: m.range(at: 1))
+            // \usepackage{amsmath, ams… 這種逗號清單：只補最後一個
+            if rule.kind == .package || rule.kind == .texFile,
+               let comma = typed.lastIndex(of: ",") {
+                typed = String(typed[typed.index(after: comma)...])
+                typed = String(typed.drop(while: { $0 == " " }))
+            }
+            let len = (typed as NSString).length
+            return (rule.kind, NSRange(location: caret - len, length: len))
         }
         return nil
     }
@@ -161,9 +169,20 @@ final class PastingTextView: NSTextView {
         switch kind {
         case .command:
             let p = partial.lowercased()
-            return Self.commandList
-                .filter { $0.lowercased().hasPrefix(p) }
-                .map { CompletionItem(display: $0, insert: $0, kind: .command) }
+            let inProject = completionRoot != nil
+            var commands = LatexCommandCatalog.all.filter { !$0.projectOnly || inProject }
+            if let root = completionRoot {
+                // 專案自己定義的指令排最前面：打了一半的通常就是它
+                commands = LatexProjectIndex.snapshot(for: root).macros + commands
+            }
+            var seen = Set<String>()
+            return commands
+                .filter { $0.insert.lowercased().hasPrefix(p) && seen.insert($0.insert).inserted }
+                .prefix(80)
+                .map { CompletionItem(display: $0.insert, insert: $0.insert, kind: .command,
+                                      detail: $0.detail) }
+        case .texFile, .image, .package, .docClass, .bibFile:
+            return argumentItems(kind, partial: partial)
         case .env:
             let p = partial.lowercased()
             return Self.envList
@@ -176,6 +195,37 @@ final class PastingTextView: NSTextView {
         case .noteLink:
             return noteLinkItems(prefix: partial)
         }
+    }
+
+    /// 指令參數的候選（檔案、套件、文件類別）。
+    private func argumentItems(_ kind: CompletionItem.Kind, partial: String) -> [CompletionItem] {
+        let q = partial.lowercased()
+        let candidates: [String]
+        var detail = ""
+        switch kind {
+        case .package:
+            candidates = LatexCommandCatalog.packages
+            detail = "套件"
+        case .docClass:
+            candidates = LatexCommandCatalog.documentClasses
+            detail = "文件類別"
+        default:
+            guard let root = completionRoot else { return [] }
+            let snap = LatexProjectIndex.snapshot(for: root)
+            switch kind {
+            case .texFile: candidates = snap.texFiles; detail = ".tex"
+            case .image: candidates = snap.images; detail = "圖片"
+            case .bibFile:
+                // \bibliography{} 不含副檔名；\addbibresource{} 要含——兩種都給
+                candidates = snap.bibFiles.flatMap { [String($0.dropLast(4)), $0] }
+                detail = "參考文獻"
+            default: candidates = []
+            }
+        }
+        return candidates
+            .filter { q.isEmpty || $0.lowercased().contains(q) }
+            .prefix(60)
+            .map { CompletionItem(display: $0, insert: $0, kind: kind, detail: detail) }
     }
 
     /// [[ 自動補全：列出所有其他筆記（依名稱／路徑過濾）。
@@ -204,6 +254,14 @@ final class PastingTextView: NSTextView {
         let ns = string as NSString
         var seen = Set<String>()
         var result: [CompletionItem] = []
+        if let root = completionRoot {
+            for key in LatexProjectIndex.snapshot(for: root).labels
+            where q.isEmpty || key.lowercased().contains(q) {
+                if seen.insert(key).inserted {
+                    result.append(CompletionItem(display: key, insert: key, kind: .eqref))
+                }
+            }
+        }
         let re = try? NSRegularExpression(pattern: #"\\label\{([^}]*)\}"#)
         re?.enumerateMatches(in: string, range: NSRange(location: 0, length: ns.length)) { m, _, _ in
             guard let m, m.numberOfRanges > 1 else { return }
@@ -262,7 +320,7 @@ final class PastingTextView: NSTextView {
             } else {
                 suppressCompletionOnce = true   // 無參數指令，別馬上又跳同一份
             }
-        case .cite, .eqref:
+        case .cite, .eqref, .texFile, .image, .package, .docClass, .bibFile:
             insertText(item.insert, replacementRange: completionRange)
             let loc = selectedRange().location
             let ns = string as NSString
@@ -770,6 +828,8 @@ struct SourceTextView: NSViewRepresentable {
     var onPasteImage: ((NSImage) -> String?)?
     /// Shift+Return 要做的事（LaTeX 專案＝編譯）。沒給就是原本的插入軟換行。
     var onShiftReturn: (() -> Void)?
+    /// LaTeX 專案根目錄（補全會多出專案才有的指令與檔案）；Markdown 筆記是 nil
+    var projectRoot: URL?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -816,6 +876,7 @@ struct SourceTextView: NSViewRepresentable {
 
         textView.onPasteImage = onPasteImage
         textView.onShiftReturn = onShiftReturn
+        textView.completionRoot = projectRoot
         // 接受從 Finder/瀏覽器拖進來的圖片檔與圖片資料（保留原本已註冊的型別）。
         textView.registerForDraggedTypes(
             Array(Set(textView.registeredDraggedTypes + [.fileURL, .png, .tiff])))
@@ -852,6 +913,7 @@ struct SourceTextView: NSViewRepresentable {
         guard let tv = nsView.documentView as? PastingTextView else { return }
         tv.onPasteImage = onPasteImage
         tv.onShiftReturn = onShiftReturn
+        tv.completionRoot = projectRoot
         Self.applyTheme(to: tv, scrollView: nsView)
         var needsHighlight = false
         // hasMarkedText = 輸入法（注音/拼音等）正在組字：此時 tv.string 含組字暫存、

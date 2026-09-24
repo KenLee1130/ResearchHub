@@ -187,7 +187,8 @@ struct EditorCore: View {
                     jump: jumpRequest,
                     lineJump: lineJump,
                     onPasteImage: saveImage,
-                    onShiftReturn: compileAction
+                    onShiftReturn: compileAction,
+                    projectRoot: latexRoot
                 )
                 // minWidth 壓低:窄視窗時雙欄仍能縮進可用寬度,不會把側欄擠歪、
                 // 造成選單位置與首頁/日記不一致。
@@ -205,7 +206,8 @@ struct EditorCore: View {
                 fontSize: CGFloat(editorFontSize),
                 lineJump: lineJump,
                 onPasteImage: saveImage,
-                onShiftReturn: compileAction
+                onShiftReturn: compileAction,
+                projectRoot: latexRoot
             )
         case .preview:
             MarkdownPreviewView(
@@ -262,6 +264,12 @@ struct EditorCore: View {
             guard !Task.isCancelled else { return }
             saveNow()
         }
+    }
+
+    /// 在 LaTeX 專案裡的話，補全要知道專案在哪（列檔案、自訂指令、跨檔 label）
+    private var latexRoot: URL? {
+        if case .latex(let root) = imageInsertion { return root }
+        return nil
     }
 
     /// Shift+Return：先把目前內容寫進檔案，再交給外面編譯
