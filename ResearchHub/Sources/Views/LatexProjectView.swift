@@ -23,6 +23,8 @@ struct LatexProjectView: View {
     @State private var addFiles = false
     @State private var exportError: String?
     @State private var issueHeight: CGFloat = 0
+    @State private var hostWindow: NSWindow?
+    @State private var deleteKeyMonitor: Any?
     /// 版面：跟 Overleaf 一樣可以只看原始碼、只看 PDF、或並排
     @AppStorage("latexPaneLayout") private var layoutRaw = Layout.split.rawValue
     @AppStorage("latexShowFileTree") private var showTree = true
@@ -64,8 +66,16 @@ struct LatexProjectView: View {
             }
         }
         .surface(.canvas, ambient: .thickMaterial)
-        .onAppear(perform: start)
-        .onDisappear { watcher?.stop() }
+        .background(WindowReader { hostWindow = $0 })
+        .onAppear {
+            start()
+            installDeleteShortcut()
+        }
+        .onDisappear {
+            watcher?.stop()
+            if let deleteKeyMonitor { NSEvent.removeMonitor(deleteKeyMonitor) }
+            deleteKeyMonitor = nil
+        }
         .alert("匯出失敗", isPresented: .constant(exportError != nil)) {
             Button("好") { exportError = nil }
         } message: {
@@ -291,11 +301,7 @@ struct LatexProjectView: View {
                 NSWorkspace.shared.activateFileViewerSelecting([node.url])
             }
             Divider()
-            Button("移到垃圾桶", role: .destructive) {
-                try? FileManager.default.trashItem(at: node.url, resultingItemURL: nil)
-                if same(selected, node.url) { selected = mainURL }
-                refreshTree()
-            }
+            Button("移到垃圾桶", role: .destructive) { trash(node.url) }
         }
     }
 
@@ -452,6 +458,50 @@ struct LatexProjectView: View {
     private func compile() {
         NotificationCenter.default.post(name: EditorCore.saveNowNotification, object: nil)
         DispatchQueue.main.async { compiler.compileNow() }
+    }
+
+    /// ⌘⌫ 刪檔。只在焦點不在文字編輯器時才接手——在編輯器裡 ⌘⌫ 是「刪到行首」，
+    /// 所以那種時候要原封不動把事件放回去。
+    private func installDeleteShortcut() {
+        guard deleteKeyMonitor == nil else { return }
+        deleteKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard event.keyCode == 51,                                   // delete（⌫）
+                  flags.contains(.command),
+                  flags.isDisjoint(with: [.shift, .option, .control]),
+                  let window = hostWindow, event.window === window,
+                  renamingURL == nil,
+                  focusIsInFileTree(of: window),
+                  let target = selected
+            else { return event }
+            trash(target)
+            return nil
+        }
+    }
+
+    /// 焦點是不是真的在檔案樹裡面。
+    /// 用「正向確認」而不是「只要不是文字編輯器就算」——後者在焦點不明時也會成立，
+    /// 那等於在編輯器旁邊按 ⌘⌫ 就把檔案刪掉了。判斷不出來就放行，讓系統照原本的處理。
+    private func focusIsInFileTree(of window: NSWindow) -> Bool {
+        guard let responder = window.firstResponder as? NSView,
+              !(responder is NSTextView)
+        else { return false }
+        // 這個畫面裡唯一的清單就是檔案樹（SwiftUI List 底層是 NSTableView／NSOutlineView），
+        // 編輯器是 NSTextView、預覽是 PDFView，所以「焦點在清單裡」就等於「焦點在檔案樹」。
+        var view: NSView? = responder
+        while let current = view {
+            if current is NSTableView { return true }
+            view = current.superview
+        }
+        return false
+    }
+
+    /// 丟垃圾桶（可以從垃圾桶救回來，所以不另外問）。
+    private func trash(_ url: URL) {
+        guard (try? FileManager.default.trashItem(at: url, resultingItemURL: nil)) != nil
+        else { return }
+        if same(selected, url) { selected = mainURL }
+        refreshTree()
     }
 
     private func refreshTree() {

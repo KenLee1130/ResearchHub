@@ -61,4 +61,32 @@ struct WindowMinSizeSetter: NSViewRepresentable {
         }
     }
 }
+
+/// 把這個畫面所在的 NSWindow 交出去（用來判斷鍵盤事件是不是自己這個視窗的）。
+struct WindowReader: NSViewRepresentable {
+    let onWindow: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async { onWindow(view.window) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { onWindow(nsView.window) }
+    }
+}
+
+/// 把這塊畫面對應的 NSView 交出去（用來判斷鍵盤焦點是不是落在這一區裡面）。
+struct ViewProbe: NSViewRepresentable {
+    let onView: (NSView) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async { onView(view) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
 #endif
