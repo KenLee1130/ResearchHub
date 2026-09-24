@@ -53,15 +53,15 @@ struct LatexProjectView: View {
             HSplitView {
                 if showTree {
                     fileTree
-                        .frame(minWidth: 150, idealWidth: 210, maxWidth: 460)
+                        .frame(minWidth: 110, idealWidth: 210, maxWidth: 460)
                 }
                 if layout != .pdf {
                     editorPane
-                        .frame(minWidth: 280)
+                        .frame(minWidth: 200, maxWidth: .infinity)
                 }
                 if layout != .editor {
                     previewPane
-                        .frame(minWidth: 300)
+                        .frame(minWidth: 200, maxWidth: .infinity)
                 }
             }
         }
@@ -85,8 +85,17 @@ struct LatexProjectView: View {
 
     // MARK: - 標題列
 
+    /// 標題列。寬度不夠時自動改成只有圖示——標題列的理想寬度會變成整個畫面的最小寬度，
+    /// 太寬就會把版面撐爆。
     private var header: some View {
-        HStack(spacing: 12) {
+        ViewThatFits(in: .horizontal) {
+            headerRow(compact: false)
+            headerRow(compact: true)
+        }
+    }
+
+    private func headerRow(compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 12) {
             Button(action: onClose) { Image(systemName: "chevron.left") }
                 .buttonStyle(.plain)
                 .keyboardShortcut("[", modifiers: .command)
@@ -101,6 +110,8 @@ struct LatexProjectView: View {
             Text(projectURL.lastPathComponent)
                 .font(.headline)
                 .lineLimit(1)
+                .truncationMode(.middle)
+                .layoutPriority(compact ? -1 : 0)
 
             statusView
 
@@ -189,7 +200,8 @@ struct LatexProjectView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
         }
-        .padding(.horizontal, 14)
+        .labelStyle(AdaptiveLabelStyle(compact: compact))
+        .padding(.horizontal, compact ? 10 : 14)
         .padding(.vertical, 8)
     }
 
@@ -250,10 +262,10 @@ struct LatexProjectView: View {
         }
         .fileImporter(isPresented: $addFiles, allowedContentTypes: [.item],
                       allowsMultipleSelection: true) { result in
-            if case .success(let urls) = result { copyIn(urls) }
+            if case .success(let urls) = result { moveIn(urls, to: newItemParent) }
         }
         .dropDestination(for: URL.self) { urls, _ in
-            copyIn(urls)
+            moveIn(urls, to: newItemParent)
             return true
         }
         .inkSurface(.chrome)
@@ -278,7 +290,10 @@ struct LatexProjectView: View {
             }
         }
         .tag(node.url)
-        .draggable(node.url)
+        // 用 itemProvider 而不是 .draggable：在 macOS 的 List 裡，列內容掛 .draggable 會讓
+        // 按下滑鼠先被拖曳手勢攔走，點在檔名上選不到、只有點列的空白處才選得到。
+        // itemProvider 是 List 原生的拖曳介面，跟選取不會打架。
+        .itemProvider { NSItemProvider(object: node.url as NSURL) }
         .dropDestination(for: URL.self) { urls, _ in
             // 丟到資料夾＝放進去；丟到檔案＝放到它旁邊那層
             moveIn(urls, to: node.isFolder ? node.url : node.url.deletingLastPathComponent())
@@ -511,7 +526,7 @@ struct LatexProjectView: View {
     /// URL 相等比較太脆弱（資料夾會多一條結尾斜線），一律比 path。
     private func same(_ a: URL?, _ b: URL?) -> Bool {
         guard let a, let b else { return false }
-        return a.standardizedFileURL.path == b.standardizedFileURL.path
+        return normalized(a).path == normalized(b).path
     }
 
     private func relativePath(_ url: URL) -> String {
@@ -579,10 +594,19 @@ struct LatexProjectView: View {
     }
 
     /// 把東西放進 dest 資料夾：本來就在專案裡的用搬的，外面來的用複製的。
-    private func moveIn(_ urls: [URL], to dest: URL) {
+    /// 拖放傳進來的 URL 可能是 file reference（file:///.file/id=…）或帶著 symlink，
+    /// 直接比路徑會認不出「這是專案裡的檔案」，結果被當成外部檔案複製一份。
+    private func normalized(_ url: URL) -> URL {
+        ((url as NSURL).filePathURL ?? url).standardizedFileURL.resolvingSymlinksInPath()
+    }
+
+    private func moveIn(_ urls: [URL], to rawDest: URL) {
         let fm = FileManager.default
-        for src in urls {
-            let inProject = src.path.hasPrefix(projectURL.path + "/")
+        let dest = normalized(rawDest)
+        let root = normalized(projectURL).path
+        for raw in urls {
+            let src = normalized(raw)
+            let inProject = src.path.hasPrefix(root + "/")
             // 不能把資料夾丟進自己（或自己的子資料夾）裡
             if dest.path == src.path || dest.path.hasPrefix(src.path + "/") { continue }
             if src.deletingLastPathComponent().path == dest.path { continue }
@@ -610,26 +634,6 @@ struct LatexProjectView: View {
             } else {
                 try? fm.copyItem(at: src, to: target)
             }
-        }
-        refreshTree()
-    }
-
-    private func copyIn(_ urls: [URL]) {
-        let fm = FileManager.default
-        let parent = newItemParent
-        for src in urls {
-            let needsScope = src.startAccessingSecurityScopedResource()
-            defer { if needsScope { src.stopAccessingSecurityScopedResource() } }
-            var dest = parent.appendingPathComponent(src.lastPathComponent)
-            var n = 2
-            while fm.fileExists(atPath: dest.path) {
-                let base = src.deletingPathExtension().lastPathComponent
-                let ext = src.pathExtension
-                dest = parent.appendingPathComponent(
-                    ext.isEmpty ? "\(base) \(n)" : "\(base) \(n).\(ext)")
-                n += 1
-            }
-            try? fm.copyItem(at: src, to: dest)
         }
         refreshTree()
     }
@@ -706,6 +710,22 @@ struct LatexProjectWindowView: View {
                 .navigationTitle(projectURL.lastPathComponent)
             } else {
                 Text("找不到這個專案").foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// 寬的時候圖示＋文字，窄的時候只剩圖示。
+private struct AdaptiveLabelStyle: LabelStyle {
+    let compact: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        if compact {
+            configuration.icon
+        } else {
+            HStack(spacing: 4) {
+                configuration.icon
+                configuration.title
             }
         }
     }

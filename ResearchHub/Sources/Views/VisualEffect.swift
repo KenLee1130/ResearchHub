@@ -8,6 +8,12 @@ struct VisualEffectView: NSViewRepresentable {
     var material: NSVisualEffectView.Material = .sidebar
     var blending: NSVisualEffectView.BlendingMode = .behindWindow
 
+    /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSVisualEffectView,
+                      context: Context) -> CGSize? {
+        proposal.adaptive
+    }
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = material

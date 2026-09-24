@@ -74,6 +74,11 @@ struct MobileProjectView: View {
 private struct MobilePDFView: UIViewRepresentable {
     let data: Data
 
+    /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: PDFView, context: Context) -> CGSize? {
+        proposal.adaptive
+    }
+
     func makeUIView(context: Context) -> PDFView {
         let view = PDFView()
         view.autoScales = true

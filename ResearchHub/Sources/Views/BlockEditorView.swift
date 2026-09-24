@@ -52,6 +52,12 @@ extension BlockEditorView: NSViewRepresentable {
         attachWebView(to: container)
         sync()
     }
+
+    /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: WebViewContainer,
+                      context: Context) -> CGSize? {
+        proposal.adaptive
+    }
 }
 
 /// 容器自己負責把 webView 撐滿（比 autoresizing 從零尺寸起算可靠）。
@@ -73,6 +79,12 @@ extension BlockEditorView: UIViewRepresentable {
     func updateUIView(_ container: WebViewContainer, context: Context) {
         attachWebView(to: container)
         sync()
+    }
+
+    /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WebViewContainer,
+                      context: Context) -> CGSize? {
+        proposal.adaptive
     }
 }
 

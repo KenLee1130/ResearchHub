@@ -10,6 +10,12 @@ struct LatexPDFView: NSViewRepresentable {
     /// true＝連續捲動，false＝一次一頁
     let continuous: Bool
 
+    /// 欄寬規則見 AdaptiveSizing.swift。PDFView 不寫這個的話會回報 A4 頁面的寬度，
+    /// 那一欄就縮不下去，把整排三欄撐得比視窗還寬。
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: PDFView, context: Context) -> CGSize? {
+        proposal.adaptive
+    }
+
     func makeNSView(context: Context) -> PDFView {
         let view = PDFView()
         view.autoScales = true

@@ -658,10 +658,18 @@ struct MarkdownPreviewView {
 extension MarkdownPreviewView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
     func updateNSView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
+    /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: WKWebView, context: Context) -> CGSize? {
+        proposal.adaptive
+    }
 }
 #else
 extension MarkdownPreviewView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
     func updateUIView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
+    /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WKWebView, context: Context) -> CGSize? {
+        proposal.adaptive
+    }
 }
 #endif

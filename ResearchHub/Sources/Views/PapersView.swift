@@ -381,6 +381,11 @@ struct PDFKitView: NSViewRepresentable {
     let data: Data
     let controller: PDFViewerController
 
+    /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: PDFView, context: Context) -> CGSize? {
+        proposal.adaptive
+    }
+
     func makeNSView(context: Context) -> PDFView {
         let view = PDFView()
         view.autoScales = true

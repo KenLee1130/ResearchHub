@@ -17,6 +17,12 @@ struct InlineRenameField: NSViewRepresentable {
     /// 格狀檢視（筆記瀏覽）置中，清單檢視（檔案樹）靠左
     var centered = true
 
+    /// 寬度照給的（見 AdaptiveSizing.swift）；高度用文字欄本身的高度
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSTextField,
+                      context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 120, height: nsView.intrinsicContentSize.height)
+    }
+
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField(string: text)
         field.placeholderString = placeholder
