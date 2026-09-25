@@ -92,21 +92,21 @@ struct ViewProbe: NSViewRepresentable {
 
 /// NavigationSplitView 側欄的寬度控制。
 ///
-/// 側欄寬度**只**由右緣的自訂把手（SidebarResizeHandle）決定：系統原生的分隔線鎖死不能拖。
-/// 原因：兩套同時存在時會互搶——原生分隔線會把邊緣幾 pt 的點擊攔走、SwiftUI 的
-/// navigationSplitViewColumnWidth 又常常不套用新寬度，結果「游標變了卻拖不動」；
-/// 原生的還會在拖太窄時把整個側欄收掉。
+/// 側欄邊界附近的點擊一定會被系統分割視圖攔走（就算把它鎖住也一樣，實測），
+/// 所以不跟它搶：系統分隔線照樣能拖，但限制在 [min, max]、拖太窄也**不會**把側欄收掉；
+/// 右緣的自訂把手（SidebarResizeHandle）則直接 setPosition 同一條分隔線。
+/// 兩種拖法動的是同一個東西，藍線範圍內哪裡按下去都拖得動。
 ///
 /// SwiftUI 沒有這些選項，所以往下找它內部的 NSSplitViewController 直接設。
-/// 鎖住之後程式也收不起側欄——所以按左上角按鈕要收的那一刻先呼叫 allowCollapse。
+/// 不能收起之後程式也收不起側欄——所以按左上角按鈕要收的那一刻先呼叫 allowCollapse。
 @MainActor
 enum SidebarSplitControl {
-    /// 把側欄設成這個寬度並鎖住（min = max，原生分隔線就拖不動）
-    static func lock(in window: NSWindow?, width: CGFloat) {
+    /// 套用寬度與範圍，並鎖住「拖太窄就收起」
+    static func lock(in window: NSWindow?, width: CGFloat, min: CGFloat, max: CGFloat) {
         guard let (split, item) = sidebar(in: window) else { return }
         if item.canCollapse { item.canCollapse = false }
-        if item.minimumThickness != width { item.minimumThickness = width }
-        if item.maximumThickness != width { item.maximumThickness = width }
+        if item.minimumThickness != min { item.minimumThickness = min }
+        if item.maximumThickness != max { item.maximumThickness = max }
         if abs(item.viewController.view.frame.width - width) > 0.5 {
             split.setPosition(width, ofDividerAt: 0)
         }
@@ -116,6 +116,13 @@ enum SidebarSplitControl {
         guard let (_, item) = sidebar(in: window) else { return }
         item.minimumThickness = 0
         item.canCollapse = true
+    }
+
+    /// 這個分割視圖是不是側欄那個；是的話回傳側欄目前的寬度
+    static func sidebarWidth(ifSidebarSplit object: Any?, in window: NSWindow?) -> CGFloat? {
+        guard let (split, item) = sidebar(in: window), (object as AnyObject?) === split,
+              !item.isCollapsed else { return nil }
+        return item.viewController.view.frame.width
     }
 
     /// 由外往內找第一個「側欄型」的分割項目。

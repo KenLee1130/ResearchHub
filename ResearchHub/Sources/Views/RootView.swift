@@ -15,6 +15,10 @@ struct RootView: View {
     @State private var notesExpanded = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var hostWindow: NSWindow?
+    @Environment(\.openWindow) private var openWindow
+    /// 側欄筆記樹正在就地改名的項目
+    @State private var renamingNode: URL?
+    @State private var renameText = ""
 
     /// 把筆記／LaTeX 專案彈到小視窗時，主視窗的導覽欄就用不到了 → 順手收起來
     static let collapseSidebarNotification = Notification.Name("RootView.collapseSidebar")
@@ -26,14 +30,154 @@ struct RootView: View {
     /// 窄到放不下文字時只顯示圖示
     private var sidebarCompact: Bool { sidebarWidth < 130 }
 
-    /// 收起側欄：先解除「不能收起」的鎖，再交給 NavigationSplitView 收
-    private func collapseSidebar() {
-        SidebarSplitControl.allowCollapse(in: hostWindow)
-        columnVisibility = .detailOnly
+    /// 側欄項目。窄的時候只拿掉文字，其他（圖示大小、顏色）完全照原本的 Label——
+    /// 用 .labelStyle(.iconOnly) 的話側欄不會套用它的圖示樣式，會變成灰色小圖示。
+    private func sidebarLabel(_ title: LocalizedStringKey, icon: String) -> some View {
+        Label {
+            if !sidebarCompact { Text(title) }
+        } icon: {
+            Image(systemName: icon)
+        }
     }
 
-    var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+    // MARK: - 側欄筆記樹
+
+    private typealias TreeNode = FileSystemStore.TreeNode
+
+    private func isRenaming(_ node: TreeNode) -> Bool {
+        renamingNode?.standardizedFileURL.path == node.url.standardizedFileURL.path
+    }
+
+    @ViewBuilder
+    private func sidebarRow(_ node: TreeNode) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: node.isProject ? "curlybraces.square" : node.isFolder ? "folder" : "doc.text")
+                .font(.caption)
+                .foregroundStyle(node.isFolder ? .secondary : .tertiary)
+            if isRenaming(node) {
+                InlineRenameField(
+                    text: $renameText, placeholder: node.name,
+                    onCommit: { commitRename(node) },
+                    onCancel: { renamingNode = nil },
+                    centered: false)
+            } else {
+                Text(node.name)
+                    .font(.callout)
+                    .lineLimit(1)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !isRenaming(node) else { return }
+            if node.isFolder {
+                store.reveal(directory: node.url)
+            } else {
+                store.openNote(node.url)
+            }
+        }
+        .contextMenu { sidebarMenu(node) }
+    }
+
+    @ViewBuilder
+    private func sidebarMenu(_ node: TreeNode) -> some View {
+        if !node.isFolder {   // 筆記或 LaTeX 專案
+            Button("在新分頁開啟") { openInNewTab(node) }
+            Divider()
+        }
+        Button("重新命名") {
+            renameText = node.name
+            renamingNode = node.url
+        }
+        Button("下載…") { download(node) }
+        Button("刪除", role: .destructive) {
+            store.trash(fileItem(node))
+            noteTree = store.noteTree()
+        }
+        Divider()
+        Button("新增筆記") { createNear(node, folder: false) }
+        Button("新增資料夾") { createNear(node, folder: true) }
+        Button("上傳檔案…") { upload(near: node) }
+    }
+
+    private func fileItem(_ node: TreeNode) -> FileItem {
+        // LaTeX 專案在樹裡是葉節點，但實際上是資料夾
+        FileItem(url: node.url, isFolder: node.isFolder || node.isProject, modified: .now)
+    }
+
+    /// 新東西要放哪：點的是資料夾就放進去，否則放在它旁邊
+    private func directory(near node: TreeNode) -> URL {
+        node.isFolder ? node.url : node.url.deletingLastPathComponent()
+    }
+
+    private func commitRename(_ node: TreeNode) {
+        defer { renamingNode = nil }
+        store.rename(fileItem(node), to: renameText)
+        noteTree = store.noteTree()
+    }
+
+    private func createNear(_ node: TreeNode, folder: Bool) {
+        let dir = directory(near: node)
+        let url = folder
+            ? store.createFolder(named: "新資料夾", in: dir)
+            : store.createNote(named: "未命名筆記", in: dir)
+        noteTree = store.noteTree()
+        guard let url else { return }
+        // 建好直接進入改名（跟筆記瀏覽器一樣）
+        renameText = url.deletingPathExtension().lastPathComponent
+        renamingNode = url
+    }
+
+    private func upload(near node: TreeNode) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = "上傳"
+        guard panel.runModal() == .OK else { return }
+        store.importItems(panel.urls, into: directory(near: node))
+        noteTree = store.noteTree()
+    }
+
+    private func download(_ node: TreeNode) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = node.url.lastPathComponent
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let dest = panel.url else { return }
+        do {
+            if FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.removeItem(at: dest)
+            }
+            try FileManager.default.copyItem(at: node.url, to: dest)
+        } catch {
+            store.errorMessage = error.localizedDescription
+        }
+    }
+
+    /// 開成目前視窗的一個新分頁（筆記用 note 視窗、LaTeX 專案用 latex 視窗）
+    private func openInNewTab(_ node: TreeNode) {
+        let before = Set(NSApp.windows.map(ObjectIdentifier.init))
+        openWindow(id: node.isProject ? "latex" : "note", value: node.url)
+        attachAsTab(excluding: before, attemptsLeft: 20)
+    }
+
+    /// 新視窗是非同步建立的，等它出現再併進目前視窗當分頁
+    private func attachAsTab(excluding before: Set<ObjectIdentifier>, attemptsLeft: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard let host = hostWindow else { return }
+            if let new = NSApp.windows.first(where: {
+                !before.contains(ObjectIdentifier($0)) && $0.isVisible && $0 !== host
+            }) {
+                host.addTabbedWindow(new, ordered: .above)
+                new.makeKeyAndOrderFront(nil)
+            } else if attemptsLeft > 0 {
+                attachAsTab(excluding: before, attemptsLeft: attemptsLeft - 1)
+            }
+        }
+    }
+
+    /// 側欄：清單（含底部番茄鐘／設定）＋右緣的拖曳把手。
+    /// 從 body 拆出來——全部寫在一起編譯器型別推斷會超時。
+    private var sidebarColumn: some View {
           HStack(spacing: 0) {
             List(selection: $tab) {
                 ForEach(AppTab.allCases) { item in
@@ -41,30 +185,14 @@ struct RootView: View {
                         // 筆記列本身可摺疊，展開才顯示檔案樹
                         DisclosureGroup(isExpanded: $notesExpanded) {
                             OutlineGroup(noteTree, children: \.children) { node in
-                                HStack(spacing: 6) {
-                                    Image(systemName: node.isFolder ? "folder" : "doc.text")
-                                        .font(.caption)
-                                        .foregroundStyle(node.isFolder ? .secondary : .tertiary)
-                                    Text(node.name)
-                                        .font(.callout)
-                                        .lineLimit(1)
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    if node.isFolder {
-                                        store.reveal(directory: node.url)
-                                    } else {
-                                        store.openNote(node.url)
-                                    }
-                                }
+                                sidebarRow(node)
                             }
                         } label: {
                             Label(item.title, systemImage: item.icon)
                                 .tag(item)
                         }
                     } else {
-                        Label(item.title, systemImage: item.icon)
-                            .iconOnly(sidebarCompact)
+                        sidebarLabel(item.title, icon: item.icon)
                             .help(item.title)
                             .tag(item)
                     }
@@ -73,24 +201,12 @@ struct RootView: View {
             .listStyle(.sidebar)
             // 不蓋任何自訂背景 → 直接用 NavigationSplitView 內建的原生側欄材質。
             .scrollContentBackground(.hidden)
-
-            // 把手放在清單「外面」自己佔一條：疊在清單上的話，清單能捲動時右緣是捲軸，
-            // 按下去會被捲軸接走。拖曳直接改底層分割視圖的寬度（見 SidebarSplitControl）。
-            SidebarResizeHandle(width: $sidebarWidth, minW: Self.sidebarMin, maxW: Self.sidebarMax) {
-                SidebarSplitControl.lock(in: hostWindow, width: $0)
-            }
-            // 最右邊留白：系統分隔線會把邊緣幾 pt 的點擊攔走（雖然它已經被鎖住不能拖），
-            // 把手放在攔截範圍外，才能保證「藍線亮的地方就拖得動」
-            Color.clear.frame(width: 8)
-          }
-            .inkSurface(.sidebar)
-            .navigationSplitViewColumnWidth(min: Self.sidebarMin, ideal: sidebarWidth, max: Self.sidebarMax)
+            // 番茄鐘與設定放在清單欄底部（不放整欄），右邊的把手才能從頂到底一整條
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 8) {
                     if !sidebarCompact { PomodoroMiniView() }
                     SettingsLink {
-                        Label("設定", systemImage: "gearshape")
-                            .iconOnly(sidebarCompact)
+                        sidebarLabel("設定", icon: "gearshape")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
@@ -101,6 +217,29 @@ struct RootView: View {
                 }
                 .padding(10)
             }
+
+            // 把手放在清單「外面」自己佔一條：疊在清單上的話，清單能捲動時右緣是捲軸，
+            // 按下去會被捲軸接走。拖曳直接改底層分割視圖的寬度（見 SidebarSplitControl）。
+            // 貼齊側欄邊界、從頂到底（藍線要跟邊界重合、一路延伸到底）。
+            SidebarResizeHandle(width: $sidebarWidth, minW: Self.sidebarMin, maxW: Self.sidebarMax) {
+                SidebarSplitControl.lock(in: hostWindow, width: $0,
+                                         min: Self.sidebarMin, max: Self.sidebarMax)
+            }
+            .ignoresSafeArea()
+          }
+    }
+
+    /// 收起側欄：先解除「不能收起」的鎖，再交給 NavigationSplitView 收
+    private func collapseSidebar() {
+        SidebarSplitControl.allowCollapse(in: hostWindow)
+        columnVisibility = .detailOnly
+    }
+
+    var body: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            sidebarColumn
+            .inkSurface(.sidebar)
+            .navigationSplitViewColumnWidth(min: Self.sidebarMin, ideal: sidebarWidth, max: Self.sidebarMax)
             // 移除系統自動加在右邊的側欄開關,改放一顆自己的在左上角(navigation 位置)。
             .toolbar(removing: .sidebarToggle)
             .toolbar {
@@ -143,9 +282,19 @@ struct RootView: View {
         .background(WindowReader { window in
             hostWindow = window
             if columnVisibility != .detailOnly {
-                SidebarSplitControl.lock(in: window, width: sidebarWidth)
+                SidebarSplitControl.lock(in: window, width: sidebarWidth,
+                                         min: Self.sidebarMin, max: Self.sidebarMax)
             }
         })
+        // 從系統分隔線拖（邊界附近那幾 pt）時，把新寬度寫回來：窄版切換、記住寬度都靠它
+        .onReceive(NotificationCenter.default.publisher(
+            for: NSSplitView.didResizeSubviewsNotification)) { note in
+            guard columnVisibility != .detailOnly,
+                  let width = SidebarSplitControl.sidebarWidth(ifSidebarSplit: note.object,
+                                                               in: hostWindow),
+                  abs(width - sidebarWidth) > 0.5 else { return }
+            sidebarWidth = min(Self.sidebarMax, max(Self.sidebarMin, width))
+        }
         .preferredColorScheme(AppTheme(rawValue: themeRaw)?.forcedColorScheme
             ?? AppAppearance(rawValue: appearance)?.colorScheme)
         // 即時套用語言到日期/數字格式。
@@ -241,8 +390,9 @@ struct SidebarResizeHandle: View {
     @State private var hovering = false
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .trailing) {
             Color.clear
+            // 貼齊右緣＝側欄的邊界
             if hovering || startWidth != nil {
                 Rectangle()
                     .fill(Color.accentColor)
@@ -267,11 +417,4 @@ struct SidebarResizeHandle: View {
     }
 }
 
-extension View {
-    /// 側欄窄的時候只顯示圖示
-    @ViewBuilder
-    func iconOnly(_ on: Bool) -> some View {
-        if on { labelStyle(.iconOnly) } else { self }
-    }
-}
 #endif

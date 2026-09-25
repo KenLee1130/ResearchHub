@@ -203,9 +203,10 @@ final class FileSystemStore: ObservableObject {
     // MARK: - File operations
 
     /// 建立後回傳路徑，讓瀏覽器馬上進入改名狀態。
+    /// directory 沒給就建在目前瀏覽的資料夾（側欄右鍵選單會指定資料夾）
     @discardableResult
-    func createFolder(named name: String) -> URL? {
-        guard let current = currentURL else { return nil }
+    func createFolder(named name: String, in directory: URL? = nil) -> URL? {
+        guard let current = directory ?? currentURL else { return nil }
         let url = uniqueURL(in: current, baseName: name.isEmpty ? "新資料夾" : name, ext: nil)
         do {
             try fm.createDirectory(at: url, withIntermediateDirectories: false)
@@ -218,8 +219,8 @@ final class FileSystemStore: ObservableObject {
     }
 
     @discardableResult
-    func createNote(named name: String) -> URL? {
-        guard let current = currentURL else { return nil }
+    func createNote(named name: String, in directory: URL? = nil) -> URL? {
+        guard let current = directory ?? currentURL else { return nil }
         let base = name.isEmpty ? "未命名筆記" : name
         let url = uniqueURL(in: current, baseName: base, ext: "md")
         let content = "# \(base)\n\n"
@@ -265,6 +266,27 @@ final class FileSystemStore: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// 把外部檔案／資料夾複製進 directory（同名自動加編號）。回傳複製成功的新路徑。
+    @discardableResult
+    func importItems(_ urls: [URL], into directory: URL) -> [URL] {
+        var copied: [URL] = []
+        for src in urls {
+            let scoped = src.startAccessingSecurityScopedResource()
+            defer { if scoped { src.stopAccessingSecurityScopedResource() } }
+            let ext = src.pathExtension
+            let base = ext.isEmpty ? src.lastPathComponent : src.deletingPathExtension().lastPathComponent
+            let dest = uniqueURL(in: directory, baseName: base, ext: ext.isEmpty ? nil : ext)
+            do {
+                try fm.copyItem(at: src, to: dest)
+                copied.append(dest)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+        refresh()
+        return copied
     }
 
     /// 拖拉移動：把 sourceURL 移進 folder。
