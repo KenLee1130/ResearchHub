@@ -947,6 +947,10 @@ struct SourceTextView: NSViewRepresentable {
         // binding 還是舊值，若在這裡回寫會把組字狀態整個抹掉（中文打到一半跳掉）。
         if tv.string != text && !context.coordinator.isEditing && !tv.hasMarkedText() {
             tv.string = text
+            // 內容被整份換掉（換檔案、iCloud 同步進來、外部附加文字）：
+            // 舊的 undo 動作記的是舊內容的位置，留著的話 ⌘Z 會把上一個檔案的編輯
+            // 套到新內容上，甚至超出範圍當掉——一律清空。
+            context.coordinator.editorUndo.removeAllActions()
             needsHighlight = true
         }
         if context.coordinator.lastFontSize != fontSize {
@@ -972,6 +976,16 @@ struct SourceTextView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: SourceTextView
         weak var textView: NSTextView?
+
+        /// 這個編輯器自己的 undo 堆疊。
+        ///
+        /// NSTextView 預設把可復原動作登記在「整個視窗共用」的 undo 堆疊，而且不保留自己。
+        /// 編輯器被換掉（換檔案類型、切版面、關專案）之後，堆疊裡還留著指向舊編輯器的動作，
+        /// 一按 ⌘Z 就去呼叫已釋放的物件 → 閃退（2026-09-25 EXC_BAD_ACCESS in popAndInvoke）。
+        /// 自己擁有一份，壽命就跟著編輯器走；編輯器不在了，⌘Z 也碰不到它的動作。
+        let editorUndo = UndoManager()
+
+        func undoManager(for view: NSTextView) -> UndoManager? { editorUndo }
         var isEditing = false
         var lastFontSize: CGFloat
         var lastJumpID: UUID?
