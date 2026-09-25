@@ -1043,18 +1043,48 @@ extension BlockEditorView {
         const start = $from.start(), end = $from.end();
         const text = state.doc.textBetween(start, end, "\n").trim();
 
+        // /todo /toggle 標題（順序可以反過來）：可摺疊的待辦——待辦底下先開好一個空的子待辦，
+        // 摺疊箭頭馬上出現、游標停在子項目上。必須排在 /todo 前面，
+        // 否則 /todo 會先吃掉整行、把「/toggle 標題」當成待辦的文字。
+        let fm = text.match(/^\/(?:todo\s+\/toggle|toggle\s+\/todo)(?:\s+(.*))?$/i);
+        if (fm) {
+          const title = (fm[1] || "").trim();
+          const nodeFrom = $from.before(), nodeTo = nodeFrom + $from.parent.nodeSize;
+          const emptyTask = { type: "taskItem", attrs: { checked: false },
+                              content: [{ type: "paragraph" }] };
+          // 游標位置：taskList(1) taskItem(1) paragraph(1) 標題 /paragraph(1) taskList(1) taskItem(1) paragraph(1)
+          const childPos = nodeFrom + 7 + title.length;
+          ed.chain()
+            .insertContentAt({ from: nodeFrom, to: nodeTo }, {
+              type: "taskList",
+              content: [{
+                type: "taskItem", attrs: { checked: false },
+                content: [
+                  { type: "paragraph", content: title ? [{ type: "text", text: title }] : [] },
+                  { type: "taskList", content: [emptyTask] }
+                ]
+              }]
+            })
+            .setTextSelection(title ? childPos : nodeFrom + 3)   // 沒標題就先停在母項目
+            .run();
+          return true;
+        }
+
         // todo：整行變成待辦項目（標記是純文字，@due/@every 由播種引擎接手）
         // 命令一律要以 / 開頭；cmd 裡打純文字（如 list）不觸發任何行為。
         let m = text.match(/^\/todo\s+(.+)$/i);
         if (m) {
           const content = m[1].trim();
-          ed.chain()
+          let chain = ed.chain()
             .setNode("paragraph")
             .insertContentAt({ from: start, to: end },
                              [{ type: "text", text: content }])
-            .setTextSelection(start + content.length)
-            .toggleTaskList()
-            .run();
+            .setTextSelection(start + content.length);
+          // 命令列是獨立的一行：一律「包進」待辦清單（相鄰的清單會自動接起來）。
+          // 不能用 toggleTaskList——命令列在母項目底下時它已經身在待辦清單裡，
+          // toggle 會反過來把清單解除，第二個子項目就變成普通文字。
+          chain = isCmd ? chain.wrapInList("taskList") : chain.toggleTaskList();
+          chain.run();
           return true;
         }
         // list：開任務總覽（原生視窗），命令行清空還原
@@ -1646,6 +1676,81 @@ extension BlockEditorView {
         }
       });
 
+      // 相鄰的同類清單自動接成同一串。
+      // 例：普通段落夾在兩串待辦中間，把它變回待辦之後會自成一串——畫面看起來連續，
+      // 但它底下那一項變成下一串的第一項，按 Tab 沒有「上一項」可以縮進去。
+      // 存成 markdown 時相鄰清單本來就是同一串，所以接起來不會改變存檔內容。
+      const LIST_TYPES = new Set(["taskList", "bulletList", "orderedList"]);
+      function joinableBoundaries(doc) {
+        const out = [];
+        const visit = (node, contentStart) => {
+          let prev = null;
+          node.forEach((child, offset) => {
+            if (prev && LIST_TYPES.has(child.type.name) && prev.type === child.type) {
+              out.push(contentStart + offset);
+            }
+            prev = child;
+            if (!child.isLeaf) visit(child, contentStart + offset + 1);
+          });
+        };
+        visit(doc, 0);
+        return out;
+      }
+      const JoinAdjacentLists = Extension.create({
+        name: "joinAdjacentLists",
+        addProseMirrorPlugins() {
+          return [new Plugin({
+            appendTransaction(trs, oldState, newState) {
+              if (!trs.some(tr => tr.docChanged)) return null;
+              const boundaries = joinableBoundaries(newState.doc);
+              if (!boundaries.length) return null;
+              let tr = newState.tr;
+              for (const pos of boundaries.reverse()) tr = tr.join(pos);   // 由後往前，位置才不會跑掉
+              return tr;
+            }
+          })];
+        }
+      });
+
+      // Shift+Tab 在「母項目底下、但不是某一項標題」的那一行（例如子項目打完開出來的 /todo 行）：
+      // 只把這一行移到母項目後面（回到上一層），母項目不動。
+      // 預設的 liftListItem 會把「包著這一行的那一項」整個拉出清單——也就是母項目，
+      // 母項目的勾選框就這樣不見、變成普通段落。
+      function liftLineOutOfItem(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty || !$from.parent.isTextblock) return false;
+        const itemDepth = $from.depth - 1;
+        if (itemDepth < 2) return false;
+        if ($from.node(itemDepth).type.name !== "taskItem") return false;
+        if ($from.index(itemDepth) === 0) return false;   // 這一項自己的標題行 → 預設行為
+        const listDepth = itemDepth - 1;
+        const list = $from.node(listDepth);
+        const block = $from.parent;
+        const caret = $from.parentOffset;
+        const blockStart = $from.before();
+        let tr = state.tr.delete(blockStart, blockStart + block.nodeSize);
+        let insertPos;
+        if ($from.index(listDepth) === list.childCount - 1) {
+          insertPos = tr.mapping.map($from.after(listDepth));         // 母項目是最後一項：放在清單後面
+        } else {
+          const itemEnd = tr.mapping.map($from.after(itemDepth));      // 中間項：在母項目後面把清單劈開
+          tr = tr.split(itemEnd, 1);
+          insertPos = itemEnd + 1;
+        }
+        tr = tr.insert(insertPos, block);
+        tr = tr.setSelection(TextSelection.create(tr.doc, insertPos + 1 + caret));
+        ed.view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+      const LiftLineOutOfItem = Extension.create({
+        name: "liftLineOutOfItem",
+        priority: 1000,   // 要比 TaskItem 自己的 Shift-Tab 先處理
+        addKeyboardShortcuts() {
+          return { "Shift-Tab": () => liftLineOutOfItem(this.editor) };
+        }
+      });
+
       /// Swift 載入日記時呼叫：這份日記哪些項目是收起來的
       window.setFoldedKeys = function (keys) {
         foldedKeys = new Set(keys || []);
@@ -1689,6 +1794,8 @@ extension BlockEditorView {
           TaskList,
           TaskItem.configure({ nested: true }),
           TaskFold,
+          JoinAdjacentLists,
+          LiftLineOutOfItem,
           ArrowShortcuts,
           LocalImage,
           MathInline,
@@ -2105,6 +2212,7 @@ extension BlockEditorView {
       // 待辦標記：insert 為插入文字，back 為插入後游標回退格數
       const commandItems = [
         { label: "/todo", hint: "\#(L("新增待辦（可帶 @ 標記）"))", insert: "/todo ", match: "todo 待辦 新增" },
+        { label: "/todo /toggle", hint: "\#(L("可摺疊的待辦（底下放子項目）"))", insert: "/todo /toggle ", match: "todo toggle fold 待辦 摺疊 折疊 子項目" },
         { label: "/h1", hint: "\#(L("標題 1"))", insert: "/h1 ", match: "h1 heading 標題" },
         { label: "/h2", hint: "\#(L("標題 2"))", insert: "/h2 ", match: "h2 heading 標題" },
         { label: "/h3", hint: "\#(L("標題 3"))", insert: "/h3 ", match: "h3 heading 標題" },
