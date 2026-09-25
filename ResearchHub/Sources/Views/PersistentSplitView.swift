@@ -20,6 +20,8 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         var holdingPriority: NSLayoutConstraint.Priority = .defaultLow
         var isVisible: Bool = true
         let content: AnyView
+        /// 使用者用拖曳把這一欄收起／拉開時通知外面，讓畫面上的開關跟著更新
+        var onVisibilityChange: ((Bool) -> Void)? = nil
     }
 
     /// 存分隔位置用的名字（不同畫面要不同名字）
@@ -73,6 +75,13 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         private var hosts: [String: NSHostingController<AnyView>] = [:]
         private var items: [String: NSSplitViewItem] = [:]
         private var initialPanes: [Pane]
+        /// 「外面要的」和「實際的」顯示狀態分開記：
+        ///   • 只有外面要的狀態**改變**時才去收／展。以前是每次畫面更新都拿外面的狀態
+        ///     去對齊實際狀態，使用者用拖曳收起的欄，下一次更新（例如按編譯）就被彈回來。
+        ///   • 實際狀態因使用者拖曳而改變時，通知外面（有 onVisibilityChange 的會同步開關）。
+        private var desiredVisible: [String: Bool] = [:]
+        private var actualVisible: [String: Bool] = [:]
+        private var visibilityCallbacks: [String: (Bool) -> Void] = [:]
 
         init(autosaveName: String, panes: [Pane]) {
             self.autosave = autosaveName
@@ -98,8 +107,15 @@ struct PersistentSplitView: NSViewControllerRepresentable {
                 item.isCollapsed = !pane.isVisible
                 hosts[pane.id] = host
                 items[pane.id] = item
+                desiredVisible[pane.id] = pane.isVisible
+                actualVisible[pane.id] = pane.isVisible
+                visibilityCallbacks[pane.id] = pane.onVisibilityChange
                 addSplitViewItem(item)
             }
+            // 使用者拖曳造成的收起／展開：回寫給外面
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(splitResized),
+                name: NSSplitView.didResizeSubviewsNotification, object: splitView)
             // 放在加完 item 之後：有存過的位置會在這時候套回來
             splitView.autosaveName = autosave
         }
@@ -129,9 +145,24 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         func update(_ panes: [Pane]) {
             for pane in panes {
                 hosts[pane.id]?.rootView = pane.content
-                if let item = items[pane.id], item.isCollapsed == pane.isVisible {
+                visibilityCallbacks[pane.id] = pane.onVisibilityChange
+                guard let item = items[pane.id], desiredVisible[pane.id] != pane.isVisible else { continue }
+                desiredVisible[pane.id] = pane.isVisible
+                if item.isCollapsed == pane.isVisible {
                     item.isCollapsed = !pane.isVisible   // 收起／展開會保留原本的寬度
                 }
+            }
+        }
+
+        @objc private func splitResized(_ note: Notification) {
+            for (id, item) in items {
+                let visible = !item.isCollapsed
+                guard actualVisible[id] != visible else { continue }
+                actualVisible[id] = visible
+                // 外面本來就要這樣（程式收起／展開造成的）→ 不用通知
+                guard desiredVisible[id] != visible, let callback = visibilityCallbacks[id] else { continue }
+                // 不在分割視圖的版面計算中途改 SwiftUI 狀態
+                DispatchQueue.main.async { callback(visible) }
             }
         }
 

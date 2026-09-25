@@ -56,11 +56,21 @@ struct LatexProjectView: View {
             PersistentSplitView(autosaveName: "LatexProjectPanes", panes: [
                 .init(id: "tree", minWidth: 120, initialWidth: 210,
                       holdingPriority: .init(260), isVisible: showTree,
-                      content: hosted(fileTree)),
+                      content: hosted(fileTree),
+                      onVisibilityChange: { showTree = $0 }),
                 .init(id: "editor", minWidth: 220,
-                      isVisible: layout != .pdf, content: hosted(editorPane)),
+                      isVisible: layout != .pdf, content: hosted(editorPane),
+                      onVisibilityChange: { visible in
+                          // 把原始碼那欄拖到收起＝只看 PDF；拉回來＝並排
+                          if !visible { layoutRaw = Layout.pdf.rawValue }
+                          else if layout == .pdf { layoutRaw = Layout.split.rawValue }
+                      }),
                 .init(id: "preview", minWidth: 220,
-                      isVisible: layout != .editor, content: hosted(previewPane)),
+                      isVisible: layout != .editor, content: hosted(previewPane),
+                      onVisibilityChange: { visible in
+                          if !visible { layoutRaw = Layout.editor.rawValue }
+                          else if layout == .editor { layoutRaw = Layout.split.rawValue }
+                      }),
             ])
         }
         .surface(.canvas, ambient: .thickMaterial)
