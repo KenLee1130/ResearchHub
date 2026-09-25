@@ -130,6 +130,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
         ucc.add(self, name: "pasteImage")
         ucc.add(self, name: "jsError")
         ucc.add(self, name: "command")
+        ucc.add(self, name: "foldChanged")
         // 編輯器依賴（tiptap+KaTeX，本地 editor-bundle.js）用 user script 注入：
         // 同 origin 執行、錯誤訊息不會被 file:// 隔離政策遮罩。
         if let url = WebResources.baseURL?.appendingPathComponent("editor-bundle.js"),
@@ -222,6 +223,8 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 }
             case "pasteImage":
                 self.handlePastedImage(base64: body)
+            case "foldChanged":
+                self.recordFold(json: body)
             case "command":
                 // 命令列送出的命令（如 /list）→ 由當前畫面決定怎麼呈現
                 NotificationCenter.default.post(
@@ -235,6 +238,32 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 break
             }
         }
+    }
+
+    // MARK: - 待辦摺疊狀態
+
+    /// 每份日記收起來的待辦（key＝那一項的文字）。不寫進 markdown，
+    /// 所以 Obsidian 看到的還是普通清單；存在這台裝置的偏好設定。
+    private static let foldStoreKey = "blockEditor.foldedTasks"
+
+    private func foldedKeys(for doc: URL?) -> [String] {
+        guard let doc else { return [] }
+        let all = UserDefaults.standard.dictionary(forKey: Self.foldStoreKey) as? [String: [String]]
+        return all?[doc.standardizedFileURL.path] ?? []
+    }
+
+    private func recordFold(json: String) {
+        guard let doc = documentID,
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let key = obj["key"] as? String,
+              let folded = obj["folded"] as? Bool else { return }
+        var all = UserDefaults.standard.dictionary(forKey: Self.foldStoreKey) as? [String: [String]] ?? [:]
+        let path = doc.standardizedFileURL.path
+        var keys = Set(all[path] ?? [])
+        if folded { keys.insert(key) } else { keys.remove(key) }
+        all[path] = keys.isEmpty ? nil : Array(keys).sorted()
+        UserDefaults.standard.set(all, forKey: Self.foldStoreKey)
     }
 
     /// 換文件時清空狀態，避免跨文件的內容比對誤判（todo 偶爾不顯示的元兇）
@@ -281,6 +310,11 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
         lastPushed = text
         pushAssets(for: text)
         guard let json = encode(text) else { return }
+        // 先告訴編輯器這份日記哪些待辦是收起來的，再載入內容
+        if let keys = try? JSONEncoder().encode(foldedKeys(for: documentID)),
+           let keysJSON = String(data: keys, encoding: .utf8) {
+            webView.evaluateJavaScript("window.setFoldedKeys(\(keysJSON))")
+        }
         webView.evaluateJavaScript("window.setMarkdown(\(json)[0])")
     }
 
@@ -401,7 +435,19 @@ extension BlockEditorView {
       ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
       ul[data-type="taskList"] li > label { flex: 0 0 auto; margin-top: 4px; }
       ul[data-type="taskList"] li > div { flex: 1 1 auto; min-width: 0; }
-      ul[data-type="taskList"] li[data-checked="true"] > div { opacity: 0.55; text-decoration: line-through; }
+      /* 打勾只淡化「這一項自己」，不連帶子項目（母子勾選各自獨立） */
+      ul[data-type="taskList"] li[data-checked="true"] > div > :not(ul):not(ol) { opacity: 0.55; text-decoration: line-through; }
+      /* ---- 待辦摺疊：有子項目的待辦，勾選框後面多一個 ▸ ---- */
+      .task-fold-toggle {
+        display: inline-block; width: 1em; margin-right: 3px; text-align: center;
+        cursor: pointer; user-select: none; color: rgba(127,127,127,0.85);
+        transform: rotate(90deg); transition: transform 0.12s ease;
+      }
+      .task-fold-toggle:hover { color: CanvasText; }
+      .task-fold-toggle.folded { transform: rotate(0deg); }
+      /* 用摺疊時加上的 class 選，不能用 li[data-type=taskItem]——tiptap 的節點畫面不會加那個屬性 */
+      li.task-folded > div > ul,
+      li.task-folded > div > ol { display: none; }
       code {
         font-family: ui-monospace, monospace; font-size: 0.9em;
         background: rgba(127,127,127,0.15); padding: 1px 5px; border-radius: 4px;
@@ -1522,6 +1568,116 @@ extension BlockEditorView {
         }
       });
 
+      // ---- TaskFold BEGIN ----
+      // 待辦摺疊：底下有子項目的待辦，勾選框後面出現 ▸，點了收起／展開子項目。
+      // 子項目就是標準的巢狀待辦（縮排的 - [ ]），Obsidian／GitHub 都看得懂；
+      // 摺疊狀態不寫進 markdown，而是用「這一項的文字」當 key 交給 Swift 存在偏好設定
+      // （依日記檔案分開記），載入時再用 setFoldedKeys 送回來。
+      let foldedKeys = new Set();
+      const taskFoldKey = new PluginKey("taskFold");
+
+      function taskText(node) {
+        const first = node.firstChild;
+        return first ? first.textContent.trim() : "";
+      }
+
+      function hasChildList(node) {
+        let found = false;
+        node.forEach(child => {
+          const t = child.type.name;
+          if (t === "taskList" || t === "bulletList" || t === "orderedList") found = true;
+        });
+        return found;
+      }
+
+      function toggleFold(key) {
+        if (!key) return;
+        const folded = !foldedKeys.has(key);
+        if (folded) foldedKeys.add(key); else foldedKeys.delete(key);
+        try {
+          window.webkit.messageHandlers.foldChanged.postMessage(JSON.stringify({ key, folded }));
+        } catch (e) {}
+        const view = window.__editor.view;
+        view.dispatch(view.state.tr.setMeta(taskFoldKey, true));
+      }
+
+      function buildFoldDecos(doc) {
+        const decos = [];
+        doc.descendants((node, pos) => {
+          if (node.type.name !== "taskItem" || !hasChildList(node)) return true;
+          const key = taskText(node);
+          const folded = key !== "" && foldedKeys.has(key);
+          decos.push(Decoration.node(pos, pos + node.nodeSize, {
+            class: folded ? "task-has-children task-folded" : "task-has-children"
+          }));
+          // pos+1＝進到 taskItem 裡，+1＝進到第一段文字的最前面（勾選框之後、文字之前）
+          decos.push(Decoration.widget(pos + 2, () => {
+            const btn = document.createElement("span");
+            btn.className = "task-fold-toggle" + (folded ? " folded" : "");
+            btn.contentEditable = "false";
+            btn.textContent = "▸";
+            btn.title = folded ? "展開子項目" : "收起子項目";
+            btn.addEventListener("mousedown", e => {
+              e.preventDefault(); e.stopPropagation();
+              toggleFold(key);
+            });
+            return btn;
+          }, { side: -1, ignoreSelection: true, key: "fold:" + key + (folded ? ":f" : ":o") }));
+          return true;
+        });
+        return DecorationSet.create(doc, decos);
+      }
+
+      const TaskFold = Extension.create({
+        name: "taskFold",
+        addProseMirrorPlugins() {
+          return [new Plugin({
+            key: taskFoldKey,
+            state: {
+              init: (_, state) => buildFoldDecos(state.doc),
+              apply(tr, old) {
+                // 日記很短，文件一變或摺疊狀態一變就整份重算
+                if (tr.docChanged || tr.getMeta(taskFoldKey)) return buildFoldDecos(tr.doc);
+                return old;
+              }
+            },
+            props: { decorations(state) { return taskFoldKey.getState(state); } }
+          })];
+        }
+      });
+
+      /// Swift 載入日記時呼叫：這份日記哪些項目是收起來的
+      window.setFoldedKeys = function (keys) {
+        foldedKeys = new Set(keys || []);
+        if (window.__editor) {
+          const view = window.__editor.view;
+          view.dispatch(view.state.tr.setMeta(taskFoldKey, true));
+        }
+      };
+      // ---- TaskFold END ----
+
+      // ---- ArrowShortcuts BEGIN ----
+      // 像 Notion：打 -> 自動變成 →（打完馬上按 ⌫ 會還原，tiptap 內建 undoInputRule）。
+      // 順序有意義：同一個字觸發時由上往下比，長的要先比（<=> 要先於 =>）。
+      // <-> 的情況：打到 <- 時已經先變成 ←，再打 > 時看到的是 ←>。
+      const ArrowShortcuts = Extension.create({
+        name: "arrowShortcuts",
+        addInputRules() {
+          const rule = (find, to) => new InputRule({
+            find,
+            handler: ({ state, range }) => { state.tr.insertText(to, range.from, range.to); }
+          });
+          return [
+            rule(/<=>$/, "⇔"),
+            rule(/←>$/, "↔"),
+            rule(/=>$/, "⇒"),
+            rule(/->$/, "→"),
+            rule(/<-$/, "←"),
+          ];
+        }
+      });
+      // ---- ArrowShortcuts END ----
+
       const editor = new Editor({
         element: document.getElementById("editor"),
         extensions: [
@@ -1532,6 +1688,8 @@ extension BlockEditorView {
           ExitListOnBackspace,
           TaskList,
           TaskItem.configure({ nested: true }),
+          TaskFold,
+          ArrowShortcuts,
           LocalImage,
           MathInline,
           MathBlock,
