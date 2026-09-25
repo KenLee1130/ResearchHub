@@ -50,6 +50,8 @@ enum SurfaceLevel {
     case canvas
     /// 側邊欄、工具列
     case chrome
+    /// App 最左邊的導覽側欄（比 chrome 亮一點，跟內容區分得更開）
+    case sidebar
     /// 卡片、清單區塊
     case panel
     /// popover、sheet
@@ -61,6 +63,7 @@ enum InkPalette {
     static let editor = Color(hex: 0x08080A)
     static let canvas = Color(hex: 0x0B0B0E)
     static let chrome = Color(hex: 0x121216)
+    static let sidebar = Color(hex: 0x1D1D24)
     static let panel = Color(hex: 0x17171C)
     static let overlay = Color(hex: 0x1E1E24)
 
@@ -81,6 +84,7 @@ enum InkPalette {
         case .editor: editor
         case .canvas: canvas
         case .chrome: chrome
+        case .sidebar: sidebar
         case .panel: panel
         case .overlay: overlay
         }
@@ -92,6 +96,7 @@ enum InkPalette {
         case .editor: "#08080A"
         case .canvas: "#0B0B0E"
         case .chrome: "#121216"
+        case .sidebar: "#1D1D24"
         case .panel: "#17171C"
         case .overlay: "#1E1E24"
         }

@@ -89,4 +89,50 @@ struct ViewProbe: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
+
+/// NavigationSplitView 側欄的寬度控制。
+///
+/// 側欄寬度**只**由右緣的自訂把手（SidebarResizeHandle）決定：系統原生的分隔線鎖死不能拖。
+/// 原因：兩套同時存在時會互搶——原生分隔線會把邊緣幾 pt 的點擊攔走、SwiftUI 的
+/// navigationSplitViewColumnWidth 又常常不套用新寬度，結果「游標變了卻拖不動」；
+/// 原生的還會在拖太窄時把整個側欄收掉。
+///
+/// SwiftUI 沒有這些選項，所以往下找它內部的 NSSplitViewController 直接設。
+/// 鎖住之後程式也收不起側欄——所以按左上角按鈕要收的那一刻先呼叫 allowCollapse。
+@MainActor
+enum SidebarSplitControl {
+    /// 把側欄設成這個寬度並鎖住（min = max，原生分隔線就拖不動）
+    static func lock(in window: NSWindow?, width: CGFloat) {
+        guard let (split, item) = sidebar(in: window) else { return }
+        if item.canCollapse { item.canCollapse = false }
+        if item.minimumThickness != width { item.minimumThickness = width }
+        if item.maximumThickness != width { item.maximumThickness = width }
+        if abs(item.viewController.view.frame.width - width) > 0.5 {
+            split.setPosition(width, ofDividerAt: 0)
+        }
+    }
+
+    static func allowCollapse(in window: NSWindow?) {
+        guard let (_, item) = sidebar(in: window) else { return }
+        item.minimumThickness = 0
+        item.canCollapse = true
+    }
+
+    /// 由外往內找第一個「側欄型」的分割項目。
+    /// 用 behavior == .sidebar 辨認，才不會抓到 LaTeX 專案、筆記編輯器裡的 PersistentSplitView。
+    private static func sidebar(in window: NSWindow?) -> (NSSplitView, NSSplitViewItem)? {
+        guard let root = window?.contentView else { return nil }
+        var queue: [NSView] = [root]
+        while !queue.isEmpty {
+            let view = queue.removeFirst()
+            if let split = view as? NSSplitView,
+               let controller = split.delegate as? NSSplitViewController,
+               let first = controller.splitViewItems.first, first.behavior == .sidebar {
+                return (split, first)
+            }
+            queue.append(contentsOf: view.subviews)
+        }
+        return nil
+    }
+}
 #endif

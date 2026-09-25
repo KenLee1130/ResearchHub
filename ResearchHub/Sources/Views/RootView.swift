@@ -14,18 +14,30 @@ struct RootView: View {
     @State private var noteTree: [FileSystemStore.TreeNode] = []
     @State private var notesExpanded = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var hostWindow: NSWindow?
 
     /// 把筆記／LaTeX 專案彈到小視窗時，主視窗的導覽欄就用不到了 → 順手收起來
     static let collapseSidebarNotification = Notification.Name("RootView.collapseSidebar")
-    // 側欄寬度完全由這個 state 控制(夾在 170...260)。給固定值 → 系統的分隔線不可拖,
-    // 改用右緣自訂把手調整,確保最大鎖得住、最小停得住、永不自動收合。
-    @State private var sidebarWidth: CGFloat = 200
+    /// 側欄寬度，只由右緣的自訂把手改變（見 SidebarSplitControl）。
+    /// 最窄可以縮到只剩圖示。
+    @AppStorage("sidebarWidth") private var sidebarWidth: Double = 200
+    private static let sidebarMin: Double = 68
+    private static let sidebarMax: Double = 320
+    /// 窄到放不下文字時只顯示圖示
+    private var sidebarCompact: Bool { sidebarWidth < 130 }
+
+    /// 收起側欄：先解除「不能收起」的鎖，再交給 NavigationSplitView 收
+    private func collapseSidebar() {
+        SidebarSplitControl.allowCollapse(in: hostWindow)
+        columnVisibility = .detailOnly
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
+          HStack(spacing: 0) {
             List(selection: $tab) {
                 ForEach(AppTab.allCases) { item in
-                    if item == .notes && !noteTree.isEmpty {
+                    if item == .notes && !noteTree.isEmpty && !sidebarCompact {
                         // 筆記列本身可摺疊，展開才顯示檔案樹
                         DisclosureGroup(isExpanded: $notesExpanded) {
                             OutlineGroup(noteTree, children: \.children) { node in
@@ -52,26 +64,33 @@ struct RootView: View {
                         }
                     } else {
                         Label(item.title, systemImage: item.icon)
+                            .iconOnly(sidebarCompact)
+                            .help(item.title)
                             .tag(item)
                     }
                 }
             }
             .listStyle(.sidebar)
-            .inkSurface(.chrome)
             // 不蓋任何自訂背景 → 直接用 NavigationSplitView 內建的原生側欄材質。
             .scrollContentBackground(.hidden)
-            // 右緣自訂拖曳把手:更新 sidebarWidth,夾在 170...260。
-            // 因為欄寬給的是「單一固定值」,系統的分隔線不能拖,所以拖曳完全走這個把手,
-            // 永遠不會因為拖太窄而自動收合(要隱藏請按左上角按鈕)。
-            .overlay(alignment: .trailing) {
-                SidebarResizeHandle(width: $sidebarWidth, minW: 170, maxW: 260)
+
+            // 把手放在清單「外面」自己佔一條：疊在清單上的話，清單能捲動時右緣是捲軸，
+            // 按下去會被捲軸接走。拖曳直接改底層分割視圖的寬度（見 SidebarSplitControl）。
+            SidebarResizeHandle(width: $sidebarWidth, minW: Self.sidebarMin, maxW: Self.sidebarMax) {
+                SidebarSplitControl.lock(in: hostWindow, width: $0)
             }
-            .navigationSplitViewColumnWidth(sidebarWidth)
+            // 最右邊留白：系統分隔線會把邊緣幾 pt 的點擊攔走（雖然它已經被鎖住不能拖），
+            // 把手放在攔截範圍外，才能保證「藍線亮的地方就拖得動」
+            Color.clear.frame(width: 8)
+          }
+            .inkSurface(.sidebar)
+            .navigationSplitViewColumnWidth(min: Self.sidebarMin, ideal: sidebarWidth, max: Self.sidebarMax)
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 8) {
-                    PomodoroMiniView()
+                    if !sidebarCompact { PomodoroMiniView() }
                     SettingsLink {
                         Label("設定", systemImage: "gearshape")
+                            .iconOnly(sidebarCompact)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
@@ -89,7 +108,11 @@ struct RootView: View {
                     Button {
                         // 不再自己包 withAnimation:讓 NavigationSplitView 用系統內建的
                         // 側欄開合動畫,比自訂 easeInOut 更順、開隱藏側欄時不會卡頓。
-                        columnVisibility = (columnVisibility == .detailOnly) ? .all : .detailOnly
+                        if columnVisibility == .detailOnly {
+                            columnVisibility = .all
+                        } else {
+                            collapseSidebar()
+                        }
                     } label: {
                         Image(systemName: "sidebar.leading")
                     }
@@ -113,8 +136,16 @@ struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(
             for: Self.collapseSidebarNotification)) { _ in
-            columnVisibility = .detailOnly
+            collapseSidebar()
         }
+        // 側欄平常鎖住「拖太窄就收起」（見 SidebarSplitControl）；
+        // 收起中不鎖，否則按鈕收起後會被鎖回展開狀態
+        .background(WindowReader { window in
+            hostWindow = window
+            if columnVisibility != .detailOnly {
+                SidebarSplitControl.lock(in: window, width: sidebarWidth)
+            }
+        })
         .preferredColorScheme(AppTheme(rawValue: themeRaw)?.forcedColorScheme
             ?? AppAppearance(rawValue: appearance)?.colorScheme)
         // 即時套用語言到日期/數字格式。
@@ -198,33 +229,49 @@ struct RootView: View {
     }
 }
 
-/// 側欄右緣的拖曳把手:一條透明的窄條,拖它即可調整側欄寬度,夾在 minW...maxW。
-/// 用全域座標算位移 → 側欄變寬時把手跟著移動也不會抖動;到上下限就停,絕不收合。
+/// 側欄右緣的拖曳把手：滑上去或正在拖時亮一條藍線，亮的地方就一定拖得動。
 struct SidebarResizeHandle: View {
-    @Binding var width: CGFloat
-    let minW: CGFloat
-    let maxW: CGFloat
+    @Binding var width: Double
+    let minW: Double
+    let maxW: Double
+    /// 寬度變了：交給底層分割視圖套用
+    let onResize: (Double) -> Void
 
-    @State private var startWidth: CGFloat?
+    @State private var startWidth: Double?
+    @State private var hovering = false
 
     var body: some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(width: 8)
-            .contentShape(Rectangle())
-            .onHover { inside in
-                // 滑到把手上時顯示左右拉伸游標,離開還原。
-                if inside { NSCursor.resizeLeftRight.set() } else { NSCursor.arrow.set() }
+        ZStack {
+            Color.clear
+            if hovering || startWidth != nil {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(width: 3)
             }
-            .gesture(
-                DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                    .onChanged { value in
-                        if startWidth == nil { startWidth = width }
-                        let base = startWidth ?? width
-                        width = min(maxW, max(minW, base + value.translation.width))
-                    }
-                    .onEnded { _ in startWidth = nil }
-            )
+        }
+        .frame(width: 8)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .pointerStyle(.columnResize)
+        .gesture(
+            DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { value in
+                    let base = startWidth ?? width
+                    if startWidth == nil { startWidth = base }
+                    let next = min(maxW, max(minW, base + value.translation.width))
+                    width = next
+                    onResize(next)
+                }
+                .onEnded { _ in startWidth = nil }
+        )
+    }
+}
+
+extension View {
+    /// 側欄窄的時候只顯示圖示
+    @ViewBuilder
+    func iconOnly(_ on: Bool) -> some View {
+        if on { labelStyle(.iconOnly) } else { self }
     }
 }
 #endif
