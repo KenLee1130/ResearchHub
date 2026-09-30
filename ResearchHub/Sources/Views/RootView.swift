@@ -12,6 +12,21 @@ struct RootView: View {
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @State private var tab: AppTab? = .home
     @State private var noteTree: [FileSystemStore.TreeNode] = []
+    @State private var noteTreeTask: Task<Void, Never>?
+
+    /// 側欄的筆記樹在背景重掃（要逐一看資料夾是不是 LaTeX 專案），掃好、有變才換上。
+    /// 使用者自己新增／改名／刪除時仍是立刻重掃（那些地方直接設 noteTree）。
+    private func reloadNoteTreeInBackground() {
+        let notes = store.notesURL
+        noteTreeTask?.cancel()
+        noteTreeTask = Task {
+            let tree = await Task.detached(priority: .userInitiated) {
+                LibraryScan.noteTree(notes: notes)
+            }.value
+            guard !Task.isCancelled else { return }
+            if tree != noteTree { noteTree = tree }
+        }
+    }
     @State private var notesExpanded = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var hostWindow: NSWindow?
@@ -314,14 +329,14 @@ struct RootView: View {
             generalTodos.configure(rootURL: store.rootURL)
             LibrarySync.shared.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要手機的更新
             BlockEditorHost.shared.preload() // 預載日記編輯器，切分頁即時顯示
-            noteTree = store.noteTree()
+            reloadNoteTreeInBackground()
         }
         .onChange(of: store.rootURL) {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
             LibrarySync.shared.configure(rootURL: store.rootURL)
-            noteTree = store.noteTree()
+            reloadNoteTreeInBackground()
         }
         // 切回 app：手機可能改過東西 → 跟 iCloud 要最新版，各 store 自己重讀
         .onReceive(NotificationCenter.default.publisher(
@@ -330,10 +345,10 @@ struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
             if LibrarySync.affectsNoteListing(note, notes: store.notesURL) {
-                noteTree = store.noteTree()
+                reloadNoteTreeInBackground()
             }
         }
-        .onChange(of: store.items) { noteTree = store.noteTree() }
+        .onChange(of: store.items) { reloadNoteTreeInBackground() }
         .onChange(of: store.requestedTab) {
             if let requested = store.requestedTab {
                 tab = requested

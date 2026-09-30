@@ -357,7 +357,7 @@ final class FileSystemStore {
 
     // MARK: - 側欄檔案樹
 
-    struct TreeNode: Identifiable, Hashable {
+    nonisolated struct TreeNode: Identifiable, Hashable, Sendable {
         let url: URL
         let isFolder: Bool
         /// LaTeX 專案：本身是資料夾，但當成一篇筆記看待（不展開內容）
@@ -373,40 +373,7 @@ final class FileSystemStore {
 
     /// Notes/ 的完整樹狀結構（資料夾在前、排除 assets）
     func noteTree() -> [TreeNode] {
-        guard let notes = notesURL else { return [] }
-        return treeChildren(of: notes, depth: 0)
-    }
-
-    private func treeChildren(of dir: URL, depth: Int) -> [TreeNode] {
-        guard depth < 8,
-              let urls = try? fm.contentsOfDirectory(
-                at: dir,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles])
-        else { return [] }
-
-        var nodes: [TreeNode] = []
-        for url in urls {
-            let isFolder = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
-            if isFolder {
-                guard url.lastPathComponent != "assets" else { continue }
-                // LaTeX 專案是「一個資料夾＝一篇筆記」，所以當成葉節點，不展開裡面的 .tex
-                if LatexProject.isProject(url) {
-                    nodes.append(TreeNode(url: url, isFolder: false,
-                                          isProject: true, children: nil))
-                    continue
-                }
-                nodes.append(TreeNode(
-                    url: url, isFolder: true,
-                    children: treeChildren(of: url, depth: depth + 1)))
-            } else if url.pathExtension.lowercased() == "md" {
-                nodes.append(TreeNode(url: url, isFolder: false, children: nil))
-            }
-        }
-        return nodes.sorted { a, b in
-            if a.isFolder != b.isFolder { return a.isFolder }
-            return a.name.localizedStandardCompare(b.name) == .orderedAscending
-        }
+        LibraryScan.noteTree(notes: notesURL)
     }
 
     // MARK: - 全域掃描（首頁 / 搜尋用）

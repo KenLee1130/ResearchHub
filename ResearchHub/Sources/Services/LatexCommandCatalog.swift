@@ -1,7 +1,7 @@
 import Foundation
 
 /// 一個可補全的 LaTeX 指令。
-struct LatexCommand {
+nonisolated struct LatexCommand: Sendable {
     /// 接受時插入的文字，例如 `\frac{}{}`（游標會停在第一個 `{}` 裡）
     let insert: String
     /// 清單上灰字的說明；符號類直接放長相（α、⇒）

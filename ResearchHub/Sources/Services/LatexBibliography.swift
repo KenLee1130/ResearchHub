@@ -5,8 +5,7 @@ import Foundation
 ///
 /// 以前補全插入的是 Zotero 的內部 key（像 I4UT4SMS），專案的 .bib 裡沒有這個 key，
 /// 編出來永遠是 [?]；要自己去 Zotero 匯出、貼進 .bib、再手打 key。
-@MainActor
-enum LatexBibliography {
+nonisolated enum LatexBibliography {
     /// 這個專案的文獻要寫進哪個 .bib：
     /// 主檔 \bibliography{}／\addbibresource{} 指到的那個 > 專案裡現有的第一個 > references.bib
     static func targetBib(in root: URL) -> URL {
@@ -22,14 +21,21 @@ enum LatexBibliography {
                 return root.appendingPathComponent(first.lowercased().hasSuffix(".bib") ? first : first + ".bib")
             }
         }
-        if let existing = LatexProjectIndex.snapshot(for: root).bibFiles.first {
-            return root.appendingPathComponent(existing)
+        // 專案裡現有的 .bib（直接列檔案，不靠補全索引——這裡可能在背景執行緒）
+        if let walker = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            var found: [URL] = []
+            for case let url as URL in walker where url.pathExtension.lowercased() == "bib" {
+                found.append(url)
+            }
+            if let first = found.sorted(by: { $0.path < $1.path }).first { return first }
         }
         return root.appendingPathComponent("references.bib")
     }
 
     /// 確保 `item` 在專案的 .bib 裡，回傳它的 cite key。
     /// Zotero 沒開（拿不到匯出）時用手上的欄位自己組一筆。
+    @MainActor
     static func cite(_ item: ZoteroItem, in root: URL) async -> String {
         let exported = await ZoteroStore.shared.bibtex(for: item).flatMap(parse)
         let (key, entry) = exported ?? fallbackEntry(for: item)

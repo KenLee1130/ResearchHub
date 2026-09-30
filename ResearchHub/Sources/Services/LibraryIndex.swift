@@ -88,6 +88,46 @@ nonisolated enum LibraryScan {
         for (url, _) in journalFiles(journal: journal) { _ = LibraryIndex.shared.todoLines(in: url) }
     }
 
+    // MARK: 側欄檔案樹
+
+    /// Notes/ 的完整樹狀結構（資料夾在前、排除 assets）
+    static func noteTree(notes: URL?) -> [FileSystemStore.TreeNode] {
+        guard let notes else { return [] }
+        return treeChildren(of: notes, depth: 0)
+    }
+
+    private static func treeChildren(of dir: URL, depth: Int) -> [FileSystemStore.TreeNode] {
+        guard depth < 8,
+              let urls = try? FileManager.default.contentsOfDirectory(
+                at: dir,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles])
+        else { return [] }
+
+        var nodes: [FileSystemStore.TreeNode] = []
+        for url in urls {
+            let isFolder = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            if isFolder {
+                guard url.lastPathComponent != "assets" else { continue }
+                // LaTeX 專案是「一個資料夾＝一篇筆記」，所以當成葉節點，不展開裡面的 .tex
+                if LatexProject.isProject(url) {
+                    nodes.append(FileSystemStore.TreeNode(url: url, isFolder: false,
+                                                          isProject: true, children: nil))
+                    continue
+                }
+                nodes.append(FileSystemStore.TreeNode(
+                    url: url, isFolder: true,
+                    children: treeChildren(of: url, depth: depth + 1)))
+            } else if url.pathExtension.lowercased() == "md" {
+                nodes.append(FileSystemStore.TreeNode(url: url, isFolder: false, children: nil))
+            }
+        }
+        return nodes.sorted { a, b in
+            if a.isFolder != b.isFolder { return a.isFolder }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+    }
+
     // MARK: 檔案清單
 
     /// 所有筆記檔（排除 assets/）

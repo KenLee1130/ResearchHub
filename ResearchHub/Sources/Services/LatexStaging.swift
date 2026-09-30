@@ -12,7 +12,7 @@ import CryptoKit
 /// 所以規矩是：**小幫手只准碰純本機路徑**，iCloud 那側的讀寫一律由 app 自己做。
 /// 編譯時把專案原始檔鏡射到 app 容器的 Caches/latex/<雜湊>/src，小幫手在那裡編譯，
 /// 成品 PDF 再由 app 搬回 <專案>/.researchhub/output.pdf。
-enum LatexStaging {
+nonisolated enum LatexStaging {
     /// LaTeX 的編譯中間檔。鏡射時不能因為「專案裡沒有」就把它們刪掉——
     /// latexmk 要靠這些檔案做增量編譯。
     static let artifactExtensions: Set<String> = [

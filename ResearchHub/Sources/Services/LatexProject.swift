@@ -11,7 +11,7 @@ import Foundation
 ///   • `latexmkrc`   編譯器選擇（$pdf_mode = 5 → xelatex）。Overleaf 也讀這個檔。
 ///   • `.researchhub/`  App 自己的東西：project.json（主檔／引擎／檢視模式）與 output.pdf。
 ///                   匯出 zip 時會排除，Overleaf 不會看到。
-enum LatexProject {
+nonisolated enum LatexProject {
     static let stateDirName = ".researchhub"
     static let outputName = "output.pdf"
     static let formatName = "format.tex"

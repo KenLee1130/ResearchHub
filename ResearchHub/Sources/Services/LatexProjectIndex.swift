@@ -6,7 +6,7 @@ import Foundation
 /// 過期才重新掃（專案通常只有幾十個檔案，掃一次很便宜）。
 @MainActor
 enum LatexProjectIndex {
-    struct Snapshot {
+    nonisolated struct Snapshot: Sendable {
         /// .tex 檔（相對專案根目錄、不含副檔名）——給 \input{ \include{
         var texFiles: [String] = []
         /// 圖片（相對路徑、含副檔名）——給 \includegraphics{
@@ -20,30 +20,45 @@ enum LatexProjectIndex {
     }
 
     private static var cache: [String: (at: Date, snapshot: Snapshot)] = [:]
+    private static var scanning = Set<String>()
     private static let ttl: TimeInterval = 3
 
+    /// 立刻回傳手上這份（可能是幾秒前的），過期了就在背景重掃、掃完換上。
+    /// 每個按鍵都會問一次，所以這裡絕不讀檔——以前過期時會在主執行緒把整個專案
+    /// 的 .tex 從 iCloud 讀一遍，打字就頓一下。
     static func snapshot(for root: URL) -> Snapshot {
         let key = root.standardizedFileURL.path
-        if let hit = cache[key], Date().timeIntervalSince(hit.at) < ttl {
-            return hit.snapshot
-        }
-        let snap = scan(root)
-        cache[key] = (Date(), snap)
-        return snap
+        let hit = cache[key]
+        if hit == nil || Date().timeIntervalSince(hit!.at) >= ttl { rescan(root, key: key) }
+        return hit?.snapshot ?? Snapshot()
     }
 
-    private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "pdf", "eps", "svg", "gif"]
+    /// 開專案時先掃一次，第一次跳補全清單就有內容。
+    static func prewarm(_ root: URL) {
+        rescan(root, key: root.standardizedFileURL.path)
+    }
 
-    private static let macroPattern = try! NSRegularExpression(
+    private static func rescan(_ root: URL, key: String) {
+        guard scanning.insert(key).inserted else { return }
+        Task {
+            let snap = await Task.detached(priority: .utility) { scan(root) }.value
+            cache[key] = (Date(), snap)
+            scanning.remove(key)
+        }
+    }
+
+    nonisolated private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "pdf", "eps", "svg", "gif"]
+
+    nonisolated(unsafe) private static let macroPattern = try! NSRegularExpression(
         pattern: #"\\(?:newcommand|renewcommand|providecommand)\*?\s*\{?\\([A-Za-z@]+)\}?\s*(?:\[(\d)\])?"#)
-    private static let operatorPattern = try! NSRegularExpression(
+    nonisolated(unsafe) private static let operatorPattern = try! NSRegularExpression(
         pattern: #"\\DeclareMathOperator\*?\s*\{\\([A-Za-z]+)\}"#)
-    private static let defPattern = try! NSRegularExpression(
+    nonisolated(unsafe) private static let defPattern = try! NSRegularExpression(
         pattern: #"\\def\s*\\([A-Za-z@]+)"#)
-    private static let labelPattern = try! NSRegularExpression(
+    nonisolated(unsafe) private static let labelPattern = try! NSRegularExpression(
         pattern: #"\\label\{([^}]+)\}"#)
 
-    private static func scan(_ root: URL) -> Snapshot {
+    nonisolated private static func scan(_ root: URL) -> Snapshot {
         var snap = Snapshot()
         let fm = FileManager.default
         let base = root.standardizedFileURL.path
@@ -80,7 +95,7 @@ enum LatexProjectIndex {
         return snap
     }
 
-    private static func collect(_ text: String,
+    nonisolated private static func collect(_ text: String,
                                 macros: inout [LatexCommand], names: inout Set<String>,
                                 labels: inout [String], labelSet: inout Set<String>) {
         let ns = text as NSString

@@ -75,37 +75,56 @@ final class LatexCompiler: ObservableObject {
         }
     }
 
+    private enum Prep: Sendable {
+        case noMain
+        case failed(String)
+        case ready(main: URL, engine: String)
+    }
+
     func compileNow() {
         guard !isRunning else { queued = true; return }
         guard let helper = Self.helperURL else {
             status = .unavailable("找不到 LaTeX 小幫手。請在專案資料夾執行 scripts/install-mac.sh 安裝。")
             return
         }
-        guard let main = LatexProject.mainFile(in: projectURL) else {
-            status = .unavailable("找不到主檔（含 \\documentclass 的 .tex）")
-            return
-        }
-        let engine = LatexProject.engine(for: projectURL, main: main)
-        let build = buildDir
-        // 沒人 \cite 的自動條目從 .bib 拿掉（又被引用的放回來），再開始編譯
-        LatexBibliography.reconcile(in: projectURL)
-        // iCloud 那側的讀寫由 app 做：先把原始檔鏡射到容器裡的工作區
-        do {
-            try LatexStaging.sync(project: projectURL, to: build)
-        } catch {
-            status = .unavailable("無法準備編譯暫存檔：\(error.localizedDescription)")
-            return
-        }
         isRunning = true
         status = .running
         generation += 1
         let round = generation
-        let args = ["compile", build.path, main.lastPathComponent, engine]
-        run(helper: helper, args: args) { [weak self] output in
-            guard let self else { return }
-            self.finish(output: output,
-                        mainName: main.deletingPathExtension().lastPathComponent,
-                        engine: engine)
+        let project = projectURL
+        let build = buildDir
+        // 準備工作全在背景：找主檔、整理 .bib、把原始檔從 iCloud 鏡射到容器工作區。
+        // 這些都要讀寫專案裡的每個檔，以前在主執行緒做，按下編譯畫面會卡一下。
+        Task { [weak self] in
+            let prep = await Task.detached(priority: .userInitiated) { () -> Prep in
+                guard let main = LatexProject.mainFile(in: project) else { return .noMain }
+                let engine = LatexProject.engine(for: project, main: main)
+                // 沒人 \cite 的自動條目從 .bib 拿掉（又被引用的放回來），再開始編譯
+                LatexBibliography.reconcile(in: project)
+                do {
+                    try LatexStaging.sync(project: project, to: build)
+                } catch {
+                    return .failed(error.localizedDescription)
+                }
+                return .ready(main: main, engine: engine)
+            }.value
+            guard let self, self.generation == round, self.isRunning else { return }
+            switch prep {
+            case .noMain:
+                self.isRunning = false
+                self.status = .unavailable("找不到主檔（含 \\documentclass 的 .tex）")
+            case .failed(let message):
+                self.isRunning = false
+                self.status = .unavailable("無法準備編譯暫存檔：\(message)")
+            case .ready(let main, let engine):
+                let args = ["compile", build.path, main.lastPathComponent, engine]
+                self.run(helper: helper, args: args) { [weak self] output in
+                    guard let self else { return }
+                    self.finish(output: output,
+                                mainName: main.deletingPathExtension().lastPathComponent,
+                                engine: engine)
+                }
+            }
         }
         // 小幫手本身掛住的話（例如環境有問題），別讓畫面一直停在「編譯中…」
         Task { [weak self] in

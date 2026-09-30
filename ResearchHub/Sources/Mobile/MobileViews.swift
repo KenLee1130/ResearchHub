@@ -6,6 +6,15 @@ import SwiftUI
 struct MobileNotesView: View {
     @Environment(FileSystemStore.self) private var store
     @State private var tree: [FileSystemStore.TreeNode] = []
+
+    /// 筆記樹在背景掃（iCloud 上逐一問資料夾很慢），掃好、有變才換上
+    private func reloadTree() async {
+        let notes = store.notesURL
+        let fresh = await Task.detached(priority: .userInitiated) {
+            LibraryScan.noteTree(notes: notes)
+        }.value
+        if fresh != tree { tree = fresh }
+    }
     @State private var query = ""
 
     var body: some View {
@@ -31,14 +40,16 @@ struct MobileNotesView: View {
                     MobileNotePreview(noteURL: url)
                 }
             }
-            .onAppear { tree = store.noteTree() }
+            .task { await reloadTree() }
             .refreshable {
                 LibrarySync.shared.syncNow()
-                tree = store.noteTree()
+                await reloadTree()
             }
             // Mac 新增／改名的筆記同步進來 → 清單跟著變
             .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
-                if LibrarySync.affects(note, store.notesURL) { tree = store.noteTree() }
+                if LibrarySync.affectsNoteListing(note, notes: store.notesURL) {
+                    Task { await reloadTree() }
+                }
             }
         }
     }

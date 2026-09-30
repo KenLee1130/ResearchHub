@@ -482,8 +482,9 @@ struct LatexProjectView: View {
         selected = mainURL
         // 只更新檔案樹，不自動編譯——編譯一律由使用者按（⌘S／Shift+Return／編譯鈕）
         watcher = DirectoryWatcher(url: projectURL) { _ in
-            refreshTree()
+            refreshTreeInBackground()
         }
+        LatexProjectIndex.prewarm(projectURL)   // 補全索引先在背景掃好，第一個按鍵就有
     }
 
     /// 編譯前先叫編輯器存檔：編譯讀的是磁碟上的檔案，沒存會編到舊內容。
@@ -538,6 +539,18 @@ struct LatexProjectView: View {
 
     private func refreshTree() {
         tree = LatexProject.tree(of: projectURL)
+    }
+
+    /// 檔案被外部改動（存檔、iCloud 同步）時走這條：背景重列，有變才換上。
+    /// 使用者自己新增／改名／搬移仍用上面那個立刻重列的版本。
+    private func refreshTreeInBackground() {
+        let project = projectURL
+        Task {
+            let fresh = await Task.detached(priority: .utility) {
+                LatexProject.tree(of: project)
+            }.value
+            if fresh != tree { tree = fresh }
+        }
     }
 
     /// URL 相等比較太脆弱（資料夾會多一條結尾斜線），一律比 path。
