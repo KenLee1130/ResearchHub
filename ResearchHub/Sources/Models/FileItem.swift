@@ -1,6 +1,6 @@
 import Foundation
 
-struct FileItem: Identifiable, Hashable {
+nonisolated struct FileItem: Identifiable, Hashable, Sendable {
     let url: URL
     let isFolder: Bool
     let modified: Date

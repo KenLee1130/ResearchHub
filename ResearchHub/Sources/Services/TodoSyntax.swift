@@ -12,12 +12,12 @@ import Foundation
 ///   @est(3h / 45m / 90)     預估時長（純數字 = 分鐘），排時段時參考；日記裡渲染成蕃茄進度條
 ///   @pomo(2)                任務自己的進度（已投入幾顆），進度條 ＋/− 改的就是它，不動蕃茄鐘統計
 ///   @line(名字)             主線歸屬（如 A、B），週檢討分線統計用
-enum TodoPriority: Int, Comparable, Hashable {
+nonisolated enum TodoPriority: Int, Comparable, Hashable, Sendable {
     case low = 0, normal = 1, high = 2
     static func < (a: TodoPriority, b: TodoPriority) -> Bool { a.rawValue < b.rawValue }
 }
 
-struct TodoMeta: Hashable {
+nonisolated struct TodoMeta: Hashable, Sendable {
     /// 去掉標記後的文字（顯示與比對用）
     let cleanText: String
     let priority: TodoPriority

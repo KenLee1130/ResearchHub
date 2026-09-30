@@ -12,6 +12,7 @@ struct HomeView: View {
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
 
     @State private var recentNotes: [FileItem] = []
+    @State private var refreshTask: Task<Void, Never>?
     @State private var todos: [FileSystemStore.TodoItem] = []
     @State private var todayJournalPreview: String?
     @State private var noteCount = 0
@@ -1168,30 +1169,26 @@ struct HomeView: View {
             .padding(.vertical, 4)
     }
 
+    /// 首頁的資料在背景算（掃所有筆記與日記的待辦），算好一次換上；
+    /// 算的期間畫面維持上一次的內容，主執行緒不被擋。
     private func refresh() {
         generalStore.reload() // Claude 可能直接改過 .hub 的 JSON → 重讀
-        // @due/@from/@every 的獨立日副本播進今天的日記 + @remind 排通知（冪等）
-        store.seedTodos(
-            for: .now,
-            generalTexts: generalStore.todos.filter { !$0.done }.map(\.text))
-        recentNotes = store.recentNotes(limit: 5)
-        todos = store.scanTodos()
-        todayJournalPreview = loadJournalPreview()
-        noteCount = store.allNoteURLs().count
-        repeatedTodos = store.scanRepeatedJournalTodos()
-    }
-
-    private func loadJournalPreview() -> String? {
-        guard let url = store.journalURL(for: .now),
-              let content = try? String(contentsOf: url, encoding: .utf8)
-        else { return nil }
-        let lines = content
-            .components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-            .prefix(3)
-        let preview = lines.joined(separator: " · ")
-        return preview.isEmpty ? nil : preview
+        let notes = store.notesURL
+        let journal = store.journalURL
+        let generalTexts = generalStore.todos.filter { !$0.done }.map(\.text)
+        refreshTask?.cancel()
+        refreshTask = Task {
+            let snap = await Task.detached(priority: .userInitiated) {
+                LibraryScan.homeSnapshot(notes: notes, journal: journal, generalTexts: generalTexts)
+            }.value
+            guard !Task.isCancelled else { return }
+            // 沒變就不要動 @State：動了整個首頁會重畫
+            if recentNotes != snap.recentNotes { recentNotes = snap.recentNotes }
+            if todos != snap.todos { todos = snap.todos }
+            if todayJournalPreview != snap.journalPreview { todayJournalPreview = snap.journalPreview }
+            if noteCount != snap.noteCount { noteCount = snap.noteCount }
+            if repeatedTodos != snap.repeatedTodos { repeatedTodos = snap.repeatedTodos }
+        }
     }
 }
 
