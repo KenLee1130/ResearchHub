@@ -341,6 +341,12 @@ final class PastingTextView: NSTextView {
         let partial = (string as NSString).substring(with: ctx.range)
         let items = completionItems(ctx.kind, partial: partial)
         var hint: String?
+        if ctx.kind == .cite {
+            // 清單是 Zotero 的快取：背景跟 Zotero 對一下，有新文獻就重列
+            Task { @MainActor [weak self] in
+                if await ZoteroStore.shared.refreshIfStale() { self?.updateCompletion() }
+            }
+        }
         if ctx.kind == .cite, !ZoteroStore.shared.items.isEmpty {
             // 文獻清單一定帶搜尋說明；搜不到也留著（不然看起來像壞掉）
             hint = items.isEmpty

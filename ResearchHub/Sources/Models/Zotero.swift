@@ -77,7 +77,22 @@ final class ZoteroStore {
         return URL(string: "http://localhost:\(port)/api/users/0")!
     }
 
+    @ObservationIgnored private var lastRefreshed: Date?
+
+    /// 上次抓超過 maxAge 秒就重抓一次；有重抓且內容變了回 true。
+    /// \cite 補全每次跳出來都會呼叫：剛在 Zotero 加的文獻幾秒內就搜得到，
+    /// 連打時又不會每個按鍵都去問 Zotero。
+    @discardableResult
+    func refreshIfStale(maxAge: TimeInterval = 10) async -> Bool {
+        if isLoading { return false }
+        if let last = lastRefreshed, Date().timeIntervalSince(last) < maxAge { return false }
+        let before = items.map(\.key)
+        await refresh()
+        return items.map(\.key) != before
+    }
+
     func refresh() async {
+        lastRefreshed = Date()
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -100,9 +115,10 @@ final class ZoteroStore {
                 decoded += batch
                 if batch.count < pageSize { break }
             }
-            items = decoded.filter {
+            let fresh = decoded.filter {
                 $0.data.itemType != "attachment" && $0.data.itemType != "note"
             }
+            if fresh != items { items = fresh }
         } catch {
             errorMessage = "無法連線 Zotero。請確認 Zotero 已開啟，"
                 + "且在 Zotero 設定 → 進階 中啟用了本地 API。"
