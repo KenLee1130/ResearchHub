@@ -36,6 +36,7 @@ struct MobileRootView: View {
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @ObservedObject private var gate = ReadingGateStore.shared
     @State private var gateRequest: GateRequest?
+    @Environment(\.scenePhase) private var scenePhase
 
     /// 一次關卡請求（fullScreenCover(item:) 需要 Identifiable）
     struct GateRequest: Identifiable {
@@ -87,6 +88,19 @@ struct MobileRootView: View {
             generalTodos.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             gate.configure(rootURL: store.rootURL)
+            LibrarySync.shared.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要 Mac 的更新
+        }
+        // 回到前景：Mac 可能改過東西 → 跟 iCloud 要最新版；進背景就停止監看
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                LibrarySync.shared.resume()
+                LibrarySync.shared.syncNow()
+            case .background:
+                LibrarySync.shared.suspend()
+            default:
+                break
+            }
         }
         // 閱讀關卡：捷徑自動化在打開黑名單 app 時導到 researchhub://gate?app=<scheme>
         .onOpenURL { url in handleGateURL(url) }
@@ -98,6 +112,7 @@ struct MobileRootView: View {
             generalTodos.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             gate.configure(rootURL: store.rootURL)
+            LibrarySync.shared.configure(rootURL: store.rootURL)
         }
     }
 }
@@ -161,6 +176,7 @@ struct MobileTodayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     dateNavigationBar
+                    LibrarySyncBanner()
 
                     // Claude 觀察（.hub/claude/insights.json，Mac 端或 AI 更新後同步過來）
                     if isToday, let insights = generalTodos.insights, !insights.message.isEmpty {
@@ -303,6 +319,7 @@ struct MobileTodayView: View {
                 }
             }
             .refreshable {
+                LibrarySync.shared.syncNow()
                 generalTodos.reload()
                 load()
             }
@@ -463,7 +480,10 @@ struct MobileInboxView: View {
                 }
             }
             .navigationTitle("一般待辦")
-            .refreshable { generalTodos.reload() }
+            .refreshable {
+                LibrarySync.shared.syncNow()
+                generalTodos.reload()
+            }
         }
     }
 

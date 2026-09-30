@@ -115,6 +115,11 @@ final class GeneralTodoStore: ObservableObject {
     private var fileURL: URL?
     private var insightsURL: URL?
     private var weeklyURL: URL?
+    /// todos.json 已確實讀到（或確定不存在）。iCloud 還沒下載完時是 false，這時不能存檔。
+    private var todosReady = false
+    /// 檔案還沒下載完時使用者就動了手：等檔案到了以 id 合併後再存
+    private var editedWhileNotReady = false
+    private var libraryObserver: AnyCancellable?
 
     private struct Payload: Codable {
         var todos: [GeneralTodo]
@@ -153,44 +158,104 @@ final class GeneralTodoStore: ObservableObject {
         fileURL = hub.appendingPathComponent("todos.json")
         insightsURL = claudeDir.appendingPathComponent("insights.json")
         weeklyURL = hub.appendingPathComponent("weekly.json")
+        todosReady = false
+        editedWhileNotReady = false
         reload()
+        // 另一台裝置改了 .hub 的檔案（或切回 app）→ 重讀
+        libraryObserver = NotificationCenter.default
+            .publisher(for: .rhLibraryDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
+                guard let self else { return }
+                if LibrarySync.affects(note, self.fileURL)
+                    || LibrarySync.affects(note, self.insightsURL)
+                    || LibrarySync.affects(note, self.weeklyURL) {
+                    self.reload()
+                }
+            }
     }
 
-    /// 重新從磁碟載入（Claude 或其他工具可能直接改了檔案）。
+    /// 重新從磁碟載入（Claude、其他工具或另一台裝置可能直接改了檔案）。
     func reload() {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        if let fileURL,
-           let data = try? Data(contentsOf: fileURL),
-           let payload = try? decoder.decode(Payload.self, from: data) {
-            todos = payload.todos
-            trash = payload.trash
-        } else {
-            todos = []
-            trash = []
+        reloadTodos()
+
+        if let insightsURL {
+            switch LibraryFileRead.read(insightsURL) {
+            case .data(let data):
+                if let loaded = try? decoder.decode(ClaudeInsights.self, from: data),
+                   !loaded.message.isEmpty || !(loaded.schedule ?? "").isEmpty {
+                    insights = loaded
+                } else {
+                    insights = nil
+                }
+            case .missing:
+                insights = nil
+            case .notDownloaded:
+                break   // 還在下載：保留目前顯示的，下載完會再通知
+            }
         }
 
-        if let insightsURL,
-           let data = try? Data(contentsOf: insightsURL),
-           let loaded = try? decoder.decode(ClaudeInsights.self, from: data),
-           !loaded.message.isEmpty || !(loaded.schedule ?? "").isEmpty {
-            insights = loaded
-        } else {
-            insights = nil
+        if let weeklyURL {
+            switch LibraryFileRead.read(weeklyURL) {
+            case .data(let data):
+                weekly = (try? decoder.decode([WeeklyRecord].self, from: data)) ?? weekly
+            case .missing:
+                weekly = []
+            case .notDownloaded:
+                break
+            }
         }
+    }
 
-        if let weeklyURL,
-           let data = try? Data(contentsOf: weeklyURL),
-           let loaded = try? decoder.decode([WeeklyRecord].self, from: data) {
-            weekly = loaded
-        } else {
-            weekly = []
+    /// 只重讀 todos.json。每次修改前也會先呼叫，避免拿舊的記憶體內容蓋掉另一台裝置剛寫的。
+    private func reloadTodos() {
+        guard let fileURL else { return }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        switch LibraryFileRead.read(fileURL) {
+        case .data(let data):
+            guard let payload = try? decoder.decode(Payload.self, from: data) else {
+                // 讀到一半的檔或壞檔：別覆寫，保留目前內容
+                todosReady = false
+                return
+            }
+            if editedWhileNotReady {
+                todos = mergeByID(disk: payload.todos, local: todos)
+                trash = mergeByID(disk: payload.trash, local: trash)
+                editedWhileNotReady = false
+                todosReady = true
+                save()
+            } else {
+                todos = payload.todos
+                trash = payload.trash
+                todosReady = true
+            }
+        case .missing:
+            if !editedWhileNotReady {
+                todos = []
+                trash = []
+            }
+            todosReady = true
+            if editedWhileNotReady {
+                editedWhileNotReady = false
+                save()
+            }
+        case .notDownloaded:
+            todosReady = false
         }
     }
 
     private func save() {
         guard let fileURL else { return }
+        guard todosReady else {
+            // 雲端那份還沒下載到：現在寫會蓋掉它。先記著，檔案到了合併再存。
+            editedWhileNotReady = true
+            LibrarySync.shared.syncNow()
+            return
+        }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -202,6 +267,7 @@ final class GeneralTodoStore: ObservableObject {
     // MARK: - Todos
 
     func add(_ text: String) {
+        reloadTodos()
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         // 同文字的未完成待辦已存在就不重複加
@@ -211,6 +277,7 @@ final class GeneralTodoStore: ObservableObject {
     }
 
     func toggle(_ todo: GeneralTodo) {
+        reloadTodos()
         guard let i = todos.firstIndex(where: { $0.id == todo.id }) else { return }
         todos[i].done.toggle()
         todos[i].completedAt = todos[i].done ? .now : nil
@@ -219,6 +286,7 @@ final class GeneralTodoStore: ObservableObject {
 
     /// 把一般待辦丟進垃圾桶。
     func moveToTrash(_ todo: GeneralTodo, reason: String = "") {
+        reloadTodos()
         todos.removeAll { $0.id == todo.id }
         trash.insert(TrashedTodo(text: todo.text, occurrences: 1, reason: reason), at: 0)
         save()
@@ -226,12 +294,14 @@ final class GeneralTodoStore: ObservableObject {
 
     /// 把（日記裡重複出現的）待辦記進垃圾桶。
     func trashItem(text: String, occurrences: Int, reason: String) {
+        reloadTodos()
         trash.insert(TrashedTodo(text: text, occurrences: occurrences, reason: reason), at: 0)
         save()
     }
 
     /// 任務總覽直接改文字；清空 = 刪除。
     func updateText(_ todo: GeneralTodo, to text: String) {
+        reloadTodos()
         guard let i = todos.firstIndex(where: { $0.id == todo.id }) else { return }
         let t = text.trimmingCharacters(in: .whitespaces)
         if t.isEmpty {
@@ -244,6 +314,7 @@ final class GeneralTodoStore: ObservableObject {
 
     /// 從垃圾桶救回 → 變成一般待辦。
     func restore(_ item: TrashedTodo) {
+        reloadTodos()
         trash.removeAll { $0.id == item.id }
         if !todos.contains(where: { !$0.done && $0.text == item.text }) {
             todos.append(GeneralTodo(text: item.text))
@@ -252,11 +323,13 @@ final class GeneralTodoStore: ObservableObject {
     }
 
     func deleteFromTrash(_ item: TrashedTodo) {
+        reloadTodos()
         trash.removeAll { $0.id == item.id }
         save()
     }
 
     func clearTrash() {
+        reloadTodos()
         trash.removeAll()
         save()
     }

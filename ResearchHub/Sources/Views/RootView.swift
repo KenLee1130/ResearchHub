@@ -312,6 +312,7 @@ struct RootView: View {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
+            LibrarySync.shared.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要手機的更新
             BlockEditorHost.shared.preload() // 預載日記編輯器，切分頁即時顯示
             noteTree = store.noteTree()
         }
@@ -319,7 +320,18 @@ struct RootView: View {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
+            LibrarySync.shared.configure(rootURL: store.rootURL)
             noteTree = store.noteTree()
+        }
+        // 切回 app：手機可能改過東西 → 跟 iCloud 要最新版，各 store 自己重讀
+        .onReceive(NotificationCenter.default.publisher(
+            for: NSApplication.didBecomeActiveNotification)) { _ in
+            LibrarySync.shared.syncNow()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
+            if LibrarySync.affectsNoteListing(note, notes: store.notesURL) {
+                noteTree = store.noteTree()
+            }
         }
         .onChange(of: store.items) { noteTree = store.noteTree() }
         .onChange(of: store.requestedTab) {

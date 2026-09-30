@@ -32,7 +32,14 @@ struct MobileNotesView: View {
                 }
             }
             .onAppear { tree = store.noteTree() }
-            .refreshable { tree = store.noteTree() }
+            .refreshable {
+                LibrarySync.shared.syncNow()
+                tree = store.noteTree()
+            }
+            // Mac 新增／改名的筆記同步進來 → 清單跟著變
+            .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
+                if LibrarySync.affects(note, store.notesURL) { tree = store.noteTree() }
+            }
         }
     }
 

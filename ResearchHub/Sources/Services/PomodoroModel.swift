@@ -108,7 +108,12 @@ final class PomodoroModel: ObservableObject {
     @Published var completionPrompt: CompletionPrompt?
 
     /// 已完成的蕃茄鐘紀錄(JSON 持久化)。
-    @Published private(set) var sessions: [PomodoroSession] = []
+    @Published private(set) var sessions: [PomodoroSession] = [] {
+        didSet { dayCounts = nil }
+    }
+    /// 每天幾顆（startOfDay → 顆數）。統計圖每次重畫會問幾十次「某天幾顆」，
+    /// 以前每問一次就把幾百筆紀錄全掃一遍做日曆比較，首頁重畫一次要 20–40 毫秒。
+    private var dayCounts: [Date: Int]?
     /// 目前(這顆)work 的計畫;顯示在計時器上,完成時寫進紀錄。
     @Published var currentPlan: String = ""
 
@@ -117,8 +122,13 @@ final class PomodoroModel: ObservableObject {
     private let defaults = UserDefaults.standard
     /// 紀錄檔位置由筆記根目錄決定。
     private var rootURL: URL?
-    /// 剛完成、等使用者補「完成內容」的那筆 session 索引。
-    private var pendingSessionIndex: Int?
+    /// 剛完成、等使用者補「完成內容」的那筆 session（用 id：重讀檔案後索引會變）。
+    private var pendingSessionID: UUID?
+    /// pomodoro.json 已確實讀到（或確定不存在）。iCloud 還沒下載完時是 false，這時不能存檔。
+    private var sessionsReady = false
+    /// 檔案還沒下載完時就有新紀錄：等檔案到了以 id 合併後再存
+    private var editedWhileNotReady = false
+    private var libraryObserver: AnyCancellable?
     /// 這顆 work 的長度(分),完成時寫進紀錄。
     private var activeWorkMinutes = 25
     /// 這顆 work 實際開始倒數的時刻,完成時寫進 session.startedAt。
@@ -238,8 +248,18 @@ final class PomodoroModel: ObservableObject {
     func configure(rootURL: URL?) {
         guard rootURL?.path != self.rootURL?.path else { return }
         self.rootURL = rootURL
+        sessionsReady = false
+        editedWhileNotReady = false
         loadSessions()
         ReadingGateStore.shared.configure(rootURL: rootURL)
+        // 另一台裝置記了蕃茄鐘（或切回 app）→ 重讀
+        libraryObserver = NotificationCenter.default
+            .publisher(for: .rhLibraryDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
+                guard let self, LibrarySync.affects(note, self.sessionsFileURL) else { return }
+                self.loadSessions()
+            }
         #if os(macOS)
         writeFocusState()   // Mac 是狀態的來源；開 app 就先落地一次
         #endif
@@ -263,21 +283,48 @@ final class PomodoroModel: ObservableObject {
         return d
     }()
 
+    /// 從磁碟重讀。新增紀錄前也會先呼叫，避免拿舊的記憶體內容蓋掉另一台裝置剛寫的。
     private func loadSessions() {
-        if let url = sessionsFileURL,
-           let data = try? Data(contentsOf: url),
-           let decoded = try? Self.jsonDecoder.decode([PomodoroSession].self, from: data) {
-            sessions = decoded.sorted { $0.date < $1.date }
-        } else {
+        guard let url = sessionsFileURL else { return }
+        switch LibraryFileRead.read(url) {
+        case .data(let data):
+            guard let decoded = try? Self.jsonDecoder.decode([PomodoroSession].self, from: data)
+            else {
+                // 讀到一半的檔或壞檔：絕不能用「遷移紀錄」覆寫幾百筆歷史
+                sessionsReady = false
+                return
+            }
+            let disk = decoded.sorted { $0.date < $1.date }
+            sessionsReady = true
+            if editedWhileNotReady {
+                editedWhileNotReady = false
+                sessions = mergeByID(disk: disk, local: sessions).sorted { $0.date < $1.date }
+                saveSessions()
+            } else if disk != sessions {
+                sessions = disk
+            }
+        case .missing:
             // 首次:把舊的 UserDefaults 每日計數遷移成「只有顆數」的紀錄,保住統計。
-            sessions = migratedSessionsFromDefaults()
+            let migrated = migratedSessionsFromDefaults()
+            sessions = mergeByID(disk: migrated, local: editedWhileNotReady ? sessions : [])
+                .sorted { $0.date < $1.date }
+            sessionsReady = true
+            editedWhileNotReady = false
             saveSessions()
+        case .notDownloaded:
+            sessionsReady = false
         }
         recomputeCounts()
     }
 
     private func saveSessions() {
         guard let url = sessionsFileURL else { return }
+        guard sessionsReady else {
+            // 雲端那份還沒下載到：現在寫會蓋掉整份歷史。先記著，檔案到了合併再存。
+            editedWhileNotReady = true
+            LibrarySync.shared.syncNow()
+            return
+        }
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let data = try? Self.jsonEncoder.encode(sessions) {
@@ -317,8 +364,9 @@ final class PomodoroModel: ObservableObject {
             plan: plan.trimmingCharacters(in: .whitespacesAndNewlines),
             done: "",
             startedAt: activeStartedAt)
+        loadSessions()   // 另一台裝置可能剛記過一顆：先讀最新的再加
         sessions.append(s)
-        pendingSessionIndex = sessions.count - 1
+        pendingSessionID = s.id
         activeStartedAt = nil            // 這顆已收帳,下一顆重新記起始時刻
         saveSessions()
         recomputeCounts()
@@ -327,7 +375,9 @@ final class PomodoroModel: ObservableObject {
     /// 把使用者填的「這顆完成了什麼」寫回剛完成那筆。
     func recordDone(_ text: String) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let i = pendingSessionIndex, sessions.indices.contains(i) else { return }
+        loadSessions()
+        guard let id = pendingSessionID,
+              let i = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[i].done = t
         saveSessions()
     }
@@ -589,7 +639,12 @@ final class PomodoroModel: ObservableObject {
 
     func count(on date: Date) -> Int {
         let cal = Calendar.current
-        return sessions.filter { cal.isDate($0.date, inSameDayAs: date) }.count
+        if dayCounts == nil {
+            var counts: [Date: Int] = [:]
+            for s in sessions { counts[cal.startOfDay(for: s.date), default: 0] += 1 }
+            dayCounts = counts
+        }
+        return dayCounts?[cal.startOfDay(for: date)] ?? 0
     }
 
     private func count(in interval: DateInterval) -> Int {

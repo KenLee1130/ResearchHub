@@ -58,6 +58,11 @@ final class EventStore: ObservableObject {
 
     private var fileURL: URL?
     private var isLoading = false
+    /// events.json 已確實讀到（或確定不存在）。iCloud 還沒下載完時是 false，這時不能存檔。
+    private var ready = false
+    /// 檔案還沒下載完時使用者就動了手：等檔案到了以 id 合併後再存
+    private var editedWhileNotReady = false
+    private var libraryObserver: AnyCancellable?
 
     private struct Payload: Codable {
         var tags: [EventTag]
@@ -84,29 +89,66 @@ final class EventStore: ObservableObject {
         let dir = rootURL.appendingPathComponent(".hub", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("events.json")
+        ready = false
+        editedWhileNotReady = false
         load()
+        // 另一台裝置改了 events.json（或切回 app）→ 重讀
+        libraryObserver = NotificationCenter.default
+            .publisher(for: .rhLibraryDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
+                guard let self, LibrarySync.affects(note, self.fileURL) else { return }
+                self.load()
+            }
     }
 
+    /// 從磁碟重讀。每次修改前也會先呼叫，避免拿舊的記憶體內容蓋掉另一台裝置剛寫的。
     private func load() {
         guard let fileURL else { return }
-        isLoading = true
-        defer { isLoading = false }
-
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        if let data = try? Data(contentsOf: fileURL),
-           let payload = try? decoder.decode(Payload.self, from: data) {
-            tags = payload.tags
-            events = payload.events
-        } else {
-            tags = Self.defaultTags
-            events = []
+        var needsSave = false
+        isLoading = true
+        switch LibraryFileRead.read(fileURL) {
+        case .data(let data):
+            if let payload = try? decoder.decode(Payload.self, from: data) {
+                if editedWhileNotReady {
+                    tags = mergeByID(disk: payload.tags, local: tags)
+                    events = mergeByID(disk: payload.events, local: events)
+                    needsSave = true
+                } else {
+                    if tags != payload.tags { tags = payload.tags }
+                    if events != payload.events { events = payload.events }
+                }
+                ready = true
+            } else {
+                ready = false   // 讀到一半的檔或壞檔：別覆寫
+            }
+        case .missing:
+            if !editedWhileNotReady {
+                tags = Self.defaultTags
+                events = []
+            }
+            ready = true
+            needsSave = true
+        case .notDownloaded:
+            ready = false
+        }
+        isLoading = false
+        if needsSave {
+            editedWhileNotReady = false
             save()
         }
     }
 
     private func save() {
         guard let fileURL, !isLoading else { return }
+        guard ready else {
+            // 雲端那份還沒下載到：現在寫會蓋掉它。先記著，檔案到了合併再存。
+            editedWhileNotReady = true
+            LibrarySync.shared.syncNow()
+            return
+        }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -118,11 +160,13 @@ final class EventStore: ObservableObject {
     // MARK: - Events
 
     func add(_ event: CalendarEvent) {
+        load()
         events.append(event)
         save()
     }
 
     func update(_ event: CalendarEvent) {
+        load()
         if let i = events.firstIndex(where: { $0.id == event.id }) {
             events[i] = event
             save()
@@ -130,6 +174,7 @@ final class EventStore: ObservableObject {
     }
 
     func delete(_ event: CalendarEvent) {
+        load()
         events.removeAll { $0.id == event.id }
         save()
     }
@@ -175,12 +220,14 @@ final class EventStore: ObservableObject {
     }
 
     func addTag(name: String, color: Color) {
+        load()
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         tags.append(EventTag(name: trimmed, colorHex: color.hexString))
     }
 
     func deleteTag(_ tag: EventTag) {
+        load()
         tags.removeAll { $0.id == tag.id }
         // 用到此標籤的事件改為無標籤
         for i in events.indices where events[i].tagID == tag.id {

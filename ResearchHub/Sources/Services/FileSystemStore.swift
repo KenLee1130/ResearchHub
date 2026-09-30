@@ -22,9 +22,19 @@ final class FileSystemStore: ObservableObject {
 
     private static let bookmarkKey = "researchHub.rootBookmark"
     private let fm = FileManager.default
+    private var libraryObserver: AnyCancellable?
 
     init() {
         restoreRoot()
+        // 另一台裝置新增／改名／刪除筆記 → 目前資料夾的清單要跟著變
+        libraryObserver = NotificationCenter.default
+            .publisher(for: .rhLibraryDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
+                guard let self,
+                      LibrarySync.affectsNoteListing(note, notes: self.notesURL) else { return }
+                self.refresh()
+            }
     }
 
     // MARK: - Root folder

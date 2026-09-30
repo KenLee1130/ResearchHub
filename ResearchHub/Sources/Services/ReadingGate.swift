@@ -108,8 +108,20 @@ final class ReadingGateStore: ObservableObject {
 
     private var rootURL: URL?
     private var log = GateLog()
+    private var libraryObserver: AnyCancellable?
 
-    private init() { }
+    private init() {
+        // Mac 端 Claude 更新了題庫、或另一台裝置記了通過紀錄 → 重讀
+        libraryObserver = NotificationCenter.default
+            .publisher(for: .rhLibraryDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
+                guard let self else { return }
+                if LibrarySync.affects(note, self.bankURL) || LibrarySync.affects(note, self.logURL) {
+                    self.reload()
+                }
+            }
+    }
 
     func configure(rootURL: URL?) {
         guard rootURL?.path != self.rootURL?.path else { return }
@@ -226,6 +238,7 @@ final class ReadingGateStore: ObservableObject {
 
     /// 通過一篇：記錄、開始寬限期。
     func recordPass(_ paper: GatePaper) {
+        reload()   // 先讀另一台裝置的通過紀錄，別蓋掉
         log.passedAt[paper.id] = .now
         log.totalPasses += 1
         startGrace()

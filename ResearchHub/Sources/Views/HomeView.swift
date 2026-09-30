@@ -48,6 +48,16 @@ struct HomeView: View {
         .sheet(isPresented: $showPlanning, onDismiss: refresh) {
             PlanningSheet()
         }
+        // 另一台裝置的改動同步進來（或切回 app）→ 首頁的待辦、筆記、日記預覽重算
+        .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
+            // refresh() 會重掃所有筆記與日記，很貴：只在跟首頁有關的檔案變動時才做
+            // （.md 筆記／日記、.hub 的 JSON）；LaTeX 專案裡的 .tex、.bib、PDF 都無關。
+            let urls = note.userInfo?["urls"] as? [URL] ?? []
+            let relevant = urls.isEmpty || urls.contains {
+                ["md", "json"].contains($0.pathExtension.lowercased())
+            }
+            if relevant { refresh() }
+        }
         .onAppear {
             refresh()
             animateBars = false
@@ -60,6 +70,7 @@ struct HomeView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                LibrarySyncBanner()
                 hero
 
                 HStack(alignment: .top, spacing: 14) {

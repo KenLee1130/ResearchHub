@@ -88,6 +88,12 @@ struct JournalView: View {
         .onChange(of: displayedMonth) { refreshMonthData() }
         .onChange(of: selectedDay) { refreshMonthData() }
         .onChange(of: eventStore.events) { refreshMonthData() }
+        // 手機寫的日記同步進來 → 月曆上的「有日記」標記跟著更新
+        .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
+            if LibrarySync.affects(note, store.journalURL) || LibrarySync.affects(note, store.notesURL) {
+                refreshMonthData()
+            }
+        }
         .sheet(item: $eventSheet) { config in
             EventEditorSheet(draft: config.draft, isNew: config.isNew)
         }

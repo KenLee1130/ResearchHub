@@ -1,5 +1,34 @@
 import Foundation
 
+/// 這個 app 自己剛寫過哪些檔案。
+///
+/// 編輯器的自動存檔是協調寫入，掛在根資料夾上的 presenter（LibrarySync）也會收到通知；
+/// 不擋掉的話，每打幾個字存一次檔，整個 app 就以為「另一台裝置改了東西」而全部重讀——
+/// 首頁重掃所有筆記，主執行緒卡一百多毫秒，打字就一頓一頓的。
+nonisolated enum OwnWrites {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var stamps: [String: Date] = [:]
+    private static let window: TimeInterval = 3
+
+    static func note(_ url: URL) {
+        let key = url.standardizedFileURL.path
+        lock.lock(); defer { lock.unlock() }
+        stamps[key] = Date()
+        if stamps.count > 64 {
+            let cutoff = Date().addingTimeInterval(-window)
+            stamps = stamps.filter { $0.value > cutoff }
+        }
+    }
+
+    /// 這個檔案是不是 app 自己剛剛寫的
+    static func isRecent(_ url: URL) -> Bool {
+        let key = url.standardizedFileURL.path
+        lock.lock(); defer { lock.unlock() }
+        guard let t = stamps[key] else { return false }
+        return Date().timeIntervalSince(t) < window
+    }
+}
+
 /// 監看一個檔案被「別人」改動——另一台裝置經 iCloud 同步進來，或其他程式寫入。
 ///
 /// 以前的編輯器打開時讀一次檔就再也不看，所以 iPhone 寫的日記在 Mac 上
@@ -92,6 +121,7 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
         io.async { [self] in
             var ok = false
             var err: NSError?
+            OwnWrites.note(url)
             try? FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             NSFileCoordinator(filePresenter: self).coordinate(
@@ -99,6 +129,7 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
             ) { u in
                 ok = (try? text.write(to: u, atomically: true, encoding: .utf8)) != nil
             }
+            OwnWrites.note(url)   // 寫完再記一次：通知可能晚到
             let done = ok
             if let completion { Task { @MainActor in completion(done) } }
         }
