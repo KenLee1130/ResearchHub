@@ -20,6 +20,9 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
     private let panel: NSPanel
     private let table = NSTableView()
     private let scroll = NSScrollView()
+    /// 清單上方的一行灰字（例如 \cite 的搜尋說明）；沒有就不佔空間
+    private let hintLabel = NSTextField(labelWithString: "")
+    private static let hintHeight: CGFloat = 20
 
     private(set) var items: [CompletionItem] = []
     private(set) var selectedIndex = 0
@@ -67,26 +70,43 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
         glass.layer?.cornerRadius = 8
         glass.layer?.masksToBounds = true
         glass.addSubview(scroll)
+        hintLabel.font = .systemFont(ofSize: 11)
+        hintLabel.textColor = .secondaryLabelColor
+        hintLabel.lineBreakMode = .byTruncatingTail
+        glass.addSubview(hintLabel)
 
         panel.contentView = glass
     }
 
     var isVisible: Bool { panel.isVisible }
 
-    func show(items: [CompletionItem], below caretRect: NSRect, parent: NSWindow) {
+    func show(items: [CompletionItem], hint: String? = nil,
+              below caretRect: NSRect, parent: NSWindow) {
+        // 內容換了（例如多打一個字篩選）就回到第一筆：最符合的在最上面
+        if items.map(\.insert) != self.items.map(\.insert) { selectedIndex = 0 }
         self.items = items
         if selectedIndex >= items.count { selectedIndex = 0 }
         table.reloadData()
 
         let rowH = table.rowHeight + table.intercellSpacing.height
-        let visible = min(max(items.count, 1), 9)
-        let height = CGFloat(visible) * rowH + 6
-        let width: CGFloat = 440   // 多了一欄灰字說明
+        let visible = min(items.count, 9)
+        let hintH = (hint ?? "").isEmpty ? 0 : Self.hintHeight
+        let height = CGFloat(visible) * rowH + 6 + hintH
+        let width: CGFloat = hintH > 0 ? 560 : 440   // 文獻標題長，給寬一點
         let frame = NSRect(x: caretRect.minX,
                            y: caretRect.minY - height - 2,
                            width: width, height: height)
         panel.setFrame(frame, display: false)
-        if let cv = panel.contentView { scroll.frame = cv.bounds; scroll.autoresizingMask = [.width, .height] }
+        if let cv = panel.contentView {
+            // AppKit 座標原點在左下：提示列在最上面，清單在它下面
+            hintLabel.isHidden = hintH == 0
+            hintLabel.stringValue = hint ?? ""
+            hintLabel.frame = NSRect(x: 8, y: cv.bounds.height - hintH + 2,
+                                     width: cv.bounds.width - 16, height: hintH - 4)
+            scroll.frame = NSRect(x: 0, y: 0, width: cv.bounds.width,
+                                  height: cv.bounds.height - hintH)
+            scroll.autoresizingMask = []
+        }
 
         if panel.parent !== parent {
             panel.parent?.removeChildWindow(panel)

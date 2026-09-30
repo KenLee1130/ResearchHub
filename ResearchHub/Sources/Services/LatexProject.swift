@@ -58,6 +58,9 @@ enum LatexProject {
         var engine: String?
         /// continuous / paged
         var viewMode: String?
+        /// app 從 Zotero 自動寫進 .bib 的條目（key → 寫入時刻）。
+        /// 只有這些會在不再被 \cite 時自動移除；你自己貼進 .bib 的不會動。
+        var autoBibKeys: [String: Double]?
     }
 
     static func stateDir(of folder: URL) -> URL {

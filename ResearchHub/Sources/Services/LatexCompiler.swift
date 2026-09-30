@@ -87,6 +87,8 @@ final class LatexCompiler: ObservableObject {
         }
         let engine = LatexProject.engine(for: projectURL, main: main)
         let build = buildDir
+        // 沒人 \cite 的自動條目從 .bib 拿掉（又被引用的放回來），再開始編譯
+        LatexBibliography.reconcile(in: projectURL)
         // iCloud 那側的讀寫由 app 做：先把原始檔鏡射到容器裡的工作區
         do {
             try LatexStaging.sync(project: projectURL, to: build)

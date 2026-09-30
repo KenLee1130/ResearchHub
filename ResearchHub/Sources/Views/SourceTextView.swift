@@ -138,9 +138,20 @@ final class PastingTextView: NSTextView {
             let len = (String(before[r].dropFirst(7)) as NSString).length     // 去掉 "\begin{"
             return (.env, NSRange(location: caret - len, length: len))
         }
-        if let r = before.range(of: #"\\cite\{[^}]*$"#, options: .regularExpression) {
-            let len = (String(before[r].dropFirst(6)) as NSString).length     // 去掉 "\cite{"
-            return (.cite, NSRange(location: caret - len, length: len))
+        // \cite{、\citep{、\parencite[p.~3]{… 之內 → 搜尋 Zotero 文獻
+        if let r = before.range(of: #"\\[a-zA-Z]*cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{[^}]*$"#,
+                                options: .regularExpression) {
+            let m = String(before[r])
+            if let bi = m.lastIndex(of: "{") {
+                var typed = String(m[m.index(after: bi)...])
+                // \cite{a, b… 這種逗號清單：只搜最後一個
+                if let comma = typed.lastIndex(of: ",") {
+                    typed = String(typed[typed.index(after: comma)...])
+                    typed = String(typed.drop(while: { $0 == " " }))
+                }
+                let len = (typed as NSString).length
+                return (.cite, NSRange(location: caret - len, length: len))
+            }
         }
         // [[ 之內 → 提示要連到的其他筆記
         if let r = before.range(of: #"\[\[([^\]\n|]*)$"#, options: .regularExpression) {
@@ -300,12 +311,15 @@ final class PastingTextView: NSTextView {
         return result
     }
 
+    /// \cite{ 之後打的字就是搜尋：空白分隔的每個關鍵字都要出現在
+    /// 作者／標題／年份／期刊裡（順序不拘，例如「pal 2018 modular」）。
     private func citeItems(prefix: String) -> [CompletionItem] {
-        let q = prefix.trimmingCharacters(in: .whitespaces).lowercased()
+        let tokens = prefix.lowercased().split(whereSeparator: { $0 == " " || $0 == "\u{3000}" })
         var result: [CompletionItem] = []
         for item in ZoteroStore.shared.items {
-            let hay = "\(item.authors) \(item.title) \(item.year) \(item.key)".lowercased()
-            guard q.isEmpty || hay.contains(q) else { continue }
+            let hay = "\(item.authors) \(item.title) \(item.year) \(item.data.publicationTitle ?? "") \(item.key)"
+                .lowercased()
+            guard tokens.allSatisfy({ hay.contains($0) }) else { continue }
             let creators = item.data.creators ?? []
             let first = creators.first?.display ?? "（無作者）"
             let authors = creators.count > 1 ? "\(first) et al." : first
@@ -326,12 +340,21 @@ final class PastingTextView: NSTextView {
         guard let win = window, let ctx = currentContext() else { completionPopup.hide(); return }
         let partial = (string as NSString).substring(with: ctx.range)
         let items = completionItems(ctx.kind, partial: partial)
-        guard !items.isEmpty else { completionPopup.hide(); return }
+        var hint: String?
+        if ctx.kind == .cite, !ZoteroStore.shared.items.isEmpty {
+            // 文獻清單一定帶搜尋說明；搜不到也留著（不然看起來像壞掉）
+            hint = items.isEmpty
+                ? L("找不到符合「\(partial)」的文獻——換個關鍵字（作者、標題、年份）")
+                : (partial.isEmpty
+                   ? L("直接打字搜尋：作者、標題、年份，空白分隔多個關鍵字")
+                   : L("符合 \(items.count) 筆 · ↑↓ 選擇 · Tab 插入"))
+        }
+        guard !items.isEmpty || hint != nil else { completionPopup.hide(); return }
         completionRange = ctx.range
         let caretRect = firstRect(
             forCharacterRange: NSRange(location: selectedRange().location, length: 0),
             actualRange: nil)
-        completionPopup.show(items: items, below: caretRect, parent: win)
+        completionPopup.show(items: items, hint: hint, below: caretRect, parent: win)
     }
 
     /// 接受一個補全項目。
@@ -347,6 +370,8 @@ final class PastingTextView: NSTextView {
             } else {
                 suppressCompletionOnce = true   // 無參數指令，別馬上又跳同一份
             }
+        case .cite where completionRoot != nil:
+            acceptProjectCite(item)
         case .cite, .eqref, .texFile, .image, .package, .docClass, .bibFile:
             insertText(item.insert, replacementRange: completionRange)
             let loc = selectedRange().location
@@ -370,6 +395,35 @@ final class PastingTextView: NSTextView {
             suppressCompletionOnce = true
         case .env:
             acceptEnvironment(item.insert)
+        }
+    }
+
+    /// LaTeX 專案裡選了 Zotero 的文獻：先把它的 BibTeX 寫進專案的 .bib，
+    /// 再把 .bib 裡的 key 填進 \cite{}（Markdown 筆記仍用 Zotero key，預覽靠它查文獻）。
+    private func acceptProjectCite(_ item: CompletionItem) {
+        guard let root = completionRoot,
+              let zotero = ZoteroStore.shared.items.first(where: { $0.key == item.insert })
+        else {
+            insertText(item.insert, replacementRange: completionRange)
+            return
+        }
+        let range = completionRange
+        let typed = (string as NSString).substring(with: range)
+        Task { @MainActor [weak self] in
+            let key = await LatexBibliography.cite(zotero, in: root)
+            guard let self else { return }
+            // 等 Zotero 回應的這一瞬間使用者又打字了 → 不要硬塞到錯的位置
+            let ns = self.string as NSString
+            guard NSMaxRange(range) <= ns.length, ns.substring(with: range) == typed else { return }
+            // 後面還沒有 } 就一起補上（少了它整份文件會編不過）
+            let end = NSMaxRange(range)
+            let closed = end < ns.length && ns.substring(with: NSRange(location: end, length: 1)) == "}"
+            self.suppressCompletionOnce = true
+            self.insertText(closed ? key : key + "}", replacementRange: range)
+            if closed {
+                let loc = self.selectedRange().location
+                self.setSelectedRange(NSRange(location: loc + 1, length: 0))   // 跳到 } 後面
+            }
         }
     }
 

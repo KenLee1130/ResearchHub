@@ -597,7 +597,15 @@ struct LatexProjectView: View {
 
     private func commitRename(_ node: LatexProject.Node) {
         defer { renamingURL = nil }
-        let trimmed = renameText.trimmingCharacters(in: .whitespaces)
+        var trimmed = renameText.trimmingCharacters(in: .whitespaces)
+        // 檔案沒打副檔名 → 沿用原本的（新檔案就是 .tex）。沒有副檔名的檔案
+        // LaTeX 不認、app 也不當文字檔開，之前打「references」就會變成一個廢檔。
+        if !node.isFolder, !trimmed.isEmpty,
+           (trimmed as NSString).pathExtension.isEmpty,
+           !["latexmkrc", "makefile"].contains(trimmed.lowercased()) {
+            let ext = node.url.pathExtension
+            trimmed += "." + (ext.isEmpty ? "tex" : ext)
+        }
         guard !trimmed.isEmpty, trimmed != node.name else { return }
         let dest = node.url.deletingLastPathComponent().appendingPathComponent(trimmed)
         try? FileManager.default.moveItem(at: node.url, to: dest)

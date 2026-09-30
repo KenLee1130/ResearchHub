@@ -80,16 +80,24 @@ final class ZoteroStore: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            var components = URLComponents(
-                url: base.appendingPathComponent("items/top"),
-                resolvingAgainstBaseURL: false)!
-            components.queryItems = [
-                URLQueryItem(name: "format", value: "json"),
-                URLQueryItem(name: "limit", value: "200"),
-                URLQueryItem(name: "sort", value: "dateModified")
-            ]
-            let (data, _) = try await URLSession.shared.data(from: components.url!)
-            let decoded = try JSONDecoder().decode([ZoteroItem].self, from: data)
+            // 整個文獻庫都抓（分頁）：以前只抓最近改過的 200 筆，舊文獻在 \cite 裡搜不到
+            var decoded: [ZoteroItem] = []
+            let pageSize = 200
+            for page in 0..<25 {
+                var components = URLComponents(
+                    url: base.appendingPathComponent("items/top"),
+                    resolvingAgainstBaseURL: false)!
+                components.queryItems = [
+                    URLQueryItem(name: "format", value: "json"),
+                    URLQueryItem(name: "limit", value: String(pageSize)),
+                    URLQueryItem(name: "start", value: String(page * pageSize)),
+                    URLQueryItem(name: "sort", value: "dateModified")
+                ]
+                let (data, _) = try await URLSession.shared.data(from: components.url!)
+                let batch = try JSONDecoder().decode([ZoteroItem].self, from: data)
+                decoded += batch
+                if batch.count < pageSize { break }
+            }
             items = decoded.filter {
                 $0.data.itemType != "attachment" && $0.data.itemType != "note"
             }
@@ -97,6 +105,23 @@ final class ZoteroStore: ObservableObject {
             errorMessage = "無法連線 Zotero。請確認 Zotero 已開啟，"
                 + "且在 Zotero 設定 → 進階 中啟用了本地 API。"
         }
+    }
+
+    // MARK: - BibTeX
+
+    /// 這筆文獻的 BibTeX（Zotero 自己的匯出，欄位最完整）。Zotero 沒開就回 nil。
+    func bibtex(for item: ZoteroItem) async -> String? {
+        var components = URLComponents(
+            url: base.appendingPathComponent("items/\(item.key)"),
+            resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "format", value: "bibtex")]
+        var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 4
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let text = String(data: data, encoding: .utf8),
+              text.contains("@") else { return nil }
+        return text
     }
 
     // MARK: - PDF 附件
