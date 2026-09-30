@@ -136,6 +136,9 @@ nonisolated enum LatexProject {
         % 中文字型：Mac 上用黑體；Overleaf 沒有黑體，就換 Noto（兩邊都編得過）
         \\IfFontExistsTF{Heiti TC}{\\setCJKmainfont{Heiti TC}}{\\setCJKmainfont{Noto Serif CJK TC}}
         \\usepackage{amsmath, amssymb}
+        \\usepackage{mathtools}
+        \\usepackage{physics}   % \\abs \\norm \\dv \\pdv \\bra \\ket …（跟 Markdown 筆記的公式寫法一致）
+        \\usepackage{bm}
         \\usepackage{graphicx}
         \\usepackage{hyperref}
         \\input{format}   % 版面設定（app 的「格式」面板會改 format.tex）
