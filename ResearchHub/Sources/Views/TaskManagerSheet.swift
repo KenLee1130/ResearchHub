@@ -4,8 +4,8 @@ import SwiftUI
 /// 列內直接改原文（含 @ 標記）按 Enter 儲存；清空文字 = 刪除該行。
 /// Mac 與 iPhone 共用（由編輯器命令列 /list 開啟）。
 struct TaskManagerSheet: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var generalStore: GeneralTodoStore
+    @Environment(FileSystemStore.self) private var store
+    @Environment(GeneralTodoStore.self) private var generalStore
     @Environment(\.dismiss) private var dismiss
 
     /// 同一任務的每日副本歸成一組：改／刪一次套用到所有副本。

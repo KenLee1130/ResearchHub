@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Combine
 
 /// 閱讀關卡（Reading Gate）：手機打開 IG / YouTube / Threads 等 app 時，
@@ -88,10 +89,11 @@ struct GateFocusState: Codable {
 // MARK: - Store
 
 @MainActor
-final class ReadingGateStore: ObservableObject {
+@Observable
+final class ReadingGateStore {
     static let shared = ReadingGateStore()
 
-    @Published private(set) var bank = GateBank(updatedAt: nil, papers: [])
+    private(set) var bank = GateBank(updatedAt: nil, papers: [])
     /// 手機本機的專注模式開關（不必等 iCloud，立刻生效）
     var localManual: Bool {
         get { UserDefaults.standard.bool(forKey: "gate.localManual") }

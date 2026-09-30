@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - 筆記瀏覽（唯讀：手機上翻筆記、看公式；編輯在 Mac 版）
 
 struct MobileNotesView: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     @State private var tree: [FileSystemStore.TreeNode] = []
     @State private var query = ""
 
@@ -110,7 +110,7 @@ struct MobileNotePreview: View {
 // MARK: - 蕃茄鐘
 
 struct MobilePomodoroView: View {
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(PomodoroModel.self) private var pomodoro
 
     var body: some View {
         NavigationStack {
@@ -125,7 +125,7 @@ struct MobilePomodoroView: View {
                     .foregroundStyle(.secondary)
 
                 // 這顆要做什麼（沒開始倒數前可改）
-                TextField("這顆要做什麼…", text: $pomodoro.currentPlan)
+                TextField("這顆要做什麼…", text: Bindable(pomodoro).currentPlan)
                     .textFieldStyle(.roundedBorder)
                     .padding(.horizontal, 40)
                     .disabled(pomodoro.isRunning)
@@ -180,7 +180,7 @@ struct MobilePomodoroView: View {
 /// 一顆結束後的動作小卡（手機版精簡版：記錄完成內容＋選下一步）。
 struct MobileCompletionSheet: View {
     let prompt: PomodoroModel.CompletionPrompt
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(PomodoroModel.self) private var pomodoro
     @State private var doneNote = ""
     @State private var nextPlan = ""
 
@@ -247,9 +247,9 @@ struct MobileCompletionSheet: View {
 // MARK: - 規劃明天（手機版晚間儀式）
 
 struct MobilePlanningSheet: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var pomodoro: PomodoroModel
-    @EnvironmentObject private var generalTodos: GeneralTodoStore
+    @Environment(FileSystemStore.self) private var store
+    @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(GeneralTodoStore.self) private var generalTodos
     @Environment(\.dismiss) private var dismiss
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
 

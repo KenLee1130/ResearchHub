@@ -4,10 +4,10 @@ import SwiftUI
 /// 首頁 v2：今天的工作台。
 /// Hero 大字日期 + 玻璃統計 chips；材質卡片：最近筆記、今日日記、今日事件、待辦彙整、週統計。
 struct HomeView: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var pomodoro: PomodoroModel
-    @EnvironmentObject private var eventStore: EventStore
-    @EnvironmentObject private var generalStore: GeneralTodoStore
+    @Environment(FileSystemStore.self) private var store
+    @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(EventStore.self) private var eventStore
+    @Environment(GeneralTodoStore.self) private var generalStore
     @AppStorage("settings.userName") private var userName = ""
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
 
@@ -1194,7 +1194,7 @@ struct HomeView: View {
 
 /// 待辦垃圾桶：存放放棄的待辦（含重複多次沒做的日記待辦），可救回或永久刪除。
 struct TodoTrashSheet: View {
-    @EnvironmentObject private var generalStore: GeneralTodoStore
+    @Environment(GeneralTodoStore.self) private var generalStore
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

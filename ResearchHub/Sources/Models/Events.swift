@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 import Combine
 #if canImport(AppKit)
 import AppKit
@@ -49,10 +50,11 @@ extension CalendarEvent {
 
 /// 事件與標籤的儲存，落地於根資料夾的 .hub/events.json。
 @MainActor
-final class EventStore: ObservableObject {
+@Observable
+final class EventStore {
 
-    @Published private(set) var events: [CalendarEvent] = []
-    @Published var tags: [EventTag] = [] {
+    private(set) var events: [CalendarEvent] = []
+    var tags: [EventTag] = [] {
         didSet { save() }
     }
 

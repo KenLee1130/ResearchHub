@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 import Combine
 
 // MARK: - Models
@@ -104,13 +105,14 @@ extension WeeklyRecord {
 /// 一般待辦與垃圾桶，落地於根資料夾的 .hub/todos.json；
 /// Claude 觀察讀自 .hub/claude/insights.json。
 @MainActor
-final class GeneralTodoStore: ObservableObject {
+@Observable
+final class GeneralTodoStore {
 
-    @Published private(set) var todos: [GeneralTodo] = []
-    @Published private(set) var trash: [TrashedTodo] = []
-    @Published private(set) var insights: ClaudeInsights?
+    private(set) var todos: [GeneralTodo] = []
+    private(set) var trash: [TrashedTodo] = []
+    private(set) var insights: ClaudeInsights?
     /// 週檢討歷史（新到舊排在後面；由 Claude 寫入）
-    @Published private(set) var weekly: [WeeklyRecord] = []
+    private(set) var weekly: [WeeklyRecord] = []
 
     private var fileURL: URL?
     private var insightsURL: URL?

@@ -9,7 +9,7 @@ struct ReadingGateView: View {
     let target: GateApp?
     var onFinish: () -> Void
 
-    @ObservedObject private var gate = ReadingGateStore.shared
+    private var gate = ReadingGateStore.shared
     @Environment(\.openURL) private var openURL
 
     @State private var paper: GatePaper?

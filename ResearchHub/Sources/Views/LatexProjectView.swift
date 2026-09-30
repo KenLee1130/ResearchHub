@@ -23,7 +23,7 @@ struct LatexProjectView: View {
     @State private var addFiles = false
     @State private var exportError: String?
     @State private var issueHeight: CGFloat = 0
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     @State private var hostWindow: NSWindow?
     @State private var deleteKeyMonitor: Any?
     /// 版面：跟 Overleaf 一樣可以只看原始碼、只看 PDF、或並排
@@ -96,7 +96,7 @@ struct LatexProjectView: View {
     private func hosted<V: View>(_ view: V) -> AnyView {
         AnyView(view
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .environmentObject(store))
+            .environment(store))
     }
 
     // MARK: - 標題列

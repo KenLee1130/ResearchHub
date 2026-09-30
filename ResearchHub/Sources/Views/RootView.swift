@@ -3,10 +3,10 @@ import SwiftUI
 import AppKit
 
 struct RootView: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var eventStore: EventStore
-    @EnvironmentObject private var pomodoro: PomodoroModel
-    @EnvironmentObject private var generalTodos: GeneralTodoStore
+    @Environment(FileSystemStore.self) private var store
+    @Environment(EventStore.self) private var eventStore
+    @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(GeneralTodoStore.self) private var generalTodos
     @AppStorage("settings.appearance") private var appearance = AppAppearance.system.rawValue
     @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
@@ -268,9 +268,9 @@ struct RootView: View {
                 case .journal: JournalView()
                 }
             }
-            .sheet(item: $pomodoro.completionPrompt) { prompt in
+            .sheet(item: Bindable(pomodoro).completionPrompt) { prompt in
                 PomodoroCompletionSheet(prompt: prompt)
-                    .environmentObject(pomodoro)
+                    .environment(pomodoro)
             }
         }
         .onReceive(NotificationCenter.default.publisher(
@@ -340,7 +340,7 @@ struct RootView: View {
                 store.requestedTab = nil
             }
         }
-        .sheet(isPresented: $store.searchPresented) {
+        .sheet(isPresented: Bindable(store).searchPresented) {
             SearchPaletteView()
         }
         // 系統 URL scheme（researchhub://…）：外部工具的入口。

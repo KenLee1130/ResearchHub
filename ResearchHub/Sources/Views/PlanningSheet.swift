@@ -4,9 +4,9 @@ import SwiftUI
 /// 晚間規劃儀式：左邊直接寫明天的日記，右邊是你的生產力節奏、
 /// 今天沒做完的待辦（一鍵搬到明天）、以及 Claude 的建議。
 struct PlanningSheet: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var pomodoro: PomodoroModel
-    @EnvironmentObject private var generalStore: GeneralTodoStore
+    @Environment(FileSystemStore.self) private var store
+    @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(GeneralTodoStore.self) private var generalStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var mode: EditorMode = .blocks

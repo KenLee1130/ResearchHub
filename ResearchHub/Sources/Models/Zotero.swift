@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 import Combine
 
 // MARK: - Models（對應 Zotero API v3 的 JSON 格式）
@@ -57,13 +58,14 @@ struct ZoteroItem: Codable, Identifiable, Hashable {
 // MARK: - Store（Zotero 7 本地 API：localhost:23119）
 
 @MainActor
-final class ZoteroStore: ObservableObject {
+@Observable
+final class ZoteroStore {
     /// 全 app 共用的實例：論文分頁與筆記引用（\cite）都讀同一份快取。
     static let shared = ZoteroStore()
 
-    @Published private(set) var items: [ZoteroItem] = []
-    @Published private(set) var isLoading = false
-    @Published var errorMessage: String?
+    private(set) var items: [ZoteroItem] = []
+    private(set) var isLoading = false
+    var errorMessage: String?
 
     static let portKey = "settings.zoteroPort"
     static let defaultPort = 23119
@@ -177,7 +179,7 @@ final class ZoteroStore: ObservableObject {
     // MARK: - Zotero 資料夾授權（讀取 storage/ 裡的 PDF）
 
     private static let dirBookmarkKey = "zotero.dirBookmark"
-    @Published private(set) var hasZoteroDir = false
+    private(set) var hasZoteroDir = false
     private var zoteroDir: URL?
 
     // Zotero storage/ 授權只在 macOS 有意義（手機連不到桌機的 Zotero 資料夾）。

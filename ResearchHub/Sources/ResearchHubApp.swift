@@ -3,10 +3,10 @@ import SwiftUI
 
 @main
 struct ResearchHubApp: App {
-    @StateObject private var store = FileSystemStore()
-    @StateObject private var pomodoro = PomodoroModel()
-    @StateObject private var eventStore = EventStore()
-    @StateObject private var generalTodos = GeneralTodoStore()
+    @State private var store = FileSystemStore()
+    @State private var pomodoro = PomodoroModel()
+    @State private var eventStore = EventStore()
+    @State private var generalTodos = GeneralTodoStore()
 
     init() {
         // 啟用即時語系切換，並套用上次選擇的語言。
@@ -17,10 +17,10 @@ struct ResearchHubApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environmentObject(store)
-                .environmentObject(pomodoro)
-                .environmentObject(eventStore)
-                .environmentObject(generalTodos)
+                .environment(store)
+                .environment(pomodoro)
+                .environment(eventStore)
+                .environment(generalTodos)
                 .frame(minWidth: 700, minHeight: 560)
         }
         .windowStyle(.hiddenTitleBar)
@@ -40,10 +40,10 @@ struct ResearchHubApp: App {
         // 以筆記 URL 為值，重複開同一份會聚焦既有視窗、不會重複開。
         WindowGroup(id: "note", for: URL.self) { $url in
             NoteWindowView(noteURL: url)
-                .environmentObject(store)
-                .environmentObject(pomodoro)
-                .environmentObject(eventStore)
-                .environmentObject(generalTodos)
+                .environment(store)
+                .environment(pomodoro)
+                .environment(eventStore)
+                .environment(generalTodos)
                 .frame(minWidth: 460, minHeight: 380)
         }
         .windowStyle(.hiddenTitleBar)
@@ -52,10 +52,10 @@ struct ResearchHubApp: App {
         // LaTeX 專案也可以彈到獨立視窗（跟筆記一樣，以專案資料夾 URL 為值）
         WindowGroup(id: "latex", for: URL.self) { $url in
             LatexProjectWindowView(projectURL: url)
-                .environmentObject(store)
-                .environmentObject(pomodoro)
-                .environmentObject(eventStore)
-                .environmentObject(generalTodos)
+                .environment(store)
+                .environment(pomodoro)
+                .environment(eventStore)
+                .environment(generalTodos)
                 .frame(minWidth: 640, minHeight: 460)
         }
         .windowStyle(.hiddenTitleBar)
@@ -63,8 +63,8 @@ struct ResearchHubApp: App {
 
         Settings {
             SettingsView()
-                .environmentObject(store)
-                .environmentObject(pomodoro)
+                .environment(store)
+                .environment(pomodoro)
         }
     }
 }

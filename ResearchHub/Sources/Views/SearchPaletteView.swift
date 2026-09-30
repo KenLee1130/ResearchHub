@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Cmd+K 全域搜尋：搜筆記檔名與內文，點擊或 Enter 開啟。
 struct SearchPaletteView: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var query = ""

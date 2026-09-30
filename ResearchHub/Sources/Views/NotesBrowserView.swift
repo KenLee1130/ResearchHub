@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct NotesBrowserView: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
 
     @State private var selection: URL?
     /// 正在就地改名的項目（新建後自動進入；右鍵「重新命名」也走這裡）
@@ -301,7 +301,7 @@ struct NotesBrowserView: View {
 // MARK: - Breadcrumb（可點擊導航，也是拖放目標：拖筆記上來 = 移到該層）
 
 struct BreadcrumbButton: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
 
     let name: String
     let isLast: Bool
@@ -338,7 +338,7 @@ struct BreadcrumbButton: View {
 // MARK: - Icon cell
 
 struct FileIconCell: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
 
     let item: FileItem
     let isSelected: Bool
@@ -416,7 +416,7 @@ struct FileIconCell: View {
 
 /// 只有資料夾接受拖放。
 private struct FolderDropModifier: ViewModifier {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     let item: FileItem
     @Binding var isTargeted: Bool
 

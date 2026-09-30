@@ -6,10 +6,10 @@ import UniformTypeIdentifiers
 /// 日記分頁：左月曆、右當日日記編輯器。
 /// 日記檔存於 Journal/yyyy/MM/yyyy-MM-dd.md，首次輸入內容時自動建檔。
 struct JournalView: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var eventStore: EventStore
-    @EnvironmentObject private var generalStore: GeneralTodoStore
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(FileSystemStore.self) private var store
+    @Environment(EventStore.self) private var eventStore
+    @Environment(GeneralTodoStore.self) private var generalStore
+    @Environment(PomodoroModel.self) private var pomodoro
 
     @State private var displayedMonth: Date = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: .now)

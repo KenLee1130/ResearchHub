@@ -24,7 +24,7 @@ struct SettingsView: View {
 // （AppAppearance / AppLanguage 移到 Models/AppEnums.swift，iOS 版共用）
 
 struct GeneralSettingsView: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     @AppStorage("settings.appearance") private var appearance = AppAppearance.system.rawValue
     @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
@@ -139,7 +139,7 @@ struct PomodoroSettingsView: View {
     @AppStorage(PomodoroModel.SettingsKey.requirePlannedNote) private var reqPlanned = false
     @AppStorage(PomodoroModel.SettingsKey.requireExtendBreakMinutes) private var reqExtendBreak = true
     @AppStorage("gate.manualGate") private var manualGate = false
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(PomodoroModel.self) private var pomodoro
 
     var body: some View {
         Form {

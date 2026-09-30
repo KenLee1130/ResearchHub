@@ -103,11 +103,11 @@ struct EditorCore: View {
             userInfo: ["url": url, "text": text])
     }
 
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
     /// 預覽版面：flow = 連續、a4 = A4 分頁（註腳在當頁底部）。
     @AppStorage("settings.previewLayout") private var previewLayout = "flow"
-    @ObservedObject private var zotero = ZoteroStore.shared
+    private var zotero = ZoteroStore.shared
     @State private var text = ""
     @State private var initialText = ""
     @State private var fileExisted = false
@@ -193,7 +193,7 @@ struct EditorCore: View {
                         projectRoot: latexRoot
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .environmentObject(store))),
+                    .environment(store))),
                 .init(id: "preview", minWidth: 150, content: AnyView(
                     MarkdownPreviewView(
                         text: text, baseDir: fileDir,
@@ -201,7 +201,7 @@ struct EditorCore: View {
                         onJumpToSource: { jumpRequest = SourceJumpRequest(sync: $0) },
                         layout: previewLayout)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .environmentObject(store))),
+                    .environment(store))),
             ])
         case .source:
             SourceTextView(

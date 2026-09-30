@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 import Combine
 import UserNotifications
 #if canImport(AppKit)
@@ -37,7 +38,8 @@ enum PomodoroStatsPeriod: String, CaseIterable, Identifiable {
 /// 時長與循環數可在設定中調整（UserDefaults）。每顆完成會寫進 JSON 紀錄檔，
 /// 含「計畫 / 完成內容」，統計(今日/本週/上週/本月/今年)都從紀錄推導。
 @MainActor
-final class PomodoroModel: ObservableObject {
+@Observable
+final class PomodoroModel {
 
     enum Phase: String {
         case work, shortBreak, longBreak
@@ -88,9 +90,9 @@ final class PomodoroModel: ObservableObject {
 
     // MARK: - State
 
-    @Published private(set) var phase: Phase = .work
+    private(set) var phase: Phase = .work
     /// 每秒跳動的倒數獨立放在 clock。PomodoroModel 是 ObservableObject，任何
-    /// @Published 一變，所有觀察者（根畫面、首頁、日記…共 8 個）整個 body 重算；
+    /// 一變，所有觀察者（根畫面、首頁、日記…共 8 個）整個 body 重算；
     /// 以前 remaining 放在這裡，蕃茄鐘一跑整個 app 就每秒全部重畫——打字卡頓、
     /// 背景也吃掉 50% CPU（系統有 cpu_resource 報告）。現在只有真的顯示倒數的
     /// PomodoroCountdownText 觀察 clock。
@@ -99,23 +101,23 @@ final class PomodoroModel: ObservableObject {
         get { clock.remaining }
         set { if clock.remaining != newValue { clock.remaining = newValue } }
     }
-    @Published private(set) var isRunning = false
-    @Published private(set) var todayCount = 0
-    @Published private(set) var totalCount = 0
+    private(set) var isRunning = false
+    private(set) var todayCount = 0
+    private(set) var totalCount = 0
     /// 本循環已完成的 work 顆數（0..<cycleLength）
-    @Published private(set) var cyclePosition = 0
+    private(set) var cyclePosition = 0
     /// 非 nil 時，RootView 會彈出完成小視窗讓使用者決定下一步。
-    @Published var completionPrompt: CompletionPrompt?
+    var completionPrompt: CompletionPrompt?
 
     /// 已完成的蕃茄鐘紀錄(JSON 持久化)。
-    @Published private(set) var sessions: [PomodoroSession] = [] {
+    private(set) var sessions: [PomodoroSession] = [] {
         didSet { dayCounts = nil }
     }
     /// 每天幾顆（startOfDay → 顆數）。統計圖每次重畫會問幾十次「某天幾顆」，
     /// 以前每問一次就把幾百筆紀錄全掃一遍做日曆比較，首頁重畫一次要 20–40 毫秒。
-    private var dayCounts: [Date: Int]?
+    @ObservationIgnored private var dayCounts: [Date: Int]?
     /// 目前(這顆)work 的計畫;顯示在計時器上,完成時寫進紀錄。
-    @Published var currentPlan: String = ""
+    var currentPlan: String = ""
 
     private var timer: Timer?
     private var hasStartedPhase = false
@@ -913,7 +915,7 @@ final class PomodoroPanelController {
             return
         }
         let hosting = NSHostingController(
-            rootView: PomodoroPanelView().environmentObject(pomodoro))
+            rootView: PomodoroPanelView().environment(pomodoro))
         let panel = NSPanel(contentViewController: hosting)
         // 無邊框：關閉鈕做在面板內，避免透明標題列的點擊穿透問題。
         // 不用 .utilityWindow —— 它會在 app 失焦時自動把面板藏起來,正是「切桌面後消失」的元兇。
@@ -937,7 +939,7 @@ final class PomodoroPanelController {
 }
 
 struct PomodoroPanelView: View {
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(PomodoroModel.self) private var pomodoro
     @State private var hovering = false
 
     var body: some View {
@@ -1005,7 +1007,7 @@ struct PomodoroPanelView: View {
 
 /// work 階段顯示目前這顆的計畫;點一下用 popover 編輯。其他階段不顯示。
 struct PomodoroPlanRow: View {
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(PomodoroModel.self) private var pomodoro
     @State private var editing = false
     @State private var draft = ""
 
@@ -1060,7 +1062,7 @@ struct PomodoroPlanRow: View {
 // MARK: - Sidebar mini view
 
 struct PomodoroMiniView: View {
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(PomodoroModel.self) private var pomodoro
 
     var body: some View {
         VStack(spacing: 6) {

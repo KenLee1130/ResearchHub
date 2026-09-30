@@ -1,24 +1,26 @@
 import SwiftUI
+import Observation
 import Combine
 import UserNotifications
 
 /// 管理 Research Hub 的根資料夾與目前瀏覽位置。
 /// 筆記就是磁碟上的真實檔案：資料夾 = 目錄、筆記 = .md 檔。
 @MainActor
-final class FileSystemStore: ObservableObject {
+@Observable
+final class FileSystemStore {
 
-    @Published private(set) var rootURL: URL?
+    private(set) var rootURL: URL?
     /// 從 Notes/ 開始的導航堆疊，最後一個是目前所在目錄。
-    @Published private(set) var stack: [URL] = []
-    @Published private(set) var items: [FileItem] = []
-    @Published var errorMessage: String?
+    private(set) var stack: [URL] = []
+    private(set) var items: [FileItem] = []
+    var errorMessage: String?
 
     // 跨分頁導航與全域搜尋
-    @Published var requestedTab: AppTab?
-    @Published var pendingOpenNote: URL?
-    @Published var searchPresented = false
+    var requestedTab: AppTab?
+    var pendingOpenNote: URL?
+    var searchPresented = false
     /// researchhub://journal?date=… 要求開啟的日記日（JournalView 消化後清空）
-    @Published var pendingJournalDate: Date?
+    var pendingJournalDate: Date?
 
     private static let bookmarkKey = "researchHub.rootBookmark"
     private let fm = FileManager.default
@@ -177,7 +179,7 @@ final class FileSystemStore: ObservableObject {
                 includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
                 options: [.skipsHiddenFiles]
             )
-            items = urls.compactMap { url in
+            let listing: [FileItem] = urls.compactMap { url in
                 let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .contentModificationDateKey])
                 let isFolder = values?.isDirectory ?? false
                 if !isFolder && url.pathExtension.lowercased() != "md" { return nil }
@@ -194,6 +196,8 @@ final class FileSystemStore: ObservableObject {
                 if a.isFolder != b.isFolder { return a.isFolder }
                 return a.name.localizedStandardCompare(b.name) == .orderedAscending
             }
+            // 沒變就不要重設：一設，所有用到清單的畫面都會重畫
+            if listing != items { items = listing }
         } catch {
             errorMessage = error.localizedDescription
             items = []

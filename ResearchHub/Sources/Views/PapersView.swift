@@ -6,8 +6,8 @@ import Combine
 
 /// 論文分頁：左 Zotero library 清單（可搜尋），右內建 PDF 閱讀器。
 struct PapersView: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @StateObject private var zotero = ZoteroStore.shared
+    @Environment(FileSystemStore.self) private var store
+    private var zotero = ZoteroStore.shared
 
     @State private var search = ""
     @State private var selected: ZoteroItem?

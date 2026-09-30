@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 新增 / 編輯事件的表單，含標籤管理（增刪、調色）。
 struct EventEditorSheet: View {
-    @EnvironmentObject private var eventStore: EventStore
+    @Environment(EventStore.self) private var eventStore
     @Environment(\.dismiss) private var dismiss
 
     @State var draft: CalendarEvent
@@ -64,7 +64,7 @@ struct EventEditorSheet: View {
                 }
 
                 DisclosureGroup("管理標籤", isExpanded: $showTagManager) {
-                    ForEach($eventStore.tags) { $tag in
+                    ForEach(Bindable(eventStore).tags) { $tag in
                         HStack {
                             ColorPicker("", selection: colorBinding($tag))
                                 .labelsHidden()

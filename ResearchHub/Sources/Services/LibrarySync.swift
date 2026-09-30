@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 import Combine
 
 extension Notification.Name {
@@ -19,11 +20,12 @@ extension Notification.Name {
 ///    每秒檢查一次，下載好的就廣播 `.rhLibraryDidChange`，各 store 自己重讀。
 /// 2. 對根資料夾掛一個 NSFilePresenter：app 開著時另一台裝置同步進來的改動也會廣播。
 @MainActor
-final class LibrarySync: ObservableObject {
+@Observable
+final class LibrarySync {
     static let shared = LibrarySync()
 
     /// 還在從 iCloud 下載的檔案數（>0 時畫面顯示「正在同步」）
-    @Published private(set) var pendingCount = 0
+    private(set) var pendingCount = 0
 
     private var rootURL: URL?
     private var watcher: DirectoryWatcher?
@@ -241,7 +243,7 @@ func mergeByID<T: Identifiable>(disk: [T], local: [T]) -> [T] {
 
 /// 「正在從 iCloud 取得另一台裝置的更新…」提示；沒在下載時不佔空間。
 struct LibrarySyncBanner: View {
-    @ObservedObject private var sync = LibrarySync.shared
+    private var sync = LibrarySync.shared
 
     var body: some View {
         if sync.pendingCount > 0 {

@@ -7,10 +7,10 @@ import UniformTypeIdentifiers
 /// 把資料夾放 iCloud Drive 即可跨裝置同步。定位是 companion：捕捉與瀏覽，不是全功能編輯。
 @main
 struct ResearchHubMobileApp: App {
-    @StateObject private var store = FileSystemStore()
-    @StateObject private var eventStore = EventStore()
-    @StateObject private var generalTodos = GeneralTodoStore()
-    @StateObject private var pomodoro = PomodoroModel()
+    @State private var store = FileSystemStore()
+    @State private var eventStore = EventStore()
+    @State private var generalTodos = GeneralTodoStore()
+    @State private var pomodoro = PomodoroModel()
 
     init() {
         LanguageManager.activate()
@@ -20,21 +20,21 @@ struct ResearchHubMobileApp: App {
     var body: some Scene {
         WindowGroup {
             MobileRootView()
-                .environmentObject(store)
-                .environmentObject(eventStore)
-                .environmentObject(generalTodos)
-                .environmentObject(pomodoro)
+                .environment(store)
+                .environment(eventStore)
+                .environment(generalTodos)
+                .environment(pomodoro)
         }
     }
 }
 
 struct MobileRootView: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var eventStore: EventStore
-    @EnvironmentObject private var generalTodos: GeneralTodoStore
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(FileSystemStore.self) private var store
+    @Environment(EventStore.self) private var eventStore
+    @Environment(GeneralTodoStore.self) private var generalTodos
+    @Environment(PomodoroModel.self) private var pomodoro
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
-    @ObservedObject private var gate = ReadingGateStore.shared
+    private var gate = ReadingGateStore.shared
     @State private var gateRequest: GateRequest?
     @Environment(\.scenePhase) private var scenePhase
 
@@ -120,7 +120,7 @@ struct MobileRootView: View {
 // MARK: - Onboarding：選 iCloud Drive 的資料夾
 
 struct MobileOnboardingView: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     @State private var showPicker = false
 
     var body: some View {
@@ -149,9 +149,9 @@ struct MobileOnboardingView: View {
 // MARK: - 今天：日記快速記錄 + 今日事件 + Claude 觀察
 
 struct MobileTodayView: View {
-    @EnvironmentObject private var store: FileSystemStore
-    @EnvironmentObject private var eventStore: EventStore
-    @EnvironmentObject private var generalTodos: GeneralTodoStore
+    @Environment(FileSystemStore.self) private var store
+    @Environment(EventStore.self) private var eventStore
+    @Environment(GeneralTodoStore.self) private var generalTodos
     @ObservedObject private var editorHost = BlockEditorHost.shared
 
     @State private var journalText = ""
@@ -437,7 +437,7 @@ struct MobileTodayView: View {
 // MARK: - 一般待辦
 
 struct MobileInboxView: View {
-    @EnvironmentObject private var generalTodos: GeneralTodoStore
+    @Environment(GeneralTodoStore.self) private var generalTodos
     @State private var newTodo = ""
 
     var body: some View {
@@ -496,7 +496,7 @@ struct MobileInboxView: View {
 // MARK: - 設定
 
 struct MobileSettingsView: View {
-    @EnvironmentObject private var store: FileSystemStore
+    @Environment(FileSystemStore.self) private var store
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @State private var showPicker = false
 

@@ -6,7 +6,7 @@ import SwiftUI
 /// 休息結束:選 繼續工作(分鐘+計畫) / 繼續休息(分鐘) / 稍後再說。
 /// 「稍後再說」=關掉視窗、不啟動下一段計時器,等使用者自己開始。
 struct PomodoroCompletionSheet: View {
-    @EnvironmentObject private var pomodoro: PomodoroModel
+    @Environment(PomodoroModel.self) private var pomodoro
     let prompt: PomodoroModel.CompletionPrompt
 
     // 哪些欄位必填（由設定 → 蕃茄鐘 控制）
