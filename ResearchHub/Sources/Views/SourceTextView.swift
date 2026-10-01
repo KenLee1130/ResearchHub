@@ -316,7 +316,7 @@ final class PastingTextView: NSTextView {
     private func citeItems(prefix: String) -> [CompletionItem] {
         let tokens = prefix.lowercased().split(whereSeparator: { $0 == " " || $0 == "\u{3000}" })
         var result: [CompletionItem] = []
-        for item in ZoteroStore.shared.items {
+        for item in ZoteroStore.shared.items where !item.isStandalonePDF {
             let hay = "\(item.authors) \(item.title) \(item.year) \(item.data.publicationTitle ?? "") \(item.key)"
                 .lowercased()
             guard tokens.allSatisfy({ hay.contains($0) }) else { continue }

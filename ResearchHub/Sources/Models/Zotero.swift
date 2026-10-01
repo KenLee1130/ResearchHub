@@ -41,6 +41,14 @@ struct ZoteroItem: Codable, Identifiable, Hashable {
 
     var title: String { data.title ?? "（無標題）" }
 
+    /// 直接拖進 Zotero、沒有書目資料的 PDF（最上層就是附件本身，例如掃描的書）。
+    /// 論文頁要列出來讀，但它沒有作者、年份，不適合拿來 \cite。
+    var isStandalonePDF: Bool {
+        data.itemType == "attachment"
+            && (data.contentType == "application/pdf"
+                || (data.filename?.lowercased().hasSuffix(".pdf") ?? false))
+    }
+
     var authors: String {
         (data.creators ?? []).map(\.display).joined(separator: ", ")
     }
@@ -116,7 +124,7 @@ final class ZoteroStore {
                 if batch.count < pageSize { break }
             }
             let fresh = decoded.filter {
-                $0.data.itemType != "attachment" && $0.data.itemType != "note"
+                ($0.data.itemType != "attachment" && $0.data.itemType != "note") || $0.isStandalonePDF
             }
             if fresh != items { items = fresh }
         } catch {
@@ -151,6 +159,8 @@ final class ZoteroStore {
 
     /// 找出某筆文獻的 PDF 附件
     func pdfAttachment(for item: ZoteroItem) async -> Attachment? {
+        // 獨立的 PDF：PDF 就是它自己，沒有子項目
+        if item.isStandalonePDF { return Attachment(key: item.key, filename: item.data.filename) }
         let url = base.appendingPathComponent("items/\(item.key)/children")
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let children = try? JSONDecoder().decode([ZoteroItem].self, from: data)

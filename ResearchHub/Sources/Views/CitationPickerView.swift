@@ -9,8 +9,10 @@ struct CitationPickerView: View {
 
     private var filtered: [ZoteroItem] {
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return zotero.items }
-        return zotero.items.filter {
+        // 獨立的 PDF 沒有書目資料，不能當引用
+        let citable = zotero.items.filter { !$0.isStandalonePDF }
+        guard !q.isEmpty else { return citable }
+        return citable.filter {
             $0.title.lowercased().contains(q)
                 || $0.authors.lowercased().contains(q)
                 || $0.year.contains(q)
