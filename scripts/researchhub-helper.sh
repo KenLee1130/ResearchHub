@@ -15,7 +15,7 @@
 #   zip     <來源資料夾> <目的 .zip>            （內容放在 zip 根目錄，跟 Overleaf 下載的格式一樣）
 #   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
 #   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> <effort 或 -> （論文問答，見 PaperChat.swift）
-#   translate <工作資料夾> <目標語言，例如 zh-TW>（BabelDOC＋DeepSeek 翻譯 input.pdf，見 PaperTranslator）
+#   translate <工作資料夾> <目標語言，例如 zh-TW> [頁碼範圍，例如 12-30]（BabelDOC＋DeepSeek 翻譯 input.pdf，見 PaperTranslator）
 #   models  列出 ChatGPT（Codex）帳號可用的模型：每行 slug<TAB>名稱<TAB>effort1,effort2…<TAB>預設 effort
 #   version
 set -u
@@ -157,9 +157,11 @@ case "$cmd" in
     # 翻譯用 DeepSeek（使用者自己的 API 金鑰，放在 ~/.config/researchhub/deepseek.key，
     # 沙盒 app 讀不到那裡，所以只有這支小幫手碰得到金鑰）。
     # 一定要關掉思考模式：開著的話一篇 6 頁的論文吐出 20 萬 token、還會漏翻整段。
-    work="$1"; lang="${2:-zh-TW}"
+    work="$1"; lang="${2:-zh-TW}"; pages="${3:-}"
     require_local "$work"
     cd "$work" || { echo "RC=2"; echo "ERR=找不到翻譯工作資料夾"; exit 0; }
+    # 只翻部分頁（書）：沒指定的頁原樣保留，所以譯文 PDF 的頁碼跟原文一致
+    pargs=(); [ -n "$pages" ] && pargs=(--pages "$pages")
     PATH="$HOME/.local/bin:$PATH"; export PATH
     key_file="$HOME/.config/researchhub/deepseek.key"
     [ -s "$key_file" ] || { echo "RC=3"; echo "ERR=找不到 DeepSeek 金鑰（$key_file）"; exit 0; }
@@ -171,7 +173,7 @@ case "$cmd" in
     driver="$(cd "$(dirname "$0")" && pwd)/babeldoc-align.py"
     [ -x "$py" ] && [ -f "$driver" ] || { echo "RC=127"; echo "ERR=找不到 BabelDOC 的 Python 或 babeldoc-align.py（請重跑 install-mac.sh）"; exit 0; }
     # 不用 --debug（那會在輸出 PDF 上畫除錯框）；段落方框由 babeldoc-align.py 在排版前記下
-    RH_ALIGN_OUT="$work/align.json" "$py" "$driver" --files input.pdf --lang-in en --lang-out "$lang" \
+    RH_ALIGN_OUT="$work/align.json" RH_PAGES="$pages" "$py" "$driver" --files input.pdf --lang-in en --lang-out "$lang" ${pargs[@]+"${pargs[@]}"} \
       --openai --openai-model deepseek-flash --openai-base-url https://api.deepseek.com/v1 \
       --openai-api-key "$(tr -d '[:space:]' < "$key_file")" --openai-thinking disabled \
       --output "$work/out" --watermark-output-mode no_watermark --no-dual > log.txt 2>&1 &

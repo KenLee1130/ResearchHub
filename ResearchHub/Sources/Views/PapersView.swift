@@ -30,6 +30,7 @@ struct PapersView: View {
     /// 段落對照（BabelDOC 翻的才有）
     @State private var alignment: PaperAlignment?
     @State private var syncTask: Task<Void, Never>?
+    @State private var showTranslateSheet = false
 
     enum ViewMode: String, CaseIterable, Identifiable {
         case original, translation, sideBySide
@@ -55,6 +56,15 @@ struct PapersView: View {
         .navigationTitle("論文")
         .fileImporter(isPresented: $importingTranslation, allowedContentTypes: [.pdf]) { result in
             if case .success(let url) = result { importTranslation(from: url) }
+        }
+        .sheet(isPresented: $showTranslateSheet) {
+            let doc = viewer.pdfView?.document
+            TranslateRangeSheet(
+                pageCount: doc?.pageCount ?? 0,
+                currentPage: viewer.currentPageIndex ?? 0,
+                chapters: TranslateRangeSheet.chapters(of: doc),
+                translatedPages: translationData == nil ? [] : (alignment?.translatedPageSet ?? []),
+                onStart: { startBabelDOC(pages: $0) })
         }
         .task {
             zotero.restoreZoteroDir()
@@ -229,7 +239,7 @@ struct PapersView: View {
                             .help("原文／中文版／左右對照（兩邊同步翻頁）")
                         }
                         Menu {
-                            Button("用 BabelDOC 翻譯") { startBabelDOC() }
+                            Button("用 BabelDOC 翻譯…") { showTranslateSheet = true }
                                 .disabled(selected.map { translator.isRunning($0.key) } ?? true
                                           || translator.runningKey != nil)
                             Button("用沈浸式翻譯產生中文版…") { startImmersiveTranslate() }
@@ -430,7 +440,14 @@ struct PapersView: View {
             source.clearSync()
             target.clearSelection()   // 另一邊上一次的選取留著會讓人以為那才是對應處
             let center = CGPoint(x: anchor.rect.midX, y: anchor.rect.midY)
-            // BabelDOC 的段落方框兩邊一樣；沒有對照資料就從選取的那幾行推出整段
+            // 1. 句子等級：找出選到的是這段的第幾句，另一邊只標對應的那一句
+            if let para = alignment?.sentenceParagraph(onPage: anchor.page, at: center),
+               let indices = sentenceTargets(para, page: anchor.page, from: source, to: target,
+                                             sourceIsOriginal: source === viewer) {
+                target.showSync(page: anchor.page, indices: indices)
+                return
+            }
+            // 2. 段落等級：BabelDOC 的段落方框兩邊一樣；沒有對照資料就從選取的那幾行推出整段
             let box = alignment?.paragraph(onPage: anchor.page, at: center)
                 ?? source.paragraphRect(page: anchor.page, around: anchor.rect)
             guard let box else { target.clearSync(); return }
@@ -438,9 +455,40 @@ struct PapersView: View {
         }
     }
 
-    private func startBabelDOC() {
+    /// 選取落在段落的哪幾句 → 另一邊對應句子的字元索引
+    private func sentenceTargets(_ para: PaperAlignment.Paragraph, page: Int,
+                                 from source: PDFViewerController, to target: PDFViewerController,
+                                 sourceIsOriginal: Bool) -> [Int]? {
+        let mine = sourceIsOriginal ? para.src : para.dst
+        let theirs = sourceIsOriginal ? para.dst : para.src
+        guard mine.count == theirs.count, mine.count > 1 else { return nil }
+        var hits: [Int] = []
+        for (i, sentence) in mine.enumerated() where !sentence.isEmpty {
+            if let found = source.locate(sentence, page: page, within: para.rect),
+               source.selectionTouches(found, page: page) {
+                hits.append(i)
+            }
+        }
+        guard !hits.isEmpty else { return nil }
+        var out: [Int] = []
+        for i in hits {
+            // 對面是空字串＝那句被併進鄰句：往前找、找不到再往後找有字的那句
+            let j = stride(from: i, through: 0, by: -1).first { !theirs[$0].isEmpty }
+                ?? (i..<theirs.count).first { !theirs[$0].isEmpty }
+            if let j, let found = target.locate(theirs[j], page: page, within: para.rect) {
+                out += found
+            }
+        }
+        return out.isEmpty ? nil : out
+    }
+
+    private func startBabelDOC(pages: String?) {
         guard let item = selected, let data = pdfData, let root = store.rootURL else { return }
-        translator.translate(key: item.key, pdfData: data, root: root) { trans, align in
+        // 只翻一部分時，合併進已經翻好的頁（要有段落對照才知道哪些頁翻過；手動匯入的譯文就直接取代）
+        let existing: (data: Data, alignment: PaperAlignment)? =
+            (pages != nil) ? translationData.flatMap { d in alignment.map { (d, $0) } } : nil
+        translator.translate(key: item.key, pdfData: data, root: root,
+                             pages: pages, existing: existing) { trans, align in
             guard selected?.key == item.key else { return }   // 翻譯期間換了別篇
             translationData = trans
             alignment = align
@@ -743,13 +791,29 @@ final class PDFViewerController: ObservableObject {
 
     /// 在這一頁的 rect 範圍內，把文字一行一行淡淡標色，並捲到看得到的地方
     func showSync(page index: Int, rect: CGRect) {
+        guard let page = pdfView?.document?.page(at: index) else { return }
+        let lines = page.selection(for: rect.insetBy(dx: -1, dy: -1))?.selectionsByLine() ?? []
+        var rects = lines.map { $0.bounds(for: page) }.filter { $0.width > 1 && $0.height > 1 }
+        if rects.isEmpty { rects = [rect] }   // 抓不到文字（例如字是畫成圖形的）就整塊標
+        highlight(page: index, lineRects: rects)
+    }
+
+    /// 只標這幾段文字（句子等級的對照）
+    func showSync(page index: Int, ranges: [NSRange]) {
+        guard let page = pdfView?.document?.page(at: index) else { return }
+        let rects = ranges.flatMap { range in
+            (page.selection(for: range)?.selectionsByLine() ?? []).map { $0.bounds(for: page) }
+        }.filter { $0.width > 1 && $0.height > 1 }
+        guard !rects.isEmpty else { return }
+        highlight(page: index, lineRects: rects)
+    }
+
+    private func highlight(page index: Int, lineRects rects: [CGRect]) {
         clearSync()
         guard let view = pdfView, let doc = view.document,
               index >= 0, index < doc.pageCount, let page = doc.page(at: index) else { return }
         let color = NSColor.systemBlue.withAlphaComponent(0.22)
-        let lines = page.selection(for: rect.insetBy(dx: -1, dy: -1))?.selectionsByLine() ?? []
-        var rects = lines.map { $0.bounds(for: page) }.filter { $0.width > 1 && $0.height > 1 }
-        if rects.isEmpty { rects = [rect] }   // 抓不到文字（例如字是畫成圖形的）就整塊標
+        let rect = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
         for r in rects {
             let a = PDFAnnotation(bounds: r.insetBy(dx: -1, dy: -0.5), forType: .highlight, withProperties: nil)
             a.color = color
@@ -779,6 +843,127 @@ final class PDFViewerController: ObservableObject {
     func clearSync() {
         for (page, a) in syncAnnotations { page.removeAnnotation(a) }
         syncAnnotations = []
+    }
+
+    // MARK: 句子定位（句子等級的對照）
+
+    /// 每頁每個字的位置（page.string 的索引、方框、字）。
+    /// ⚠️ 不能用 page.characterBounds(at:)：它的索引跟 page.string 對不起來（實測 x 差了 60pt），
+    /// 要用 page.selection(for: NSRange) 取方框才準。一頁幾千個字，算一次就快取。
+    private var charCache: [Int: [(i: Int, b: CGRect, s: String)]] = [:]
+    private var boxCache: [String: (chars: [Character], idx: [Int])] = [:]
+    /// 換了文件（例如新的譯文）就要丟掉
+    func resetTextCache() { charCache = [:]; boxCache = [:] }
+
+    private func pageChars(_ index: Int) -> [(i: Int, b: CGRect, s: String)] {
+        if let hit = charCache[index] { return hit }
+        guard let page = pdfView?.document?.page(at: index) else { return [] }
+        let text = (page.string ?? "") as NSString
+        var out: [(i: Int, b: CGRect, s: String)] = []
+        text.enumerateSubstrings(in: NSRange(location: 0, length: text.length),
+                                 options: .byComposedCharacterSequences) { sub, r, _, _ in
+            guard let sub, !sub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let sel = page.selection(for: r) else { return }
+            let b = sel.bounds(for: page)
+            if b.width > 0 { out.append((r.location, b, sub)) }
+        }
+        charCache[index] = out
+        return out
+    }
+
+    /// 段落方框裡的字，照畫面位置重排（一行一行、由左到右），只留字母數字。
+    /// 譯文 PDF 抽出的文字是左右兩欄一行一行交錯的，照 page.string 的順序找不到跨行的句子。
+    private func boxText(_ index: Int, _ box: CGRect) -> (chars: [Character], idx: [Int]) {
+        let key = "\(index)|\(box.minX),\(box.minY),\(box.maxX),\(box.maxY)"
+        if let hit = boxCache[key] { return hit }
+        let area = box.insetBy(dx: -3, dy: -3)
+        let items = pageChars(index)
+            .filter { area.contains(CGPoint(x: $0.b.midX, y: $0.b.midY)) }
+            .sorted { $0.b.midY > $1.b.midY }
+        var lines: [[(i: Int, b: CGRect, s: String)]] = []
+        for it in items {
+            if let first = lines.last?.first,
+               abs(first.b.midY - it.b.midY) < max(2, 0.45 * max(first.b.height, it.b.height)) {
+                lines[lines.count - 1].append(it)
+            } else {
+                lines.append([it])
+            }
+        }
+        var chars: [Character] = [], idx: [Int] = []
+        for line in lines {
+            for it in line.sorted(by: { $0.b.minX < $1.b.minX }) {
+                for c in Self.loose(it.s) { chars.append(c); idx.append(it.i) }
+            }
+        }
+        boxCache[key] = (chars, idx)
+        return (chars, idx)
+    }
+
+    nonisolated static func loose(_ s: String) -> [Character] {
+        var t = s.lowercased()
+        for (a, b) in [("ﬁ", "fi"), ("ﬂ", "fl"), ("ﬀ", "ff"), ("ﬃ", "ffi"), ("ﬄ", "ffl")] {
+            t = t.replacingOccurrences(of: a, with: b)
+        }
+        return t.unicodeScalars
+            .filter { CharacterSet.letters.contains($0) || CharacterSet.decimalDigits.contains($0) }
+            .map(Character.init)
+    }
+
+    /// 這句話在段落方框裡的位置（page.string 的字元索引）。
+    /// 以空白切成片段依序比對（公式、引用編號在對照資料裡是空白，PDF 裡卻有字），
+    /// 片段之間允許夾少量多出來的字。實測 Das 2018：原文 96%、譯文 98% 的句子找得到。
+    func locate(_ sentence: String, page index: Int, within box: CGRect) -> [Int]? {
+        let pieces = sentence.split(whereSeparator: { $0.isWhitespace })
+            .map { Self.loose(String($0)) }.filter { !$0.isEmpty }
+        guard let first = pieces.first, pieces.reduce(0, { $0 + $1.count }) >= 2 else { return nil }
+        let bt = boxText(index, box)
+        let c = bt.chars
+        func matches(_ pat: [Character], at k: Int) -> Bool {
+            k >= 0 && k + pat.count <= c.count && Array(c[k..<(k + pat.count)]) == pat
+        }
+        let gap = 24
+        for i in 0..<max(0, c.count - first.count + 1) where matches(first, at: i) {
+            var pos = i + first.count, skipped = 0, ok = true
+            for piece in pieces.dropFirst() {
+                if pos < c.count, let q = (pos...min(c.count - 1, pos + gap)).first(where: { matches(piece, at: $0) }) {
+                    pos = q + piece.count
+                } else if pieces.count > 4 && skipped < 2 {
+                    skipped += 1
+                } else {
+                    ok = false
+                    break
+                }
+            }
+            if ok, pos > i { return Array(bt.idx[i..<pos]) }
+        }
+        return nil
+    }
+
+    /// 這些字有沒有落在目前的選取裡
+    func selectionTouches(_ indices: [Int], page index: Int) -> Bool {
+        guard let view = pdfView, let doc = view.document, let sel = view.currentSelection,
+              let page = sel.pages.first, doc.index(for: page) == index else { return false }
+        let lines = sel.selectionsByLine().map { $0.bounds(for: page).insetBy(dx: -0.5, dy: -0.5) }
+        let wanted = Set(indices)
+        return pageChars(index).contains { ch in
+            wanted.contains(ch.i) && lines.contains { $0.contains(CGPoint(x: ch.b.midX, y: ch.b.midY)) }
+        }
+    }
+
+    /// 把字元索引併成連續範圍（中間隔幾個空白、標點也算連續）再標色
+    func showSync(page index: Int, indices: [Int]) {
+        let sorted = Array(Set(indices)).sorted()
+        guard var start = sorted.first else { return }
+        var ranges: [NSRange] = [], last = start
+        for i in sorted.dropFirst() {
+            if i - last > 3 {
+                ranges.append(NSRange(location: start, length: last - start + 1))
+                start = i
+            }
+            last = i
+        }
+        ranges.append(NSRange(location: start, length: last - start + 1))
+        showSync(page: index, ranges: ranges)
     }
 
     /// 沒有 align.json 時的退路：從選取的那幾行往上下延伸，行距正常就算同一段，
@@ -868,6 +1053,7 @@ struct PDFKitView: NSViewRepresentable {
         view.autoScales = true
         view.document = PDFDocument(data: data)
         controller.pdfView = view
+        controller.resetTextCache()
         controller.applyAppearance()
         let controller = self.controller
         context.coordinator.pageObserver = NotificationCenter.default.addObserver(
@@ -888,6 +1074,7 @@ struct PDFKitView: NSViewRepresentable {
         if context.coordinator.lastData != data {
             context.coordinator.lastData = data
             view.document = PDFDocument(data: data)
+            controller.resetTextCache()
         }
         controller.applyAppearance()
     }

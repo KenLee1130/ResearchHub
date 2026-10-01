@@ -13,6 +13,52 @@ nonisolated struct PaperAlignment: Codable, Sendable {
     var source: String?
     /// 每頁的段落方框 [x, y, x2, y2]
     var pages: [[[Double]]]
+    /// v2：總頁數、翻過的頁（0 起算；書可以只翻一部分）、每段的句子對照
+    var pageCount: Int?
+    var translatedPages: [Int]?
+    var paragraphs: [Paragraph]?
+
+    /// 一段的句子對照：src[i] 對 dst[i]（dst 可能是空字串＝那句在譯文裡被併進鄰句）
+    struct Paragraph: Codable, Sendable {
+        var page: Int
+        var box: [Double]
+        var src: [String]
+        var dst: [String]
+        var method: String?
+        var rect: CGRect {
+            box.count == 4 ? CGRect(x: box[0], y: box[1], width: box[2] - box[0], height: box[3] - box[1]) : .zero
+        }
+    }
+
+    /// 這一頁、包住這一點的段落（句子對照用）
+    func sentenceParagraph(onPage index: Int, at point: CGPoint) -> Paragraph? {
+        (paragraphs ?? [])
+            .filter { $0.page == index && $0.rect.insetBy(dx: -2, dy: -2).contains(point) }
+            .min { $0.rect.width * $0.rect.height < $1.rect.width * $1.rect.height }
+    }
+
+    /// 已經翻好的頁（舊版 v1 沒記：當成全部都翻了）
+    var translatedPageSet: Set<Int> {
+        if let translatedPages { return Set(translatedPages) }
+        return Set(pages.indices)
+    }
+
+    /// 這次只翻了一部分頁：把新翻的頁蓋進舊的對照（其他頁保留）
+    func merging(_ newer: PaperAlignment) -> PaperAlignment {
+        let fresh = newer.translatedPageSet
+        let count = max(pageCount ?? pages.count, newer.pageCount ?? newer.pages.count)
+        var mergedPages: [[[Double]]] = []
+        for i in 0..<count {
+            let mine = pages.indices.contains(i) ? pages[i] : []
+            let theirs = newer.pages.indices.contains(i) ? newer.pages[i] : []
+            mergedPages.append(fresh.contains(i) ? theirs : mine)
+        }
+        let kept = (paragraphs ?? []).filter { !fresh.contains($0.page) }
+        return PaperAlignment(
+            version: 2, source: "babeldoc", pages: mergedPages, pageCount: count,
+            translatedPages: Array(translatedPageSet.union(fresh)).sorted(),
+            paragraphs: kept + (newer.paragraphs ?? []))
+    }
 
     func boxes(onPage index: Int) -> [CGRect] {
         guard pages.indices.contains(index) else { return [] }
@@ -52,7 +98,10 @@ final class PaperTranslator {
 
     func isRunning(_ key: String) -> Bool { runningKey == key }
 
-    func translate(key: String, pdfData: Data, root: URL,
+    /// pages：BabelDOC 的頁碼範圍（1 起算，例如 "12-30"）；nil＝整份。
+    /// 只翻一部分時，會把新翻的頁合併進原本已經翻好的譯文（existing），不會蓋掉前面翻好的頁。
+    func translate(key: String, pdfData: Data, root: URL, pages: String? = nil,
+                   existing: (data: Data, alignment: PaperAlignment)? = nil,
                    onDone: @escaping @MainActor (Data, PaperAlignment?) -> Void) {
         guard runningKey == nil else { return }
         runningKey = key
@@ -67,7 +116,9 @@ final class PaperTranslator {
             fail("無法準備翻譯暫存檔：\(error.localizedDescription)")
             return
         }
-        LatexCompiler.runHelper(["translate", work.path, "zh-TW"]) { [weak self] output, error in
+        var args = ["translate", work.path, "zh-TW"]
+        if let pages, !pages.isEmpty { args.append(pages) }
+        LatexCompiler.runHelper(args) { [weak self] output, error in
             guard let self else { return }
             let fields = LatexCompiler.parseFields(output)
             if let error {
@@ -83,23 +134,46 @@ final class PaperTranslator {
                 return
             }
             let alignData = fields["ALIGN"].flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
-            let alignment = alignData.flatMap { try? JSONDecoder().decode(PaperAlignment.self, from: $0) }
-            // 成品搬回論文資料夾（跟著 iCloud 走，iPhone 也看得到）
+            let fresh = alignData.flatMap { try? JSONDecoder().decode(PaperAlignment.self, from: $0) }
             let dir = PaperChatSession.paperDir(root: root, key: key)
-            Task.detached(priority: .utility) {
-                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                try? data.write(to: dir.appendingPathComponent("translation.pdf"), options: .atomic)
-                let alignURL = dir.appendingPathComponent("align.json")
-                if let alignData {
-                    try? alignData.write(to: alignURL, options: .atomic)
-                } else {
-                    try? FileManager.default.removeItem(at: alignURL)
-                }
+            Task { [weak self] in
+                // 合併（書只翻部分頁時）與存檔都在背景做：一本書幾百頁，搬頁很花時間
+                let result = await Task.detached(priority: .userInitiated) { () -> (Data, PaperAlignment?) in
+                    var outData = data
+                    var outAlign = fresh
+                    if let existing, let fresh, fresh.translatedPages != nil {
+                        outData = Self.mergePages(base: existing.data, newer: data,
+                                                  pages: fresh.translatedPageSet) ?? data
+                        outAlign = existing.alignment.merging(fresh)
+                    }
+                    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                    try? outData.write(to: dir.appendingPathComponent("translation.pdf"), options: .atomic)
+                    let alignURL = dir.appendingPathComponent("align.json")
+                    if let outAlign, let encoded = try? JSONEncoder().encode(outAlign) {
+                        try? encoded.write(to: alignURL, options: .atomic)
+                    } else {
+                        try? FileManager.default.removeItem(at: alignURL)
+                    }
+                    return (outData, outAlign)
+                }.value
+                guard let self else { return }
+                self.runningKey = nil
+                self.startedAt = nil
+                onDone(result.0, result.1)
             }
-            self.runningKey = nil
-            self.startedAt = nil
-            onDone(data, alignment)
         }
+    }
+
+    /// 把 newer 裡 pages 這幾頁搬進 base（同一份原文翻出來的，兩邊頁數一樣）
+    nonisolated static func mergePages(base: Data, newer: Data, pages: Set<Int>) -> Data? {
+        guard let baseDoc = PDFDocument(data: base), let newDoc = PDFDocument(data: newer),
+              baseDoc.pageCount == newDoc.pageCount else { return nil }
+        for i in pages.sorted() where i < newDoc.pageCount {
+            guard let page = newDoc.page(at: i)?.copy() as? PDFPage else { continue }
+            baseDoc.removePage(at: i)
+            baseDoc.insert(page, at: i)
+        }
+        return baseDoc.dataRepresentation()
     }
 
     private func fail(_ message: String) {
