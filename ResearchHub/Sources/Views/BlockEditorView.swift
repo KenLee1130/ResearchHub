@@ -987,6 +987,8 @@ extension BlockEditorView {
           } },
         { label: "\#(L("摺疊清單"))", hint: "▸", match: "toggle details collapse fold 摺疊 折疊 收合",
           run: ed => {
+            // 在待辦的標題行選它＝要可摺疊的待辦（不是在待辦裡塞一個摺疊區塊，版面會壞）
+            if (makeTaskFoldable(ed)) return;
             ed.chain().focus().insertContent({
               type: "toggleList",
               attrs: { open: true },
@@ -1768,14 +1770,34 @@ extension BlockEditorView {
       // ---- TaskFold END ----
 
       // ---- TaskToggleShortcut BEGIN ----
-      // 已經寫好的待辦，在文字後面打「空格 /toggle」→ 就地變成可摺疊的待辦：
+      // 已經寫好的待辦，在標題開頭或「空格」後打 /toggle → 就地變成可摺疊的待辦：
       // 拿掉 /toggle，底下開一個空的子待辦、游標移過去（跟 /todo /toggle 建出來的一樣）。
       // 已經有子項目的待辦本來就可以摺疊，只拿掉 /toggle。
+      // 游標在待辦的標題行（第一段）→ 變成可摺疊的待辦：底下開一個空的子待辦、游標移過去。
+      // 已經有子項目就本來可以摺疊，不動。不在待辦標題行回傳 false。
+      function makeTaskFoldable(ed) {
+        const { state } = ed;
+        const { $from } = state.selection;
+        const d = $from.depth;
+        if (d < 1 || $from.parent.type.name !== "paragraph") return false;
+        const item = $from.node(d - 1);
+        if (item.type.name !== "taskItem" || $from.index(d - 1) !== 0) return false;
+        if (hasChildList(item)) return true;
+        const { taskList, taskItem, paragraph } = state.schema.nodes;
+        const afterTitle = $from.before(d - 1) + 1 + item.firstChild.nodeSize;
+        const tr = state.tr.insert(afterTitle, taskList.create(null,
+          taskItem.create({ checked: false }, paragraph.create())));
+        // taskList(1) taskItem(1) paragraph(1) → 子待辦的文字開頭
+        tr.setSelection(TextSelection.create(tr.doc, afterTitle + 3));
+        ed.view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+
       const TaskToggleShortcut = Extension.create({
         name: "taskToggleShortcut",
         addInputRules() {
           return [new InputRule({
-            find: /\s\/toggle$/i,
+            find: /(?:^|\s)\/toggle$/i,   // 標題開頭或空格後面都可以
             handler: ({ state, range }) => {
               const $from = state.doc.resolve(range.from);
               const d = $from.depth;
