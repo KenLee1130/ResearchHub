@@ -31,6 +31,8 @@ struct PapersView: View {
     @State private var alignment: PaperAlignment?
     @State private var syncTask: Task<Void, Never>?
     @State private var showTranslateSheet = false
+    /// 掃描書的 OCR 版（Papers/<key>/ocr.pdf）：只在背後用，畫面顯示原檔
+    @State private var ocrData: Data?
 
     enum ViewMode: String, CaseIterable, Identifiable {
         case original, translation, sideBySide
@@ -64,7 +66,9 @@ struct PapersView: View {
                 currentPage: viewer.currentPageIndex ?? 0,
                 chapters: TranslateRangeSheet.chapters(of: doc),
                 translatedPages: translationData == nil ? [] : (alignment?.translatedPageSet ?? []),
-                onStart: { startBabelDOC(pages: $0) })
+                // 第 1 步：檢查這些頁有沒有文字層（有 OCR 版就看 OCR 版，做過的頁不用再做）
+                textDocument: viewer.textDocument ?? doc,
+                onStart: { startBabelDOC(pages: $0, needsOCR: $1) })
         }
         .task {
             zotero.restoreZoteroDir()
@@ -281,7 +285,7 @@ struct PapersView: View {
                         ProgressView().controlSize(.small)
                         TimelineView(.periodic(from: .now, by: 1)) { ctx in
                             let secs = Int(ctx.date.timeIntervalSince(translator.startedAt ?? ctx.date))
-                            Text("BabelDOC 翻譯中…（已 \(secs) 秒，通常 1–2 分鐘；可以先讀原文）")
+                            Text(translatorStatus(secs))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -419,6 +423,7 @@ struct PapersView: View {
         viewer.onPageChange = { [weak transViewer] i in transViewer?.go(toPage: i) }
         transViewer.onPageChange = { [weak viewer] i in viewer?.go(toPage: i) }
         viewer.onSelectionChange = { scheduleSync(from: viewer, to: transViewer) }
+        viewer.onClick = { page, point in clickSync(page: page, point: point) }
         transViewer.onSelectionChange = { scheduleSync(from: transViewer, to: viewer) }
     }
 
@@ -482,13 +487,57 @@ struct PapersView: View {
         return out.isEmpty ? nil : out
     }
 
-    private func startBabelDOC(pages: String?) {
+    private func translatorStatus(_ secs: Int) -> String {
+        switch (translator.phase, translator.withOCR) {
+        case (.ocr, _):
+            return "第 1 步／共 2 步：OCR 文字辨識中（在本機、免費）…已 \(secs) 秒"
+        case (_, true):
+            return "第 2 步／共 2 步：BabelDOC 翻譯中…已 \(secs) 秒"
+        default:
+            return "BabelDOC 翻譯中…（已 \(secs) 秒，通常 1–2 分鐘；可以先讀原文）"
+        }
+    }
+
+    /// 掃描原檔不能反白：點一下某句，兩邊都標出那一句（找不到句子就標整段）
+    private func clickSync(page: Int, point: CGPoint) {
+        guard viewMode == .sideBySide, viewer.textDocument != nil, let alignment else { return }
+        if let para = alignment.sentenceParagraph(onPage: page, at: point),
+           para.src.count == para.dst.count {
+            for (i, sentence) in para.src.enumerated() where !sentence.isEmpty {
+                guard let mine = viewer.locate(sentence, page: page, within: para.rect),
+                      viewer.charsContain(mine, page: page, point: point) else { continue }
+                let j = stride(from: i, through: 0, by: -1).first { !para.dst[$0].isEmpty }
+                if let j, let theirs = transViewer.locate(para.dst[j], page: page, within: para.rect) {
+                    viewer.showSync(page: page, indices: mine)
+                    transViewer.clearSelection()
+                    transViewer.showSync(page: page, indices: theirs)
+                    return
+                }
+            }
+        }
+        if let box = alignment.paragraph(onPage: page, at: point) {
+            viewer.showSync(page: page, rect: box)
+            transViewer.clearSelection()
+            transViewer.showSync(page: page, rect: box)
+        } else {
+            viewer.clearSync()
+            transViewer.clearSync()
+        }
+    }
+
+    private func startBabelDOC(pages: String?, needsOCR: Bool) {
         guard let item = selected, let data = pdfData, let root = store.rootURL else { return }
         // 只翻一部分時，合併進已經翻好的頁（要有段落對照才知道哪些頁翻過；手動匯入的譯文就直接取代）
         let existing: (data: Data, alignment: PaperAlignment)? =
             (pages != nil) ? translationData.flatMap { d in alignment.map { (d, $0) } } : nil
-        translator.translate(key: item.key, pdfData: data, root: root,
-                             pages: pages, existing: existing) { trans, align in
+        translator.translate(key: item.key, pdfData: data, ocrData: ocrData, root: root,
+                             pages: pages, needsOCR: needsOCR, existing: existing,
+                             onOCR: { ocr in
+                                 guard selected?.key == item.key else { return }
+                                 ocrData = ocr
+                                 viewer.textDocument = PDFDocument(data: ocr)
+                                 chatSession?.loadPaper(ocr)   // AI 讀 OCR 出來的文字
+                             }) { trans, align in
             guard selected?.key == item.key else { return }   // 翻譯期間換了別篇
             translationData = trans
             alignment = align
@@ -568,6 +617,14 @@ struct PapersView: View {
         viewer.clearSync()
         transViewer.clearSync()
         alignment = nil
+        ocrData = nil
+        viewer.textDocument = nil
+        if let root = store.rootURL,
+           case .data(let ocr) = LibraryFileRead.read(
+               PaperChatSession.paperDir(root: root, key: item.key).appendingPathComponent("ocr.pdf")) {
+            ocrData = ocr
+            viewer.textDocument = PDFDocument(data: ocr)
+        }
         if let url = translationURL(for: item), case .data(let data) = LibraryFileRead.read(url) {
             translationData = data
             alignment = PaperTranslator.loadAlignment(root: store.rootURL, key: item.key)
@@ -581,7 +638,7 @@ struct PapersView: View {
                 guard selected?.key == item.key else { return }   // 載入期間換了別篇
                 pdfData = result.data
                 viewer.fileURL = result.fileURL
-                chatSession?.loadPaper(result.data)
+                chatSession?.loadPaper(ocrData ?? result.data)   // 掃描書：AI 讀 OCR 版的文字
             }
         }
     }
@@ -697,6 +754,19 @@ final class TranslationDownloadWatcher {
 @MainActor
 final class PDFViewerController: ObservableObject {
     weak var pdfView: PDFView?
+    /// 掃描書：畫面顯示原檔（沒有文字），文字位置改從 OCR 版讀（同一份掃描、頁面幾何一樣）。
+    /// 使用者希望看到的永遠是原檔——OCR 有錯也不會出現在眼前。
+    var textDocument: PDFDocument? { didSet { resetTextCache() } }
+
+    /// 用來找字的那一頁：有 OCR 版就用它，沒有就用畫面上的文件
+    func textPage(_ index: Int) -> PDFPage? {
+        let doc = textDocument ?? pdfView?.document
+        guard let doc, index >= 0, index < doc.pageCount else { return nil }
+        return doc.page(at: index)
+    }
+
+    /// 點了頁面上的某一點（掃描原檔沒辦法反白，對照改用點的）
+    var onClick: ((Int, CGPoint) -> Void)?
     @Published var isDark = false
     /// 本地檔案路徑（有才能把註記寫回）
     var fileURL: URL?
@@ -791,7 +861,7 @@ final class PDFViewerController: ObservableObject {
 
     /// 在這一頁的 rect 範圍內，把文字一行一行淡淡標色，並捲到看得到的地方
     func showSync(page index: Int, rect: CGRect) {
-        guard let page = pdfView?.document?.page(at: index) else { return }
+        guard let page = textPage(index) else { return }
         let lines = page.selection(for: rect.insetBy(dx: -1, dy: -1))?.selectionsByLine() ?? []
         var rects = lines.map { $0.bounds(for: page) }.filter { $0.width > 1 && $0.height > 1 }
         if rects.isEmpty { rects = [rect] }   // 抓不到文字（例如字是畫成圖形的）就整塊標
@@ -800,7 +870,7 @@ final class PDFViewerController: ObservableObject {
 
     /// 只標這幾段文字（句子等級的對照）
     func showSync(page index: Int, ranges: [NSRange]) {
-        guard let page = pdfView?.document?.page(at: index) else { return }
+        guard let page = textPage(index) else { return }
         let rects = ranges.flatMap { range in
             (page.selection(for: range)?.selectionsByLine() ?? []).map { $0.bounds(for: page) }
         }.filter { $0.width > 1 && $0.height > 1 }
@@ -857,7 +927,7 @@ final class PDFViewerController: ObservableObject {
 
     private func pageChars(_ index: Int) -> [(i: Int, b: CGRect, s: String)] {
         if let hit = charCache[index] { return hit }
-        guard let page = pdfView?.document?.page(at: index) else { return [] }
+        guard let page = textPage(index) else { return [] }
         let text = (page.string ?? "") as NSString
         var out: [(i: Int, b: CGRect, s: String)] = []
         text.enumerateSubstrings(in: NSRange(location: 0, length: text.length),
@@ -939,6 +1009,12 @@ final class PDFViewerController: ObservableObject {
         return nil
     }
 
+    /// 這些字有沒有包住這一點（掃描原檔用點的對照）
+    func charsContain(_ indices: [Int], page index: Int, point: CGPoint) -> Bool {
+        let wanted = Set(indices)
+        return pageChars(index).contains { wanted.contains($0.i) && $0.b.insetBy(dx: -2, dy: -2).contains(point) }
+    }
+
     /// 這些字有沒有落在目前的選取裡
     func selectionTouches(_ indices: [Int], page index: Int) -> Bool {
         guard let view = pdfView, let doc = view.document, let sel = view.currentSelection,
@@ -969,8 +1045,7 @@ final class PDFViewerController: ObservableObject {
     /// 沒有 align.json 時的退路：從選取的那幾行往上下延伸，行距正常就算同一段，
     /// 遇到大空白（段落間距）或換欄就停。
     func paragraphRect(page index: Int, around rect: CGRect) -> CGRect? {
-        guard let doc = pdfView?.document, index >= 0, index < doc.pageCount,
-              let page = doc.page(at: index),
+        guard let page = textPage(index),
               let all = page.selection(for: page.bounds(for: .mediaBox))?.selectionsByLine() else { return nil }
         // 同一欄的行（水平方向跟選取重疊夠多），由上而下
         let column = all.map { $0.bounds(for: page) }
@@ -1015,7 +1090,9 @@ final class PDFViewerController: ObservableObject {
     /// 點了回答裡的引文：跳到那頁，並把那段原文選起來（找不到就只跳頁）。
     /// PDF 的文字常有斷行與連字號，整句找不到時改用前幾個字找。
     func reveal(quote: String, page: Int) {
-        guard let view = pdfView, let doc = view.document else { return }
+        guard let view = pdfView, let shown = view.document else { return }
+        // 掃描原檔沒有文字：在 OCR 版裡找，找到後在原檔同一位置標出來
+        let doc = textDocument ?? shown
         let words = quote.replacingOccurrences(of: "…", with: " ")
             .split(whereSeparator: { $0.isWhitespace }).map(String.init)
         let attempts = [words.joined(separator: " "),
@@ -1030,8 +1107,12 @@ final class PDFViewerController: ObservableObject {
                 return abs(pa - (page - 1)) < abs(pb - (page - 1))
             }
             if let best {
-                view.setCurrentSelection(best, animate: true)
-                view.go(to: best)
+                if textDocument != nil, let p = best.pages.first {
+                    showSync(page: doc.index(for: p), rect: best.bounds(for: p))
+                } else {
+                    view.setCurrentSelection(best, animate: true)
+                    view.go(to: best)
+                }
                 return
             }
         }
@@ -1066,6 +1147,12 @@ struct PDFKitView: NSViewRepresentable {
             forName: .PDFViewSelectionChanged, object: view, queue: .main) { _ in
             MainActor.assumeIsolated { controller.onSelectionChange?() }
         }
+        // 點一下（掃描原檔沒有文字可以反白，對照改用點的）；不攔原本的選取、捲動
+        let click = NSClickGestureRecognizer(target: context.coordinator,
+                                             action: #selector(Coordinator.clicked(_:)))
+        click.delaysPrimaryMouseButtonEvents = false
+        view.addGestureRecognizer(click)
+        context.coordinator.controller = controller
         return view
     }
 
@@ -1081,11 +1168,19 @@ struct PDFKitView: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(data: data) }
 
-    final class Coordinator {
+    final class Coordinator: NSObject {
         var lastData: Data
+        weak var controller: PDFViewerController?
         var pageObserver: NSObjectProtocol?
         var selectionObserver: NSObjectProtocol?
         init(data: Data) { lastData = data }
+
+        @MainActor @objc func clicked(_ g: NSClickGestureRecognizer) {
+            guard let view = g.view as? PDFView, let doc = view.document else { return }
+            let p = g.location(in: view)
+            guard let page = view.page(for: p, nearest: false) else { return }
+            controller?.onClick?(doc.index(for: page), view.convert(p, to: page))
+        }
         deinit {
             if let pageObserver { NotificationCenter.default.removeObserver(pageObserver) }
             if let selectionObserver { NotificationCenter.default.removeObserver(selectionObserver) }

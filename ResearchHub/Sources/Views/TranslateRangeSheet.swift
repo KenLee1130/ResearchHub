@@ -11,7 +11,10 @@ struct TranslateRangeSheet: View {
     let chapters: [Chapter]
     /// 已經翻好的頁（0 起算）
     let translatedPages: Set<Int>
-    var onStart: (String?) -> Void
+    /// 用來檢查有沒有文字層的文件（有 OCR 版就給 OCR 版：做過的頁不用再做）
+    let textDocument: PDFDocument?
+    /// (頁碼範圍, 要不要先 OCR)
+    var onStart: (String?, Bool) -> Void
     @Environment(\.dismiss) private var dismiss
 
     struct Chapter: Identifiable, Hashable {
@@ -26,6 +29,8 @@ struct TranslateRangeSheet: View {
     @State private var mode: Mode = .all
     @State private var chapterID = 0
     @State private var custom = ""
+    /// 選定範圍裡沒有文字層的頁數（nil＝還在檢查）。範圍變了才重算，整本書幾百頁不要每次重畫都掃
+    @State private var scannedCount: Int?
 
     /// 每頁大約多少台幣（Das 2018：6 頁約 0.04 美元）
     private static let ntdPerPage = 0.2
@@ -61,6 +66,19 @@ struct TranslateRangeSheet: View {
                 } else {
                     Text("頁碼格式不對（1 到 \(pageCount)，例如 12-30）").foregroundStyle(.orange)
                 }
+                if selectedPages != nil {
+                    if scannedCount == nil {
+                        Label("第 1 步：檢查這些頁有沒有文字層…", systemImage: "hourglass")
+                            .foregroundStyle(.secondary)
+                    } else if let scanned = scannedCount, scanned > 0 {
+                        Label("第 1 步：其中 \(scanned) 頁是掃描頁（沒有文字），會先在本機做 OCR 文字辨識（免費，約每 10 頁 10 秒）。原文仍顯示原檔，OCR 結果只給翻譯、AI 和對照用。",
+                              systemImage: "text.viewfinder")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label("第 1 步：這些頁都有文字層，不需要 OCR。", systemImage: "checkmark.circle")
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 if !translatedPages.isEmpty {
                     Text("已翻譯：\(Self.describe(translatedPages))")
                         .foregroundStyle(.secondary)
@@ -75,16 +93,22 @@ struct TranslateRangeSheet: View {
                 Button("取消") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("開始翻譯") {
-                    onStart(spec)
+                    onStart(spec, (scannedCount ?? 0) > 0)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(selectedPages?.isEmpty ?? true)
+                .disabled((selectedPages?.isEmpty ?? true) || scannedCount == nil)
             }
         }
         .padding(20)
         .frame(width: 460)
         .onAppear(perform: chooseDefault)
+        .task(id: spec ?? "all") {
+            scannedCount = nil
+            await Task.yield()
+            guard let pages = selectedPages else { return }
+            scannedCount = PaperTranslator.pagesWithoutText(textDocument, in: pages).count
+        }
     }
 
     /// 短的（論文）預設整份；長的（書）預設正在讀的那一章，沒有目錄就從目前這頁起 10 頁

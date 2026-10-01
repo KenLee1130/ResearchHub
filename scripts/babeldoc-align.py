@@ -263,6 +263,53 @@ def write_alignment():
     print(f"[researchhub] align: {len(data['paragraphs'])} paragraphs {methods}", file=sys.stderr)
 
 
+# ---- 5. 掃描書：重疊成「掃描圖＋白底＋中文」 ---------------------------------------
+def compose_scanned():
+    """BabelDOC 在掃描頁上會把中文畫在整頁掃描圖下面（文字先畫、圖後畫），看起來像沒翻。
+    這裡重疊：底層＝原頁（拿掉 OCR 的隱形英文，只留圖）、譯文段落方框鋪白、上層＝中文。
+    獨立的公式與圖不在段落方框裡，保留原本掃描的樣子（比 OCR 出來的公式可靠）。"""
+    import glob
+    import pymupdf
+
+    outdir = _arg("--output") or "."
+    monos = glob.glob(os.path.join(outdir, "*.mono.pdf"))
+    if not monos or not os.path.exists(OUT):
+        return
+    mono_path = monos[0]
+    align = json.load(open(OUT))
+    translated = set(align.get("translatedPages") or [])
+    src = pymupdf.open(_arg("--files"))
+    mono = pymupdf.open(mono_path)
+    base = pymupdf.open(_arg("--files"))
+    for i in translated:
+        if i < len(base):   # 底層只要圖：把 OCR 的隱形文字拿掉，否則對照時會跟中文混在一起
+            page = base[i]
+            page.add_redact_annot(page.rect)
+            page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
+                                  graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
+    for page in mono:   # 上層只要中文：拿掉被 BabelDOC 疊在上面的掃描圖
+        if page.number in translated:
+            for img in page.get_images(full=True):
+                page.delete_image(img[0])
+    out = pymupdf.open()
+    for i in range(len(src)):
+        r = src[i].rect
+        page = out.new_page(width=r.width, height=r.height)
+        if i not in translated or i >= len(mono):
+            page.show_pdf_page(page.rect, src, i)          # 沒翻的頁原樣保留（含 OCR 文字層）
+            continue
+        page.show_pdf_page(page.rect, base, i)
+        for x0, y0, x1, y1 in (align["pages"][i] if i < len(align["pages"]) else []):
+            # align 是 PDF 座標（左下原點），pymupdf 是左上原點
+            page.draw_rect(pymupdf.Rect(x0 - 1, r.height - y1 - 1, x1 + 1, r.height - y0 + 1),
+                           color=None, fill=(1, 1, 1), overlay=True)
+        page.show_pdf_page(page.rect, mono, i, overlay=True)
+    tmp = mono_path + ".composed.pdf"
+    out.save(tmp, garbage=3, deflate=True)
+    os.replace(tmp, mono_path)
+    print(f"[researchhub] composed {len(translated)} scanned pages", file=sys.stderr)
+
+
 if __name__ == "__main__":
     sys.argv = ["babeldoc"] + sys.argv[1:]
     try:
@@ -270,3 +317,8 @@ if __name__ == "__main__":
     finally:
         if PARAGRAPHS:
             write_alignment()
+            if os.environ.get("RH_SCAN_COMPOSE"):
+                try:
+                    compose_scanned()
+                except Exception as e:
+                    print(f"[researchhub] compose failed: {e}", file=sys.stderr)

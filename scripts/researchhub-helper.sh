@@ -16,6 +16,7 @@
 #   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
 #   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> <effort 或 -> （論文問答，見 PaperChat.swift）
 #   translate <工作資料夾> <目標語言，例如 zh-TW> [頁碼範圍，例如 12-30]（BabelDOC＋DeepSeek 翻譯 input.pdf，見 PaperTranslator）
+#   ocr     <工作資料夾> [頁碼範圍]（OCRmyPDF：幫 input.pdf 沒有文字層的頁加上文字，輸出 ocr.pdf）
 #   models  列出 ChatGPT（Codex）帳號可用的模型：每行 slug<TAB>名稱<TAB>effort1,effort2…<TAB>預設 effort
 #   version
 set -u
@@ -157,11 +158,15 @@ case "$cmd" in
     # 翻譯用 DeepSeek（使用者自己的 API 金鑰，放在 ~/.config/researchhub/deepseek.key，
     # 沙盒 app 讀不到那裡，所以只有這支小幫手碰得到金鑰）。
     # 一定要關掉思考模式：開著的話一篇 6 頁的論文吐出 20 萬 token、還會漏翻整段。
-    work="$1"; lang="${2:-zh-TW}"; pages="${3:-}"
+    work="$1"; lang="${2:-zh-TW}"; pages="${3:-}"; scanned="${4:-}"
     require_local "$work"
     cd "$work" || { echo "RC=2"; echo "ERR=找不到翻譯工作資料夾"; exit 0; }
     # 只翻部分頁（書）：沒指定的頁原樣保留，所以譯文 PDF 的頁碼跟原文一致
     pargs=(); [ -n "$pages" ] && pargs=(--pages "$pages")
+    # 掃描書（文字是 OCR 補上的隱形文字層）：BabelDOC 要開 OCR 模式，翻完再由 babeldoc-align.py
+    # 重疊成「掃描圖＋白底＋中文」（BabelDOC 自己會把中文畫在整頁掃描圖下面，看起來像沒翻）
+    compose=""
+    if [ "$scanned" = "scan" ]; then pargs+=(--ocr-workaround); compose=1; fi
     PATH="$HOME/.local/bin:$PATH"; export PATH
     key_file="$HOME/.config/researchhub/deepseek.key"
     [ -s "$key_file" ] || { echo "RC=3"; echo "ERR=找不到 DeepSeek 金鑰（$key_file）"; exit 0; }
@@ -173,7 +178,7 @@ case "$cmd" in
     driver="$(cd "$(dirname "$0")" && pwd)/babeldoc-align.py"
     [ -x "$py" ] && [ -f "$driver" ] || { echo "RC=127"; echo "ERR=找不到 BabelDOC 的 Python 或 babeldoc-align.py（請重跑 install-mac.sh）"; exit 0; }
     # 不用 --debug（那會在輸出 PDF 上畫除錯框）；段落方框由 babeldoc-align.py 在排版前記下
-    RH_ALIGN_OUT="$work/align.json" RH_PAGES="$pages" "$py" "$driver" --files input.pdf --lang-in en --lang-out "$lang" ${pargs[@]+"${pargs[@]}"} \
+    RH_ALIGN_OUT="$work/align.json" RH_PAGES="$pages" RH_SCAN_COMPOSE="$compose" "$py" "$driver" --files input.pdf --lang-in en --lang-out "$lang" ${pargs[@]+"${pargs[@]}"} \
       --openai --openai-model deepseek-flash --openai-base-url https://api.deepseek.com/v1 \
       --openai-api-key "$(tr -d '[:space:]' < "$key_file")" --openai-thinking disabled \
       --output "$work/out" --watermark-output-mode no_watermark --no-dual > log.txt 2>&1 &
@@ -193,6 +198,37 @@ case "$cmd" in
     [ -n "$mono" ] && echo "MONO=$mono"
     [ -f "$work/align.json" ] && echo "ALIGN=$work/align.json"
     grep -m1 -E "Error code|AuthenticationError|Insufficient Balance|insufficient" log.txt | head -c 300 | sed 's/^/ERR=/'
+    echo "RC=$rc"
+    ;;
+
+  ocr)
+    # 掃描書沒有文字層：翻譯和問 AI 都讀不到字。OCRmyPDF 在本機辨識（免費），
+    # 只處理指定的頁、已經有文字的頁跳過（--skip-text），所以可以一章一章做、結果累積在同一份。
+    work="$1"; pages="${2:-}"
+    require_local "$work"
+    cd "$work" || { echo "RC=2"; echo "ERR=找不到 OCR 工作資料夾"; exit 0; }
+    command -v ocrmypdf >/dev/null || { echo "RC=127"; echo "ERR=找不到 OCRmyPDF（請先 brew install ocrmypdf）"; exit 0; }
+    rm -rf ocr.pdf ocr.log tmp
+    # 暫存檔放工作資料夾裡（沒設 TMPDIR 時會落到 /tmp，tesseract 在某些環境讀不到那裡的圖）
+    mkdir -p tmp; export TMPDIR="$work/tmp"
+    oargs=(-l eng --output-type pdf --skip-text --optimize 0 --jobs 8)
+    [ -n "$pages" ] && oargs+=(--pages "$pages")
+    ocrmypdf "${oargs[@]}" input.pdf ocr.pdf > ocr.log 2>&1 &
+    pid=$!
+    # 看門狗：最多 60 分鐘（一整本書）
+    for _ in $(seq 1 7200); do
+      kill -0 $pid 2>/dev/null || break
+      sleep 0.5
+    done
+    if kill -0 $pid 2>/dev/null; then
+      pkill -P $pid 2>/dev/null; kill $pid 2>/dev/null
+      echo "TIMEOUT=1"
+    fi
+    wait $pid 2>/dev/null
+    rc=$?
+    rm -rf tmp
+    [ -f ocr.pdf ] && echo "OCR=$work/ocr.pdf"
+    [ $rc -ne 0 ] && tail -3 ocr.log | tr '\n' ' ' | head -c 300 | sed 's/^/ERR=/' && echo
     echo "RC=$rc"
     ;;
 

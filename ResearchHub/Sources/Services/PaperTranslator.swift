@@ -95,29 +95,87 @@ final class PaperTranslator {
     private(set) var runningKey: String?
     private(set) var startedAt: Date?
     private(set) var lastError: String?
+    /// 目前在第幾步：掃描書先 OCR（第 1 步），再翻譯（第 2 步）
+    enum Phase: Equatable { case ocr, translate }
+    private(set) var phase: Phase?
+    /// 這次有沒有 OCR 這一步（banner 顯示「第幾步／共幾步」用）
+    private(set) var withOCR = false
 
     func isRunning(_ key: String) -> Bool { runningKey == key }
 
-    /// pages：BabelDOC 的頁碼範圍（1 起算，例如 "12-30"）；nil＝整份。
+    /// 兩步：(1) needsOCR 時先用 OCRmyPDF 幫沒有文字層的頁加上文字（存成 Papers/<key>/ocr.pdf，
+    /// 只在背後給翻譯、AI、對照用，畫面上原文仍顯示原檔）；(2) BabelDOC 翻譯。
+    /// pages：頁碼範圍（1 起算，例如 "12-30"）；nil＝整份。
     /// 只翻一部分時，會把新翻的頁合併進原本已經翻好的譯文（existing），不會蓋掉前面翻好的頁。
-    func translate(key: String, pdfData: Data, root: URL, pages: String? = nil,
+    func translate(key: String, pdfData: Data, ocrData: Data?, root: URL, pages: String? = nil,
+                   needsOCR: Bool,
                    existing: (data: Data, alignment: PaperAlignment)? = nil,
+                   onOCR: @escaping @MainActor (Data) -> Void,
                    onDone: @escaping @MainActor (Data, PaperAlignment?) -> Void) {
         guard runningKey == nil else { return }
         runningKey = key
         startedAt = Date()
         lastError = nil
+        withOCR = needsOCR
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let work = caches.appendingPathComponent("papers/\(key)/translate", isDirectory: true)
         try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+
+        guard needsOCR else {
+            runTranslate(key: key, input: ocrData ?? pdfData, scanned: ocrData != nil, work: work,
+                         root: root, pages: pages, existing: existing, onDone: onDone)
+            return
+        }
+        // 第 1 步：OCR（疊在已經辨識過的版本上，前面做過的頁不會重做）
+        phase = .ocr
         do {
-            try pdfData.write(to: work.appendingPathComponent("input.pdf"), options: .atomic)
+            try (ocrData ?? pdfData).write(to: work.appendingPathComponent("input.pdf"), options: .atomic)
+        } catch {
+            fail("無法準備 OCR 暫存檔：\(error.localizedDescription)")
+            return
+        }
+        var args = ["ocr", work.path]
+        if let pages, !pages.isEmpty { args.append(pages) }
+        LatexCompiler.runHelper(args) { [weak self] output, error in
+            guard let self else { return }
+            let fields = LatexCompiler.parseFields(output)
+            if let error {
+                self.fail("無法執行 OCR 小幫手：\(error.localizedDescription)")
+                return
+            }
+            guard let path = fields["OCR"],
+                  let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                  PDFDocument(data: data) != nil else {
+                let detail = fields["ERR"]
+                    ?? (fields["TIMEOUT"] == "1" ? "OCR 超過 60 分鐘沒有完成" : "OCR 沒有產生結果（結束碼 \(fields["RC"] ?? "?")）")
+                self.fail(detail)
+                return
+            }
+            let dir = PaperChatSession.paperDir(root: root, key: key)
+            Task.detached(priority: .utility) {
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                try? data.write(to: dir.appendingPathComponent("ocr.pdf"), options: .atomic)
+            }
+            onOCR(data)
+            // 第 2 步：翻譯 OCR 版
+            self.runTranslate(key: key, input: data, scanned: true, work: work,
+                              root: root, pages: pages, existing: existing, onDone: onDone)
+        }
+    }
+
+    private func runTranslate(key: String, input: Data, scanned: Bool, work: URL, root: URL,
+                              pages: String?, existing: (data: Data, alignment: PaperAlignment)?,
+                              onDone: @escaping @MainActor (Data, PaperAlignment?) -> Void) {
+        phase = .translate
+        do {
+            try input.write(to: work.appendingPathComponent("input.pdf"), options: .atomic)
         } catch {
             fail("無法準備翻譯暫存檔：\(error.localizedDescription)")
             return
         }
-        var args = ["translate", work.path, "zh-TW"]
-        if let pages, !pages.isEmpty { args.append(pages) }
+        // translate <dir> zh-TW <頁碼或空字串> <scan>
+        var args = ["translate", work.path, "zh-TW", pages ?? ""]
+        if scanned { args.append("scan") }
         LatexCompiler.runHelper(args) { [weak self] output, error in
             guard let self else { return }
             let fields = LatexCompiler.parseFields(output)
@@ -159,9 +217,20 @@ final class PaperTranslator {
                 guard let self else { return }
                 self.runningKey = nil
                 self.startedAt = nil
+                self.phase = nil
                 onDone(result.0, result.1)
             }
         }
+    }
+
+    /// 這些頁裡，哪些沒有文字層（掃描頁）——翻譯前的「第 1 步：檢查要不要 OCR」
+    nonisolated static func pagesWithoutText(_ doc: PDFDocument?, in pages: Set<Int>) -> Set<Int> {
+        guard let doc else { return [] }
+        return Set(pages.filter { i in
+            guard i < doc.pageCount, let page = doc.page(at: i) else { return false }
+            let text = (page.string ?? "").filter { !$0.isWhitespace }
+            return text.count < 20
+        })
     }
 
     /// 把 newer 裡 pages 這幾頁搬進 base（同一份原文翻出來的，兩邊頁數一樣）
@@ -180,6 +249,7 @@ final class PaperTranslator {
         lastError = message
         runningKey = nil
         startedAt = nil
+        phase = nil
     }
 
     func dismissError() { lastError = nil }
