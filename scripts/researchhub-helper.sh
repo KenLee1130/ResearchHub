@@ -14,6 +14,7 @@
 #   compile <工作資料夾> <主檔.tex> <engine: xelatex|pdflatex|lualatex|auto>
 #   zip     <來源資料夾> <目的 .zip>            （內容放在 zip 根目錄，跟 Overleaf 下載的格式一樣）
 #   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
+#   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> （論文問答，見 PaperChat.swift）
 #   version
 set -u
 export PATH="/Library/TeX/texbin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
@@ -97,6 +98,54 @@ case "$cmd" in
     rm -rf "$tmp"
     echo "DEST=$dest"
     echo "RC=0"
+    ;;
+
+  ask)
+    # 論文問答：用使用者自己的 Claude／ChatGPT 訂閱（Claude Code CLI、Codex CLI）。
+    # 工作資料夾在 app 容器裡，app 先寫好 prompt.txt（和 system.txt），
+    # 這裡把回覆串流寫進 out.jsonl，app 邊跑邊讀，看起來就是一個字一個字出來。
+    provider="$1"; work="$2"; model="${3:--}"; session="${4:--}"
+    require_local "$work"
+    cd "$work" || { echo "RC=2"; echo "ERR=找不到問答工作資料夾"; exit 0; }
+    # Claude Code 裝在 ~/.local/bin；Codex 是 npm 全域套件（nvm 的 node 底下）
+    PATH="$HOME/.local/bin:$PATH"
+    for d in "$HOME"/.nvm/versions/node/*/bin; do [ -d "$d" ] && PATH="$d:$PATH"; done
+    export PATH
+    rm -f out.jsonl err.txt
+    case "$provider" in
+      claude)
+        command -v claude >/dev/null || { echo "RC=127"; echo "ERR=找不到 Claude Code（claude 指令）"; exit 0; }
+        # 不給任何工具、不讀使用者的 Claude Code 設定（CLAUDE.md、hooks、MCP），只回答問題
+        args=(-p --output-format stream-json --verbose --include-partial-messages
+              --tools "" --setting-sources "" --strict-mcp-config
+              --system-prompt "$(cat system.txt 2>/dev/null)")
+        [ "$model" != "-" ] && args+=(--model "$model")
+        [ "$session" != "-" ] && args+=(--resume "$session")
+        claude "${args[@]}" < prompt.txt > out.jsonl 2> err.txt &
+        ;;
+      codex)
+        command -v codex >/dev/null || { echo "RC=127"; echo "ERR=找不到 Codex CLI（codex 指令）"; exit 0; }
+        margs=(); [ "$model" != "-" ] && margs=(-m "$model")
+        if [ "$session" != "-" ]; then
+          codex exec resume "$session" --json --skip-git-repo-check ${margs[@]+"${margs[@]}"} - < prompt.txt > out.jsonl 2> err.txt &
+        else
+          codex exec --json --skip-git-repo-check -s read-only -C "$work" ${margs[@]+"${margs[@]}"} - < prompt.txt > out.jsonl 2> err.txt &
+        fi
+        ;;
+      *) echo "RC=64"; echo "ERR=未知的 AI：$provider"; exit 0 ;;
+    esac
+    pid=$!
+    # 看門狗：一題最多等 5 分鐘
+    for _ in $(seq 1 600); do
+      kill -0 $pid 2>/dev/null || break
+      sleep 0.5
+    done
+    if kill -0 $pid 2>/dev/null; then
+      pkill -P $pid 2>/dev/null; kill $pid 2>/dev/null
+      echo "TIMEOUT=1"
+    fi
+    wait $pid 2>/dev/null
+    echo "RC=$?"
     ;;
 
   *)

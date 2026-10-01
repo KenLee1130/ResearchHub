@@ -19,6 +19,8 @@ struct MarkdownPreviewView {
     var onJumpToSource: ((ScrollSync) -> Void)?
     /// 版面："flow" = 連續（預設）、"a4" = A4 分頁（註腳放當頁底部）。
     var layout: String = "flow"
+    /// 自訂連結處理（例如論文問答的引文 researchhub://cite?…）；回傳 true 表示已處理。
+    var onLink: ((URL) -> Bool)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -51,6 +53,7 @@ struct MarkdownPreviewView {
     private func refresh(coordinator: Coordinator) {
         coordinator.baseDir = baseDir
         coordinator.onOpenNote = onOpenNote
+        coordinator.onLink = onLink
         coordinator.onJumpToSource = onJumpToSource
         coordinator.apply(layout: layout)
         coordinator.update(text: text, items: citationItems)
@@ -65,6 +68,7 @@ struct MarkdownPreviewView {
         var baseDir: URL?
         var citationItems: [ZoteroItem] = []
         var onOpenNote: ((URL) -> Void)?
+        var onLink: ((URL) -> Bool)?
         var onJumpToSource: ((ScrollSync) -> Void)?
         var pendingLayout: String?
         private var isLoaded = false
@@ -106,6 +110,10 @@ struct MarkdownPreviewView {
             guard navigationAction.navigationType == .linkActivated,
                   let url = navigationAction.request.url else {
                 decisionHandler(.allow)
+                return
+            }
+            if let onLink, onLink(url) {
+                decisionHandler(.cancel)
                 return
             }
             if url.scheme == "researchhub", url.host == "note" {
