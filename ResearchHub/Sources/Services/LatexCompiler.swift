@@ -101,6 +101,7 @@ final class LatexCompiler: ObservableObject {
                 let engine = LatexProject.engine(for: project, main: main)
                 // 沒人 \cite 的自動條目從 .bib 拿掉（又被引用的放回來），再開始編譯
                 LatexBibliography.reconcile(in: project)
+                LatexBibliography.ensureBibliographyCommand(in: project)
                 do {
                     try LatexStaging.sync(project: project, to: build)
                 } catch {

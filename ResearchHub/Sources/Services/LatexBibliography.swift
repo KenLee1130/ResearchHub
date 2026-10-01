@@ -134,6 +134,47 @@ nonisolated enum LatexBibliography {
         }
     }
 
+    /// 編譯前呼叫：有 \cite、專案裡也有 .bib，但主檔從沒說要用它（沒有 \bibliography{}）→
+    /// 在 \end{document} 前補上。不補的話 bibtex 根本不會跑，所有引用都是 [?]
+    /// （範本建的專案一開始沒有這行，補全把文獻寫進 references.bib 也沒用）。
+    /// 已經有 \bibliography／\addbibresource／\printbibliography／thebibliography 就不動。
+    static func ensureBibliographyCommand(in root: URL) {
+        guard let main = LatexProject.mainFile(in: root),
+              let text = FileSystemStore.safeRead(main),
+              let re = try? NSRegularExpression(
+                  pattern: #"^[^%\n]*\\(?:(?:bibliography|addbibresource|printbibliography)\b|begin\{thebibliography\})"#,
+                  options: [.anchorsMatchLines]),
+              re.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) == nil
+        else { return }
+
+        // 整個專案有沒有真的 \cite 什麼
+        guard let walker = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return }
+        var source = ""
+        for case let url as URL in walker where url.pathExtension.lowercased() == "tex" {
+            guard let t = FileSystemStore.safeRead(url) else { return }
+            source += t + "\n"
+        }
+        guard !citedKeys(in: source).isEmpty else { return }
+
+        let bib = targetBib(in: root)
+        guard FileManager.default.fileExists(atPath: bib.path) else { return }
+        // \bibliography{} 的路徑相對於主檔所在資料夾、不寫副檔名
+        let mainDir = main.deletingLastPathComponent().standardizedFileURL.path + "/"
+        var rel = bib.deletingPathExtension().standardizedFileURL.path
+        if rel.hasPrefix(mainDir) { rel.removeFirst(mainDir.count) }
+
+        let block = "\\bibliographystyle{plain}\n\\bibliography{\(rel)}\n"
+        // 插在最後一個沒被註解掉的 \end{document} 那一行前面
+        var lines = text.components(separatedBy: "\n")
+        guard let endLine = lines.lastIndex(where: {
+            ($0.split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false).first ?? "")
+                .contains("\\end{document}")
+        }) else { return }   // 主檔沒有 \end{document}（不正常的主檔），不亂動
+        lines.insert(block, at: endLine)   // block 結尾的換行＝跟 \end{document} 隔一行空行
+        try? lines.joined(separator: "\n").write(to: main, atomically: true, encoding: .utf8)
+    }
+
     /// 所有 \cite{a,b}、\citep[..]{c}、\nocite{*} 裡的 key。
     /// 註解掉的 \cite 也算（寧可多留，不要誤刪）。
     static func citedKeys(in source: String) -> Set<String> {
