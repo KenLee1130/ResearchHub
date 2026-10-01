@@ -464,9 +464,14 @@ final class PastingTextView: NSTextView {
             updateCompletion()   // Esc：手動叫出我們的清單（而非系統補全）
             return
         }
+        // 選取跨多行時 Tab / Shift-Tab＝整塊縮排／取消縮排（像一般程式編輯器）
+        if selector == #selector(insertTab(_:)), shiftSelectedLines(by: 1) { return }
+        if selector == #selector(insertBacktab(_:)), shiftSelectedLines(by: -1) { return }
         // Tab / Shift-Tab：游標在清單項上時升降層級（編號會跟著兩層重編）
         if selector == #selector(insertTab(_:)), changeListLevel(by: 1) { return }
         if selector == #selector(insertBacktab(_:)), changeListLevel(by: -1) { return }
+        // 其他行的 Shift-Tab：游標所在那一行退一層縮排
+        if selector == #selector(insertBacktab(_:)), shiftSelectedLines(by: -1, singleLine: true) { return }
         super.doCommand(by: selector)
     }
 
@@ -821,6 +826,58 @@ final class PastingTextView: NSTextView {
         let line = ns.lineRange(for: NSRange(location: caret, length: 0))
         guard let it = numberedItem(in: ns.substring(with: line)) else { return }
         renumberLevel(around: line, indent: it.indent)
+    }
+
+    // MARK: - 多行選取的 Tab / Shift-Tab
+
+    /// 選取範圍跨兩行以上時，每一行行首加一個 tab（delta>0）或去掉一層縮排（一個 tab 或最多 4 格空白）。
+    /// 空白行不加縮排。整塊一次替換＝一步復原；做完選取擴成完整的那幾行，可以連按。
+    /// 選取沒有跨行時回傳 false，交給原本的 Tab 行為（清單升降層／插入 tab）。
+    /// `singleLine`：選取沒跨行也照做（只動游標那一行，用於 Shift-Tab）。
+    private func shiftSelectedLines(by delta: Int, singleLine: Bool = false) -> Bool {
+        let ns = string as NSString
+        let sel = selectedRange()
+        guard sel.location != NSNotFound, NSMaxRange(sel) <= ns.length,
+              singleLine || (sel.length > 0 && ns.substring(with: sel).contains("\n"))
+        else { return false }
+        // 選取結尾剛好在某行行首（整行選到換行為止）→ 那一行不算
+        var end = NSMaxRange(sel)
+        if end > sel.location, ns.character(at: end - 1) == 0x0A { end -= 1 }
+        let block = ns.lineRange(for: NSRange(location: sel.location, length: end - sel.location))
+
+        let original = ns.substring(with: block)
+        let lines = original.components(separatedBy: "\n")
+        var changed = false
+        let shifted = lines.enumerated().map { index, line -> String in
+            // lineRange 含結尾換行，split 後最後一段是空字串，不是一行
+            if index == lines.count - 1, line.isEmpty { return line }
+            if delta > 0 {
+                guard !line.trimmingCharacters(in: .whitespaces).isEmpty else { return line }
+                changed = true
+                return "\t" + line
+            }
+            let remove = line.hasPrefix("\t")
+                ? 1 : min(Self.listIndentUnit.count, line.prefix { $0 == " " }.count)
+            if remove > 0 { changed = true }
+            return String(line.dropFirst(remove))
+        }
+        guard changed else { return true }   // 全都已在最外層：吃掉按鍵即可
+        let replacement = shifted.joined(separator: "\n")
+        guard shouldChangeText(in: block, replacementString: replacement) else { return true }
+        textStorage?.replaceCharacters(in: block, with: replacement)
+        didChangeText()
+        // 單行、沒有選取：游標跟著文字左移，不要變成整行選取
+        if singleLine, sel.length == 0 {
+            let removed = (original as NSString).length - (replacement as NSString).length
+            let offset = max(block.location, sel.location - removed)
+            setSelectedRange(NSRange(location: offset, length: 0))
+            return true
+        }
+        // 選取保持在這幾行（不含最後的換行，再按一次 Tab 範圍不會往下多吃一行）
+        var length = (replacement as NSString).length
+        if replacement.hasSuffix("\n") { length -= 1 }
+        setSelectedRange(NSRange(location: block.location, length: length))
+        return true
     }
 
     // MARK: - Tab / Shift-Tab 升降清單層級
