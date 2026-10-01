@@ -200,12 +200,17 @@ nonisolated struct TodoMeta: Hashable, Sendable {
         return nil
     }
 
-    /// "3h" / "45m" / "90"（分鐘）→ 分鐘數。
-    /// "2h" / "45m" / "90"（純數字 = 分鐘）→ 分鐘數。任務總覽的 est 直接輸入也用它解析。
+    /// "2h" / "1.5hr" / "45m" / "30min" / "90"（純數字 = 分鐘）→ 分鐘數。任務總覽的 est 直接輸入也用它解析。
     static func parseDuration(_ s: String) -> Int? {
         let t = s.trimmingCharacters(in: .whitespaces).lowercased()
-        if t.hasSuffix("h"), let v = Double(t.dropLast()) { return Int(v * 60) }
-        if t.hasSuffix("m"), let v = Double(t.dropLast()) { return Int(v) }
+        func number(dropping units: [String]) -> Double? {
+            for u in units where t.hasSuffix(u) {
+                return Double(t.dropLast(u.count).trimmingCharacters(in: .whitespaces))
+            }
+            return nil
+        }
+        if let v = number(dropping: ["hrs", "hr", "h"]) { return Int(v * 60) }
+        if let v = number(dropping: ["mins", "min", "m"]) { return Int(v) }
         if let v = Double(t) { return Int(v) }
         return nil
     }

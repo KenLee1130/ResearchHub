@@ -1370,11 +1370,12 @@ extension BlockEditorView {
         if (m) return new Date(new Date().getFullYear(), +m[1] - 1, +m[2]);
         return null;
       }
+      // 要「數字＋單位」才算：@est() 或 @est(3) 是還沒打完，不渲染成徽章、保留原文
       function parseEstMinutes(s) {
         s = s.trim().toLowerCase();
-        let m = s.match(/^(\d+(?:\.\d+)?)h$/);
+        let m = s.match(/^(\d+(?:\.\d+)?)\s*(?:h|hr|hrs)$/);
         if (m) return Math.round(parseFloat(m[1]) * 60);
-        m = s.match(/^(\d+(?:\.\d+)?)m?$/);
+        m = s.match(/^(\d+(?:\.\d+)?)\s*(?:m|min|mins)$/);
         if (m) return Math.round(parseFloat(m[1]));
         return null;
       }
@@ -1464,7 +1465,10 @@ extension BlockEditorView {
           let estMin = null, pomoDone = 0, hasEstOrPomo = false, pomoHandled = false;
           for (const mm of matches) {
             const kind = (mm[1] || mm[3]).toLowerCase();
-            if (kind === "est") { estMin = parseEstMinutes(mm[2] || ""); hasEstOrPomo = true; }
+            if (kind === "est") {
+              const v = parseEstMinutes(mm[2] || "");
+              if (v != null) { estMin = v; hasEstOrPomo = true; }
+            }
             if (kind === "pomo") { pomoDone = parseInt(mm[2]) || 0; hasEstOrPomo = true; }
           }
 
@@ -1477,6 +1481,8 @@ extension BlockEditorView {
             // 游標在這顆標記裡（例如 @est 補全後停在括號內正要打數字）→
             // 先顯示原文讓使用者編輯，游標離開後才渲染成徽章。
             if (state.selection.empty && selFrom > from && selFrom < to) continue;
+            // 預估時長還沒打完（沒數字或沒單位）→ 照原文顯示
+            if (kind === "est" && parseEstMinutes(arg) == null) continue;
             let dom = null;
             if (kind === "due") {
               const d = parseDateArg(arg);
@@ -1761,6 +1767,42 @@ extension BlockEditorView {
       };
       // ---- TaskFold END ----
 
+      // ---- TaskToggleShortcut BEGIN ----
+      // 已經寫好的待辦，在文字後面打「空格 /toggle」→ 就地變成可摺疊的待辦：
+      // 拿掉 /toggle，底下開一個空的子待辦、游標移過去（跟 /todo /toggle 建出來的一樣）。
+      // 已經有子項目的待辦本來就可以摺疊，只拿掉 /toggle。
+      const TaskToggleShortcut = Extension.create({
+        name: "taskToggleShortcut",
+        addInputRules() {
+          return [new InputRule({
+            find: /\s\/toggle$/i,
+            handler: ({ state, range }) => {
+              const $from = state.doc.resolve(range.from);
+              const d = $from.depth;
+              // 只在待辦項目的第一段（標題那行）裡生效
+              if (d < 1 || $from.parent.type.name !== "paragraph") return null;
+              const item = $from.node(d - 1);
+              if (item.type.name !== "taskItem" || $from.index(d - 1) !== 0) return null;
+              const tr = state.tr;
+              const itemPos = $from.before(d - 1);
+              tr.delete(range.from, range.to);
+              const itemNode = tr.doc.nodeAt(itemPos);
+              if (hasChildList(itemNode)) {
+                tr.setSelection(TextSelection.create(tr.doc, range.from));
+                return;
+              }
+              const { taskList, taskItem, paragraph } = state.schema.nodes;
+              const afterTitle = itemPos + 1 + itemNode.firstChild.nodeSize;
+              tr.insert(afterTitle, taskList.create(null,
+                taskItem.create({ checked: false }, paragraph.create())));
+              // taskList(1) taskItem(1) paragraph(1) → 子待辦的文字開頭
+              tr.setSelection(TextSelection.create(tr.doc, afterTitle + 3));
+            }
+          })];
+        }
+      });
+      // ---- TaskToggleShortcut END ----
+
       // ---- ArrowShortcuts BEGIN ----
       // 像 Notion：打 -> 自動變成 →（打完馬上按 ⌫ 會還原，tiptap 內建 undoInputRule）。
       // 順序有意義：同一個字觸發時由上往下比，長的要先比（<=> 要先於 =>）。
@@ -1794,6 +1836,7 @@ extension BlockEditorView {
           TaskList,
           TaskItem.configure({ nested: true }),
           TaskFold,
+          TaskToggleShortcut,
           JoinAdjacentLists,
           LiftLineOutOfItem,
           ArrowShortcuts,
