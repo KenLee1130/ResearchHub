@@ -143,15 +143,41 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         }
 
         func update(_ panes: [Pane]) {
+            var changed = false
             for pane in panes {
                 hosts[pane.id]?.rootView = pane.content
                 visibilityCallbacks[pane.id] = pane.onVisibilityChange
-                guard let item = items[pane.id], desiredVisible[pane.id] != pane.isVisible else { continue }
+                guard items[pane.id] != nil, desiredVisible[pane.id] != pane.isVisible else { continue }
                 desiredVisible[pane.id] = pane.isVisible
-                if item.isCollapsed == pane.isVisible {
-                    item.isCollapsed = !pane.isVisible   // 收起／展開會保留原本的寬度
+                changed = true
+            }
+            // ⚠️ 不能在這裡（SwiftUI 更新途中）直接收起：被收起的欄如果含有游標（例如正在打字的
+            // 原始碼），AppKit 會去找下一個可聚焦的 view → 回頭問 SwiftUI 的焦點樹 → 重入正在
+            // 更新的 view graph → 無限循環，app 卡死（2026-10-01 hang report：按「只看 PDF」）。
+            if changed {
+                DispatchQueue.main.async { [weak self] in self?.applyDesiredVisibility() }
+            }
+        }
+
+        /// 把實際的收／展對齊外面要的狀態。先展開再收起，避免中途所有欄都收起來。
+        private func applyDesiredVisibility() {
+            let order = initialPanes.map(\.id)
+            for expanding in [true, false] {
+                for id in order {
+                    guard let item = items[id], let want = desiredVisible[id],
+                          want == expanding, item.isCollapsed == want else { continue }
+                    if !want { resignFocus(inside: item.viewController.view) }
+                    item.isCollapsed = !want   // 收起／展開會保留原本的寬度
                 }
             }
+        }
+
+        /// 游標在要收起的欄裡 → 先交還給視窗，AppKit 就不必去找「下一個」可聚焦的 view
+        private func resignFocus(inside pane: NSView) {
+            guard let window = pane.window,
+                  let responder = window.firstResponder as? NSView,
+                  responder.isDescendant(of: pane) else { return }
+            window.makeFirstResponder(nil)
         }
 
         @objc private func splitResized(_ note: Notification) {
