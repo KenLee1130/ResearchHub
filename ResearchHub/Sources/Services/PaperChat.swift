@@ -24,7 +24,7 @@ nonisolated struct PaperChatMessage: Codable, Identifiable, Hashable, Sendable {
     /// 提問時引用的 PDF 選取文字與頁碼
     var quote: String?
     var quotePage: Int?
-    /// 回答的 AI（PaperAI.rawValue）
+    /// 回答的 AI（例如「Claude Opus 5.5 · high」）
     var provider: String?
     var createdAt = Date()
     var citations: [PaperCitation]?
@@ -38,26 +38,79 @@ nonisolated struct PaperChatFile: Codable, Sendable {
     var sessions: [String: String] = [:]
 }
 
-/// 可以問的 AI。都用使用者自己的訂閱：Claude Code CLI、Codex CLI（ChatGPT 帳號登入）。
-nonisolated enum PaperAI: String, CaseIterable, Identifiable, Sendable {
-    case claudeSonnet = "claude-sonnet"
-    case claudeOpus = "claude-opus"
-    case chatgpt = "chatgpt"
-
+/// 可以問的 AI 服務。都用使用者自己的訂閱：Claude Code CLI、Codex CLI（ChatGPT 帳號登入）。
+nonisolated enum PaperProvider: String, CaseIterable, Identifiable, Sendable {
+    case claude, chatgpt
     var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .claudeSonnet: return "Claude Sonnet"
-        case .claudeOpus: return "Claude Opus"
-        case .chatgpt: return "ChatGPT"
+    var label: String { self == .claude ? "Claude" : "ChatGPT" }
+    var cli: String { self == .claude ? "claude" : "codex" }
+}
+
+/// 一個可選的模型，以及它支援的思考強度（effort）。
+nonisolated struct PaperModel: Hashable, Identifiable, Sendable {
+    let id: String          // 傳給 CLI 的模型名
+    let label: String
+    let efforts: [String]
+    let defaultEffort: String
+
+    static let claudeEfforts = ["low", "medium", "high", "xhigh", "max"]
+    /// Claude Code 支援的模型（舊版 CLI 不認得新模型——2026-10-01 從 2.1.161 更新後才能用 Opus 5.5／Fable 5.1）
+    static let claude: [PaperModel] = [
+        .init(id: "claude-opus-5-5", label: "Opus 5.5", efforts: claudeEfforts, defaultEffort: "high"),
+        .init(id: "claude-fable-5-1", label: "Fable 5.1", efforts: claudeEfforts, defaultEffort: "high"),
+        .init(id: "claude-sonnet-5-5", label: "Sonnet 5.5", efforts: claudeEfforts, defaultEffort: "high"),
+        .init(id: "claude-haiku-4-5", label: "Haiku 4.5", efforts: claudeEfforts, defaultEffort: "medium"),
+    ]
+    /// ChatGPT 帳號能用哪些模型由小幫手讀 Codex 的模型清單（helper models）；讀不到時用這份
+    static let chatgptFallback: [PaperModel] = [
+        .init(id: "gpt-5.6-sol", label: "GPT-5.6-Sol",
+              efforts: ["low", "medium", "high", "xhigh", "max", "ultra"], defaultEffort: "medium"),
+        .init(id: "gpt-5.5", label: "GPT-5.5",
+              efforts: ["low", "medium", "high", "xhigh"], defaultEffort: "medium"),
+    ]
+
+    /// 解析 helper models 的輸出（slug \t 名稱 \t effort1,effort2 \t 預設）
+    static func parseCodex(_ output: String) -> [PaperModel] {
+        output.split(separator: "\n").compactMap { line in
+            let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard f.count >= 4, !f[0].isEmpty, !f[0].contains("=") else { return nil }
+            let efforts = f[2].split(separator: ",").map(String.init)
+            return PaperModel(id: f[0], label: f[1], efforts: efforts,
+                              defaultEffort: f[3].isEmpty ? (efforts.first ?? "medium") : f[3])
         }
     }
-    var cli: String { self == .chatgpt ? "codex" : "claude" }
-    var model: String {
-        switch self {
-        case .claudeSonnet: return "sonnet"
-        case .claudeOpus: return "opus"
-        case .chatgpt: return "-"
+}
+
+/// 一次提問用哪個 AI、哪個模型、多強的思考
+nonisolated struct PaperAIChoice: Sendable {
+    var provider: PaperProvider
+    var model: PaperModel
+    var effort: String
+    var label: String { "\(provider.label) \(model.label) · \(effort)" }
+}
+
+/// ChatGPT 帳號能選的模型（跟 Codex 要一次，記在 UserDefaults，下次開 app 先用舊的）
+@Observable
+@MainActor
+final class PaperModelCatalog {
+    static let shared = PaperModelCatalog()
+    private(set) var chatgpt: [PaperModel]
+    @ObservationIgnored private var loaded = false
+    private static let cacheKey = "paperChat.codexModels"
+
+    private init() {
+        let cached = UserDefaults.standard.string(forKey: Self.cacheKey).map(PaperModel.parseCodex) ?? []
+        chatgpt = cached.isEmpty ? PaperModel.chatgptFallback : cached
+    }
+
+    func refresh() {
+        guard !loaded else { return }
+        loaded = true
+        LatexCompiler.runHelper(["models"]) { [weak self] output, _ in
+            let models = PaperModel.parseCodex(output)
+            guard let self, !models.isEmpty else { return }
+            self.chatgpt = models
+            UserDefaults.standard.set(output, forKey: Self.cacheKey)
         }
     }
 }
@@ -211,13 +264,13 @@ final class PaperChatSession {
 
     // MARK: 提問
 
-    func ask(_ question: String, quote: String?, quotePage: Int?, ai: PaperAI) {
+    func ask(_ question: String, quote: String?, quotePage: Int?, ai: PaperAIChoice) {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !isAsking else { return }
         chat.messages.append(PaperChatMessage(role: .user, text: q, quote: quote, quotePage: quotePage))
         save()
 
-        let session = chat.sessions[ai.rawValue]
+        let session = chat.sessions[ai.provider.rawValue]
         let prompt = buildPrompt(question: q, quote: quote, quotePage: quotePage,
                                  ai: ai, firstTurn: session == nil)
         let work = workDir
@@ -232,24 +285,24 @@ final class PaperChatSession {
         isAsking = true
         streamingText = ""
         startPolling(out, ai: ai)
-        LatexCompiler.runHelper(["ask", ai.cli, work.path, ai.model, session ?? "-"]) { [weak self] output, error in
+        LatexCompiler.runHelper(["ask", ai.provider.cli, work.path, ai.model.id, session ?? "-", ai.effort]) { [weak self] output, error in
             guard let self else { return }
             self.pollTask?.cancel()
             let fields = LatexCompiler.parseFields(output)
-            let parsed = Self.parse(out: out, ai: ai)
-            if let sid = parsed.session { self.chat.sessions[ai.rawValue] = sid }
+            let parsed = Self.parse(out: out, provider: ai.provider)
+            if let sid = parsed.session { self.chat.sessions[ai.provider.rawValue] = sid }
             if let answer = parsed.answer, !answer.isEmpty {
                 let cites = PaperText.citations(in: answer, pages: self.pages,
                                                 normalized: self.normalizedPages)
                 self.chat.messages.append(PaperChatMessage(
-                    role: .assistant, text: answer, provider: ai.rawValue, citations: cites))
+                    role: .assistant, text: answer, provider: ai.label, citations: cites))
             } else {
                 // 接續的 session 失效（例如被清掉了）→ 下次重開新對話
-                if session != nil { self.chat.sessions[ai.rawValue] = nil }
+                if session != nil { self.chat.sessions[ai.provider.rawValue] = nil }
                 let detail = error?.localizedDescription ?? fields["ERR"]
                     ?? parsed.error ?? (fields["TIMEOUT"] == "1" ? "超過 5 分鐘沒有回應" : "沒有收到回答")
                 self.chat.messages.append(PaperChatMessage(
-                    role: .error, text: "\(ai.label) 沒有回答：\(detail)", provider: ai.rawValue))
+                    role: .error, text: "\(ai.label) 沒有回答：\(detail)", provider: ai.label))
             }
             self.streamingText = ""
             self.isAsking = false
@@ -276,16 +329,16 @@ final class PaperChatSession {
     """
 
     private func buildPrompt(question: String, quote: String?, quotePage: Int?,
-                             ai: PaperAI, firstTurn: Bool) -> String {
+                             ai: PaperAIChoice, firstTurn: Bool) -> String {
         var parts: [String] = []
         if firstTurn {
-            if ai == .chatgpt { parts.append(Self.systemPrompt) }   // Codex 沒有 system prompt 參數
+            if ai.provider == .chatgpt { parts.append(Self.systemPrompt) }   // Codex 沒有 system prompt 參數
             parts.append("論文標題：\(title)\n\n=== 論文全文開始 ===\(PaperText.promptText(pages))\n=== 論文全文結束 ===")
             // 換一個 AI 接手時，讓它知道之前問過什麼（例如請它給第二意見）
             let history = chat.messages.dropLast().suffix(8).filter { $0.role != .error }
             if !history.isEmpty {
                 let lines = history.map { m in
-                    (m.role == .user ? "使用者：" : "助理（\(PaperAI(rawValue: m.provider ?? "")?.label ?? "AI")）：") + m.text
+                    (m.role == .user ? "使用者：" : "助理（\(m.provider ?? "AI")）：") + m.text
                 }
                 parts.append("=== 先前的問答（供參考，可能有錯，請以論文為準） ===\n" + lines.joined(separator: "\n\n"))
             }
@@ -299,12 +352,13 @@ final class PaperChatSession {
 
     // MARK: 串流
 
-    private func startPolling(_ out: URL, ai: PaperAI) {
+    private func startPolling(_ out: URL, ai: PaperAIChoice) {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 250_000_000)
-                let partial = await Task.detached { Self.parse(out: out, ai: ai).partial }.value
+                let provider = ai.provider
+                let partial = await Task.detached { Self.parse(out: out, provider: provider).partial }.value
                 guard let self, !Task.isCancelled else { return }
                 if partial != self.streamingText { self.streamingText = partial }
             }
@@ -319,14 +373,14 @@ final class PaperChatSession {
     }
 
     /// 讀小幫手寫出的 JSON lines（Claude 的 stream-json／Codex 的 exec --json）。
-    nonisolated private static func parse(out: URL, ai: PaperAI) -> Parsed {
+    nonisolated private static func parse(out: URL, provider: PaperProvider) -> Parsed {
         var r = Parsed()
         guard let text = try? String(contentsOf: out, encoding: .utf8) else { return r }
         for line in text.split(separator: "\n") {
             guard let d = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
             else { continue }
             let type = d["type"] as? String
-            if ai == .chatgpt {
+            if provider == .chatgpt {
                 if type == "thread.started" { r.session = d["thread_id"] as? String }
                 if type == "item.completed", let item = d["item"] as? [String: Any],
                    item["type"] as? String == "agent_message", let t = item["text"] as? String {

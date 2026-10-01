@@ -23,6 +23,9 @@ struct PapersView: View {
     @State private var importingTranslation = false
     @State private var chatSession: PaperChatSession?
     @AppStorage("papers.showChat") private var showChat = true
+    /// 最左邊的論文清單可以收起（拖分隔線到底、或按標題列的側欄按鈕）
+    @AppStorage("papers.showList") private var showList = true
+    @State private var downloadWatch = TranslationDownloadWatcher()
 
     enum ViewMode: String, CaseIterable, Identifiable {
         case original, translation, sideBySide
@@ -37,19 +40,36 @@ struct PapersView: View {
     }
 
     var body: some View {
-        HSplitView {
-            listPane
-                // minWidth 壓低:讓內容區在窄視窗時仍能縮進可用寬度,
-                // 避免 NavigationSplitView 因塞不下而擠壓側欄、害選單位置跳動。
-                .frame(minWidth: 160, idealWidth: 320, maxWidth: 460)
-            detailPane
-                .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity)
-        }
+        // 分隔線跟筆記／LaTeX 一樣用 PersistentSplitView：記得位置、好抓、滑上去變藍
+        PersistentSplitView(autosaveName: "PapersPanes", panes: [
+            .init(id: "list", minWidth: 180, initialWidth: 300,
+                  holdingPriority: .init(260), isVisible: showList,
+                  content: hosted(listPane),
+                  onVisibilityChange: { showList = $0 }),
+            .init(id: "detail", minWidth: 320, content: hosted(detailPane)),
+        ])
         .navigationTitle("論文")
+        .fileImporter(isPresented: $importingTranslation, allowedContentTypes: [.pdf]) { result in
+            if case .success(let url) = result { importTranslation(from: url) }
+        }
         .task {
             zotero.restoreZoteroDir()
             await zotero.refresh()
         }
+    }
+
+    private func hosted<V: View>(_ view: V) -> AnyView {
+        AnyView(view
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(store))
+    }
+
+    private var listToggle: some View {
+        Button { showList.toggle() } label: {
+            Image(systemName: "sidebar.leading")
+        }
+        .buttonStyle(.borderless)
+        .help(showList ? "收起論文清單" : "展開論文清單")
     }
 
     // MARK: - List
@@ -166,6 +186,7 @@ struct PapersView: View {
         VStack(spacing: 0) {
             if let item = selected {
                 HStack(spacing: 10) {
+                    listToggle
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.title)
                             .font(.headline)
@@ -203,14 +224,19 @@ struct PapersView: View {
                             .fixedSize()
                             .help("原文／中文版／左右對照（兩邊同步翻頁）")
                         }
-                        Button {
-                            importingTranslation = true
+                        Menu {
+                            Button("用沈浸式翻譯產生中文版…") { startImmersiveTranslate() }
+                            Button("匯入中文版 PDF…") { importingTranslation = true }
+                            if translationData != nil {
+                                Divider()
+                                Button("移除中文版", role: .destructive) { removeTranslation() }
+                            }
                         } label: {
-                            Image(systemName: translationData == nil ? "character.book.closed" : "arrow.triangle.2.circlepath")
+                            Label("中文版", systemImage: "character.book.closed")
                         }
-                        .help(translationData == nil
-                              ? "匯入中文版 PDF（沈浸式翻譯輸出的檔案，也可以直接拖進來）"
-                              : "換一份中文版 PDF")
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .help("中英對照：用沈浸式翻譯產生中文版 PDF，或匯入已有的（也可以直接把 PDF 拖進閱讀區）")
                         Button {
                             showChat.toggle()
                         } label: {
@@ -232,6 +258,21 @@ struct PapersView: View {
                 .padding(12)
 
                 Divider()
+
+                if downloadWatch.isWatching {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("在瀏覽器用沈浸式翻譯翻好、下載後，會自動從「下載」資料夾匯入（原文 PDF 已在 Finder 選好，拖進網頁即可）")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("取消") { downloadWatch.stop() }
+                            .buttonStyle(.borderless)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor.opacity(0.08))
+                }
 
                 if loadingPDF {
                     ProgressView("載入 PDF…")
@@ -264,6 +305,7 @@ struct PapersView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
+                HStack { listToggle; Spacer() }.padding(12)
                 VStack(spacing: 10) {
                     Image(systemName: "books.vertical")
                         .font(.system(size: 40))
@@ -275,31 +317,34 @@ struct PapersView: View {
             }
         }
         .surface(.panel, ambient: .thickMaterial)
-        .fileImporter(isPresented: $importingTranslation, allowedContentTypes: [.pdf]) { result in
-            if case .success(let url) = result { importTranslation(from: url) }
-        }
     }
 
     // MARK: - 閱讀區：原文／中文／對照 ＋ 問答欄
 
-    @ViewBuilder
     private func readerArea(_ data: Data) -> some View {
-        HSplitView {
-            pdfArea(data)
-                .frame(minWidth: 280, maxWidth: .infinity, maxHeight: .infinity)
-                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                    dropTranslation(providers)
-                }
-            if showChat, let chatSession {
-                PaperChatPanel(
-                    session: chatSession,
-                    takeSelection: { viewer.selectionInfo() ?? transViewer.selectionInfo() },
-                    onCite: { page, quote in
-                        if viewMode == .translation { viewMode = .sideBySide }
-                        viewer.reveal(quote: quote, page: page)
-                    })
-                .frame(minWidth: 280, idealWidth: 380, maxWidth: 640, maxHeight: .infinity)
-            }
+        PersistentSplitView(autosaveName: "PaperReaderPanes", panes: [
+            .init(id: "pdf", minWidth: 280,
+                  content: hosted(pdfArea(data)
+                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                        dropTranslation(providers)
+                    })),
+            .init(id: "chat", minWidth: 280, initialWidth: 380,
+                  holdingPriority: .init(260), isVisible: showChat && chatSession != nil,
+                  content: hosted(chatPane),
+                  onVisibilityChange: { showChat = $0 }),
+        ])
+    }
+
+    @ViewBuilder
+    private var chatPane: some View {
+        if let chatSession {
+            PaperChatPanel(
+                session: chatSession,
+                takeSelection: { viewer.selectionInfo() ?? transViewer.selectionInfo() },
+                onCite: { page, quote in
+                    if viewMode == .translation { viewMode = .sideBySide }
+                    viewer.reveal(quote: quote, page: page)
+                })
         }
     }
 
@@ -309,10 +354,12 @@ struct PapersView: View {
         case (.translation, let trans?):
             PDFKitView(data: trans, controller: transViewer)
         case (.sideBySide, let trans?):
-            HSplitView {
-                PDFKitView(data: data, controller: viewer)
-                PDFKitView(data: trans, controller: transViewer)
-            }
+            PersistentSplitView(autosaveName: "PaperComparePanes", panes: [
+                .init(id: "original", minWidth: 200,
+                      content: AnyView(PDFKitView(data: data, controller: viewer))),
+                .init(id: "translation", minWidth: 200,
+                      content: AnyView(PDFKitView(data: trans, controller: transViewer))),
+            ])
             .onAppear(perform: linkPages)
         default:
             PDFKitView(data: data, controller: viewer)
@@ -341,6 +388,31 @@ struct PapersView: View {
         try? data.write(to: dest, options: .atomic)
         translationData = data
         viewMode = .sideBySide
+    }
+
+    /// 沈浸式翻譯沒有給其他 app 用的介面（它是瀏覽器擴充＋網頁版 PDF Pro），
+    /// 所以這裡把能自動的都自動：開 PDF Pro 網頁、在 Finder 選好原文 PDF（拖進網頁就好）、
+    /// 然後盯著「下載」資料夾，譯好的 PDF 一下載完就自動匯入成這篇的中文版。
+    private func startImmersiveTranslate() {
+        guard let item = selected else { return }
+        if let url = URL(string: "https://app.immersivetranslate.com/pdf-pro/") {
+            NSWorkspace.shared.open(url)
+        }
+        if let file = viewer.fileURL {
+            NSWorkspace.shared.activateFileViewerSelecting([file])
+        }
+        let hint = viewer.fileURL?.deletingPathExtension().lastPathComponent
+        downloadWatch.start(nameHint: hint) { url in
+            guard selected?.key == item.key else { return }
+            importTranslation(from: url)
+        }
+    }
+
+    private func removeTranslation() {
+        guard let item = selected, let url = translationURL(for: item) else { return }
+        try? FileManager.default.removeItem(at: url)
+        translationData = nil
+        viewMode = .original
     }
 
     private func dropTranslation(_ providers: [NSItemProvider]) -> Bool {
@@ -422,6 +494,65 @@ struct PapersView: View {
                 .write(to: url, atomically: true, encoding: .utf8)
         }
         store.openNote(url)
+    }
+}
+
+// MARK: - 等沈浸式翻譯的下載
+
+/// 盯著「下載」資料夾：開始之後新出現的 PDF（下載完、大小不再變）就交給 onFound。
+/// 檔名有原文 PDF 的前幾個字的優先（沈浸式翻譯的輸出檔名會沿用原檔名）。最多等 30 分鐘。
+@Observable
+@MainActor
+final class TranslationDownloadWatcher {
+    private(set) var isWatching = false
+    @ObservationIgnored private var task: Task<Void, Never>?
+
+    static var downloadsURL: URL {
+        URL(fileURLWithPath: "/Users/\(NSUserName())/Downloads", isDirectory: true)
+    }
+
+    func start(nameHint: String?, onFound: @escaping @MainActor (URL) -> Void) {
+        stop()
+        isWatching = true
+        let dir = Self.downloadsURL
+        let before = Set(Self.pdfs(in: dir).map(\.path))
+        let hint = nameHint.map { String($0.prefix(20)).lowercased() }
+        task = Task { [weak self] in
+            var lastSizes: [String: Int] = [:]
+            for _ in 0..<600 {   // 3 秒一次，30 分鐘
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard !Task.isCancelled else { return }
+                let fresh = Self.pdfs(in: dir).filter { !before.contains($0.path) }
+                let ranked = fresh.sorted { a, b in
+                    let ma = hint.map { a.lastPathComponent.lowercased().contains($0) } ?? false
+                    let mb = hint.map { b.lastPathComponent.lowercased().contains($0) } ?? false
+                    return ma && !mb
+                }
+                for url in ranked {
+                    let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                    defer { lastSizes[url.path] = size }
+                    // 大小連續兩次一樣才算下載完
+                    if size > 0, lastSizes[url.path] == size {
+                        self?.isWatching = false
+                        onFound(url)
+                        return
+                    }
+                }
+            }
+            self?.isWatching = false
+        }
+    }
+
+    func stop() {
+        task?.cancel()
+        task = nil
+        isWatching = false
+    }
+
+    private static func pdfs(in dir: URL) -> [URL] {
+        ((try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? [])
+            .filter { $0.pathExtension.lowercased() == "pdf" }
     }
 }
 

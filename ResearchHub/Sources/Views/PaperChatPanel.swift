@@ -11,14 +11,36 @@ struct PaperChatPanel: View {
     /// 點了引文：(頁碼, 原文)
     var onCite: (Int, String) -> Void
 
-    @AppStorage("paperChat.ai") private var aiRaw = PaperAI.claudeSonnet.rawValue
+    @AppStorage("paperChat.provider") private var providerRaw = PaperProvider.claude.rawValue
+    @AppStorage("paperChat.claudeModel") private var claudeModelID = "claude-sonnet-5-5"
+    @AppStorage("paperChat.claudeEffort") private var claudeEffort = "high"
+    @AppStorage("paperChat.codexModel") private var codexModelID = ""
+    @AppStorage("paperChat.codexEffort") private var codexEffort = ""
+    private var catalog = PaperModelCatalog.shared
     @State private var draft = ""
     @State private var quote: String?
     @State private var quotePage: Int?
     @State private var confirmClear = false
     @FocusState private var composerFocused: Bool
 
-    private var ai: PaperAI { PaperAI(rawValue: aiRaw) ?? .claudeSonnet }
+    private var provider: PaperProvider { PaperProvider(rawValue: providerRaw) ?? .claude }
+    private var models: [PaperModel] { provider == .claude ? PaperModel.claude : catalog.chatgpt }
+    private var model: PaperModel {
+        let id = provider == .claude ? claudeModelID : codexModelID
+        return models.first { $0.id == id } ?? models[0]
+    }
+    private var effort: String {
+        let e = provider == .claude ? claudeEffort : codexEffort
+        return model.efforts.contains(e) ? e : model.defaultEffort
+    }
+    private var ai: PaperAIChoice { PaperAIChoice(provider: provider, model: model, effort: effort) }
+
+    private func setModel(_ id: String) {
+        if provider == .claude { claudeModelID = id } else { codexModelID = id }
+    }
+    private func setEffort(_ e: String) {
+        if provider == .claude { claudeEffort = e } else { codexEffort = e }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,24 +62,68 @@ struct PaperChatPanel: View {
     // MARK: 頂列
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "bubble.left.and.text.bubble.right")
-                .foregroundStyle(.secondary)
-            Picker("", selection: $aiRaw) {
-                ForEach(PaperAI.allCases) { Text($0.label).tag($0.rawValue) }
+        // 兩行：上面選服務（＋清除），下面選模型與思考強度。
+        // 擠成一行的話欄寬一窄，整排的理想寬度會撐破欄位、左右被裁掉。
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 6) {
+            Picker("", selection: $providerRaw) {
+                ForEach(PaperProvider.allCases) { Text($0.label).tag($0.rawValue) }
             }
+            .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
             .help("換一個 AI 時，它會收到整篇論文和先前的問答，可以請它給第二意見")
-            Spacer()
+            Spacer(minLength: 0)
             if !session.chat.messages.isEmpty {
                 Button { confirmClear = true } label: { Image(systemName: "trash") }
                     .buttonStyle(.borderless)
                     .help("清除問答")
             }
+          }
+          HStack(spacing: 10) {
+            Menu {
+                ForEach(models) { m in
+                    Button { setModel(m.id) } label: {
+                        if m.id == model.id { Label(m.label, systemImage: "checkmark") } else { Text(m.label) }
+                    }
+                }
+            } label: {
+                Text(model.label)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("模型")
+            Menu {
+                ForEach(model.efforts, id: \.self) { e in
+                    Button { setEffort(e) } label: {
+                        let name = Self.effortLabel(e) + (e == model.defaultEffort ? "（預設）" : "")
+                        if e == effort { Label(name, systemImage: "checkmark") } else { Text(name) }
+                    }
+                }
+            } label: {
+                Text(Self.effortLabel(effort))
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("思考強度（effort）：越高越慢、越用額度，但推理更仔細")
+            Spacer(minLength: 0)
+          }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+        .onAppear { catalog.refresh() }
+    }
+
+    static func effortLabel(_ e: String) -> String {
+        switch e {
+        case "low": return "Low"
+        case "medium": return "Medium"
+        case "high": return "High"
+        case "xhigh": return "Extra high"
+        case "max": return "Max"
+        case "ultra": return "Ultra"
+        default: return e
+        }
     }
 
     private var emptyState: some View {
@@ -90,6 +156,10 @@ struct PaperChatPanel: View {
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+
+    /// 舊版存的 provider 代號 → 顯示名稱
+    private static let legacyNames = ["claude-sonnet": "Claude Sonnet", "claude-opus": "Claude Opus",
+                                      "chatgpt": "ChatGPT"]
 
     private static let suggestions = [
         "這篇論文的主要貢獻是什麼？",
@@ -147,7 +217,7 @@ struct PaperChatPanel: View {
                               || !session.pagesReady)
                 }
             }
-            Text("用你的 \(ai == .chatgpt ? "ChatGPT" : "Claude") 訂閱 · 引用會逐字核對原文")
+            Text("用你的 \(provider.label) 訂閱 · 引用會逐字核對原文")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -177,7 +247,7 @@ struct PaperChatPanel: View {
                 b += "\n\n" + m.text
                 blocks.append(b)
             case .assistant:
-                let name = PaperAI(rawValue: m.provider ?? "")?.label ?? "AI"
+                let name = Self.legacyNames[m.provider ?? ""] ?? m.provider ?? "AI"
                 let cites = m.citations ?? []
                 var head = "**\(name)**"
                 if !cites.isEmpty {

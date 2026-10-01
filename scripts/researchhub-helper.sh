@@ -14,7 +14,8 @@
 #   compile <工作資料夾> <主檔.tex> <engine: xelatex|pdflatex|lualatex|auto>
 #   zip     <來源資料夾> <目的 .zip>            （內容放在 zip 根目錄，跟 Overleaf 下載的格式一樣）
 #   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
-#   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> （論文問答，見 PaperChat.swift）
+#   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> <effort 或 -> （論文問答，見 PaperChat.swift）
+#   models  列出 ChatGPT（Codex）帳號可用的模型：每行 slug<TAB>名稱<TAB>effort1,effort2…<TAB>預設 effort
 #   version
 set -u
 export PATH="/Library/TeX/texbin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
@@ -104,7 +105,7 @@ case "$cmd" in
     # 論文問答：用使用者自己的 Claude／ChatGPT 訂閱（Claude Code CLI、Codex CLI）。
     # 工作資料夾在 app 容器裡，app 先寫好 prompt.txt（和 system.txt），
     # 這裡把回覆串流寫進 out.jsonl，app 邊跑邊讀，看起來就是一個字一個字出來。
-    provider="$1"; work="$2"; model="${3:--}"; session="${4:--}"
+    provider="$1"; work="$2"; model="${3:--}"; session="${4:--}"; effort="${5:--}"
     require_local "$work"
     cd "$work" || { echo "RC=2"; echo "ERR=找不到問答工作資料夾"; exit 0; }
     # Claude Code 裝在 ~/.local/bin；Codex 是 npm 全域套件（nvm 的 node 底下）
@@ -120,12 +121,14 @@ case "$cmd" in
               --tools "" --setting-sources "" --strict-mcp-config
               --system-prompt "$(cat system.txt 2>/dev/null)")
         [ "$model" != "-" ] && args+=(--model "$model")
+        [ "$effort" != "-" ] && args+=(--effort "$effort")
         [ "$session" != "-" ] && args+=(--resume "$session")
         claude "${args[@]}" < prompt.txt > out.jsonl 2> err.txt &
         ;;
       codex)
         command -v codex >/dev/null || { echo "RC=127"; echo "ERR=找不到 Codex CLI（codex 指令）"; exit 0; }
         margs=(); [ "$model" != "-" ] && margs=(-m "$model")
+        [ "$effort" != "-" ] && margs+=(-c "model_reasoning_effort=\"$effort\"")
         if [ "$session" != "-" ]; then
           codex exec resume "$session" --json --skip-git-repo-check ${margs[@]+"${margs[@]}"} - < prompt.txt > out.jsonl 2> err.txt &
         else
@@ -146,6 +149,24 @@ case "$cmd" in
     fi
     wait $pid 2>/dev/null
     echo "RC=$?"
+    ;;
+
+  models)
+    cache="$HOME/.codex/models_cache.json"
+    [ -f "$cache" ] || { echo "RC=2"; exit 0; }
+    /usr/bin/python3 - "$cache" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+models = d.get("models", d if isinstance(d, list) else [])
+for m in models:
+    if not isinstance(m, dict) or m.get("visibility") != "list":
+        continue
+    levels = m.get("supported_reasoning_levels") or m.get("supported_reasoning_efforts") or []
+    levels = [e.get("effort") if isinstance(e, dict) else e for e in levels]
+    print("\t".join([m.get("slug", ""), m.get("display_name") or m.get("slug", ""),
+                     ",".join(x for x in levels if x), m.get("default_reasoning_level") or ""]))
+PY
+    echo "RC=0"
     ;;
 
   *)
