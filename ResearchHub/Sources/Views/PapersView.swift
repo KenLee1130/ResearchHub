@@ -229,7 +229,7 @@ struct PapersView: View {
                             .help("原文／中文版／左右對照（兩邊同步翻頁）")
                         }
                         Menu {
-                            Button("用 BabelDOC 翻譯（DeepSeek，一篇約 1 台幣）") { startBabelDOC() }
+                            Button("用 BabelDOC 翻譯") { startBabelDOC() }
                                 .disabled(selected.map { translator.isRunning($0.key) } ?? true
                                           || translator.runningKey != nil)
                             Button("用沈浸式翻譯產生中文版…") { startImmersiveTranslate() }
@@ -418,8 +418,15 @@ struct PapersView: View {
         syncTask = Task {
             try? await Task.sleep(nanoseconds: 150_000_000)
             guard !Task.isCancelled, viewMode == .sideBySide else { return }
-            // 選取被清空（例如下面清掉另一邊的舊選取）就什麼都不做，留著目前的標記
-            guard let anchor = source.selectionAnchor() else { return }
+            guard let anchor = source.selectionAnchor() else {
+                // 使用者取消反白 → 另一邊的對應標記也一起拿掉。
+                // 但如果是下面那行「清掉另一邊舊選取」造成的空選取，要留著剛標好的段落。
+                if !source.selectionWasClearedByApp {
+                    target.clearSync()
+                    source.clearSync()
+                }
+                return
+            }
             source.clearSync()
             target.clearSelection()   // 另一邊上一次的選取留著會讓人以為那才是對應處
             let center = CGPoint(x: anchor.rect.midX, y: anchor.rect.midY)
@@ -756,7 +763,18 @@ final class PDFViewerController: ObservableObject {
         }
     }
 
-    func clearSelection() { pdfView?.clearSelection() }
+    /// 由 app 自己清掉選取（不是使用者取消反白）。選取改變的通知是非同步送來的，
+    /// 所以記個時間：這之後短時間內收到的「選取變空」是 app 造成的。
+    private var appClearedSelectionAt: Date?
+    var selectionWasClearedByApp: Bool {
+        appClearedSelectionAt.map { Date().timeIntervalSince($0) < 0.6 } ?? false
+    }
+
+    func clearSelection() {
+        guard pdfView?.currentSelection != nil else { return }
+        appClearedSelectionAt = Date()
+        pdfView?.clearSelection()
+    }
 
     func clearSync() {
         for (page, a) in syncAnnotations { page.removeAnnotation(a) }
