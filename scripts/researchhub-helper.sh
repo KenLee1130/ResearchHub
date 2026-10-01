@@ -15,6 +15,7 @@
 #   zip     <來源資料夾> <目的 .zip>            （內容放在 zip 根目錄，跟 Overleaf 下載的格式一樣）
 #   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
 #   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> <effort 或 -> （論文問答，見 PaperChat.swift）
+#   translate <工作資料夾> <目標語言，例如 zh-TW>（BabelDOC＋DeepSeek 翻譯 input.pdf，見 PaperTranslator）
 #   models  列出 ChatGPT（Codex）帳號可用的模型：每行 slug<TAB>名稱<TAB>effort1,effort2…<TAB>預設 effort
 #   version
 set -u
@@ -149,6 +150,48 @@ case "$cmd" in
     fi
     wait $pid 2>/dev/null
     echo "RC=$?"
+    ;;
+
+  translate)
+    # 用 BabelDOC 把 input.pdf 翻成中文版（只出譯文 PDF；對照由 app 左右並排）。
+    # 翻譯用 DeepSeek（使用者自己的 API 金鑰，放在 ~/.config/researchhub/deepseek.key，
+    # 沙盒 app 讀不到那裡，所以只有這支小幫手碰得到金鑰）。
+    # 一定要關掉思考模式：開著的話一篇 6 頁的論文吐出 20 萬 token、還會漏翻整段。
+    work="$1"; lang="${2:-zh-TW}"
+    require_local "$work"
+    cd "$work" || { echo "RC=2"; echo "ERR=找不到翻譯工作資料夾"; exit 0; }
+    PATH="$HOME/.local/bin:$PATH"; export PATH
+    key_file="$HOME/.config/researchhub/deepseek.key"
+    [ -s "$key_file" ] || { echo "RC=3"; echo "ERR=找不到 DeepSeek 金鑰（$key_file）"; exit 0; }
+    command -v babeldoc >/dev/null || { echo "RC=127"; echo "ERR=找不到 BabelDOC（請先 uv tool install --python 3.12 BabelDOC）"; exit 0; }
+    rm -rf out align.json log.txt
+    mkdir -p out
+    bin=$(readlink -f "$(command -v babeldoc)" 2>/dev/null || command -v babeldoc)
+    py="$(dirname "$bin")/python"
+    driver="$(cd "$(dirname "$0")" && pwd)/babeldoc-align.py"
+    [ -x "$py" ] && [ -f "$driver" ] || { echo "RC=127"; echo "ERR=找不到 BabelDOC 的 Python 或 babeldoc-align.py（請重跑 install-mac.sh）"; exit 0; }
+    # 不用 --debug（那會在輸出 PDF 上畫除錯框）；段落方框由 babeldoc-align.py 在排版前記下
+    RH_ALIGN_OUT="$work/align.json" "$py" "$driver" --files input.pdf --lang-in en --lang-out "$lang" \
+      --openai --openai-model deepseek-flash --openai-base-url https://api.deepseek.com/v1 \
+      --openai-api-key "$(tr -d '[:space:]' < "$key_file")" --openai-thinking disabled \
+      --output "$work/out" --watermark-output-mode no_watermark --no-dual > log.txt 2>&1 &
+    pid=$!
+    # 看門狗：一篇最多等 20 分鐘
+    for _ in $(seq 1 2400); do
+      kill -0 $pid 2>/dev/null || break
+      sleep 0.5
+    done
+    if kill -0 $pid 2>/dev/null; then
+      pkill -P $pid 2>/dev/null; kill $pid 2>/dev/null
+      echo "TIMEOUT=1"
+    fi
+    wait $pid 2>/dev/null
+    rc=$?
+    mono=$(find "$work/out" -name "*.mono.pdf" | head -1)
+    [ -n "$mono" ] && echo "MONO=$mono"
+    [ -f "$work/align.json" ] && echo "ALIGN=$work/align.json"
+    grep -m1 -E "Error code|AuthenticationError|Insufficient Balance|insufficient" log.txt | head -c 300 | sed 's/^/ERR=/'
+    echo "RC=$rc"
     ;;
 
   models)

@@ -48,7 +48,8 @@ echo "✓ 已安裝並重啟 /Applications/ResearchHub.app"
 SCRIPTS_DIR="$HOME/Library/Application Scripts/com.ken.ResearchHub"
 mkdir -p "$SCRIPTS_DIR"
 install -m 755 scripts/researchhub-helper.sh "$SCRIPTS_DIR/researchhub-helper.sh" \
-  && echo "✓ LaTeX 小幫手已安裝"
+  && install -m 644 scripts/babeldoc-align.py "$SCRIPTS_DIR/babeldoc-align.py" \
+  && echo "✓ 小幫手已安裝（LaTeX 編譯、論文問答、BabelDOC 翻譯）"
 
 # 同步 iPhone 重簽用的 repo clone（在 ~/Library，launchd 才讀得到——
 # TCC 擋 launchd 碰 ~/Desktop；這裡是終端機環境，有 Desktop 權限可以 pull）

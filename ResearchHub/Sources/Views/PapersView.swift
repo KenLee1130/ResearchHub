@@ -26,6 +26,10 @@ struct PapersView: View {
     /// 最左邊的論文清單可以收起（拖分隔線到底、或按標題列的側欄按鈕）
     @AppStorage("papers.showList") private var showList = true
     @State private var downloadWatch = TranslationDownloadWatcher()
+    @State private var translator = PaperTranslator()
+    /// 段落對照（BabelDOC 翻的才有）
+    @State private var alignment: PaperAlignment?
+    @State private var syncTask: Task<Void, Never>?
 
     enum ViewMode: String, CaseIterable, Identifiable {
         case original, translation, sideBySide
@@ -225,6 +229,9 @@ struct PapersView: View {
                             .help("原文／中文版／左右對照（兩邊同步翻頁）")
                         }
                         Menu {
+                            Button("用 BabelDOC 翻譯（DeepSeek，一篇約 1 台幣）") { startBabelDOC() }
+                                .disabled(selected.map { translator.isRunning($0.key) } ?? true
+                                          || translator.runningKey != nil)
                             Button("用沈浸式翻譯產生中文版…") { startImmersiveTranslate() }
                             Button("匯入中文版 PDF…") { importingTranslation = true }
                             if translationData != nil {
@@ -258,6 +265,37 @@ struct PapersView: View {
                 .padding(12)
 
                 Divider()
+
+                if let item = selected, translator.isRunning(item.key) {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                            let secs = Int(ctx.date.timeIntervalSince(translator.startedAt ?? ctx.date))
+                            Text("BabelDOC 翻譯中…（已 \(secs) 秒，通常 1–2 分鐘；可以先讀原文）")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor.opacity(0.08))
+                }
+                if let err = translator.lastError {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+                        Text("翻譯失敗：\(err)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                        Spacer()
+                        Button("關閉") { translator.dismissError() }
+                            .buttonStyle(.borderless)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.08))
+                }
 
                 if downloadWatch.isWatching {
                     HStack(spacing: 8) {
@@ -366,10 +404,41 @@ struct PapersView: View {
         }
     }
 
-    /// 對照模式：翻一邊、另一邊跟著翻到同一頁
+    /// 對照模式：翻一邊、另一邊跟著翻到同一頁；反白一邊、另一邊標出同一段
     private func linkPages() {
         viewer.onPageChange = { [weak transViewer] i in transViewer?.go(toPage: i) }
         transViewer.onPageChange = { [weak viewer] i in viewer?.go(toPage: i) }
+        viewer.onSelectionChange = { scheduleSync(from: viewer, to: transViewer) }
+        transViewer.onSelectionChange = { scheduleSync(from: transViewer, to: viewer) }
+    }
+
+    /// 拖曳選取時選取一直在變：停手 0.15 秒再對照
+    private func scheduleSync(from source: PDFViewerController, to target: PDFViewerController) {
+        syncTask?.cancel()
+        syncTask = Task {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled, viewMode == .sideBySide else { return }
+            // 選取被清空（例如下面清掉另一邊的舊選取）就什麼都不做，留著目前的標記
+            guard let anchor = source.selectionAnchor() else { return }
+            source.clearSync()
+            target.clearSelection()   // 另一邊上一次的選取留著會讓人以為那才是對應處
+            let center = CGPoint(x: anchor.rect.midX, y: anchor.rect.midY)
+            // BabelDOC 的段落方框兩邊一樣；沒有對照資料就從選取的那幾行推出整段
+            let box = alignment?.paragraph(onPage: anchor.page, at: center)
+                ?? source.paragraphRect(page: anchor.page, around: anchor.rect)
+            guard let box else { target.clearSync(); return }
+            target.showSync(page: anchor.page, rect: box)
+        }
+    }
+
+    private func startBabelDOC() {
+        guard let item = selected, let data = pdfData, let root = store.rootURL else { return }
+        translator.translate(key: item.key, pdfData: data, root: root) { trans, align in
+            guard selected?.key == item.key else { return }   // 翻譯期間換了別篇
+            translationData = trans
+            alignment = align
+            viewMode = .sideBySide
+        }
     }
 
     private func translationURL(for item: ZoteroItem) -> URL? {
@@ -386,6 +455,9 @@ struct PapersView: View {
         try? FileManager.default.createDirectory(at: dest.deletingLastPathComponent(),
                                                  withIntermediateDirectories: true)
         try? data.write(to: dest, options: .atomic)
+        // 手動匯入的譯文不一定跟 BabelDOC 的段落方框對得上：丟掉舊的對照，改用逐行推段落
+        try? FileManager.default.removeItem(at: dest.deletingLastPathComponent().appendingPathComponent("align.json"))
+        alignment = nil
         translationData = data
         viewMode = .sideBySide
     }
@@ -411,7 +483,9 @@ struct PapersView: View {
     private func removeTranslation() {
         guard let item = selected, let url = translationURL(for: item) else { return }
         try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url.deletingLastPathComponent().appendingPathComponent("align.json"))
         translationData = nil
+        alignment = nil
         viewMode = .original
     }
 
@@ -434,8 +508,14 @@ struct PapersView: View {
         translationData = nil
         viewer.onPageChange = nil
         transViewer.onPageChange = nil
+        viewer.onSelectionChange = nil
+        transViewer.onSelectionChange = nil
+        viewer.clearSync()
+        transViewer.clearSync()
+        alignment = nil
         if let url = translationURL(for: item), case .data(let data) = LibraryFileRead.read(url) {
             translationData = data
+            alignment = PaperTranslator.loadAlignment(root: store.rootURL, key: item.key)
         }
         if translationData == nil, viewMode != .original { viewMode = .original }
         Task {
@@ -635,7 +715,73 @@ final class PDFViewerController: ObservableObject {
 
     private func save() {
         guard let url = fileURL else { return }
+        clearSync()   // 對照用的暫時標記不能寫進 Zotero 的 PDF
         pdfView?.document?.write(to: url)
+    }
+
+    // MARK: 對照模式：反白一邊、另一邊標出同一段
+
+    /// 選取改變時通知（並排對照用來在另一邊標出對應段落）
+    var onSelectionChange: (() -> Void)?
+    private static let syncMark = "researchhub-sync"
+    private var syncAnnotations: [(PDFPage, PDFAnnotation)] = []
+
+    /// 目前選取在第幾頁（0 起算）、選取範圍的方框
+    func selectionAnchor() -> (page: Int, rect: CGRect)? {
+        guard let view = pdfView, let doc = view.document, let sel = view.currentSelection,
+              let text = sel.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let page = sel.pages.first else { return nil }
+        return (doc.index(for: page), sel.bounds(for: page))
+    }
+
+    /// 在這一頁的 rect 範圍內，把文字一行一行淡淡標色，並捲到看得到的地方
+    func showSync(page index: Int, rect: CGRect) {
+        clearSync()
+        guard let view = pdfView, let doc = view.document,
+              index >= 0, index < doc.pageCount, let page = doc.page(at: index) else { return }
+        let color = NSColor.systemBlue.withAlphaComponent(0.22)
+        let lines = page.selection(for: rect.insetBy(dx: -1, dy: -1))?.selectionsByLine() ?? []
+        var rects = lines.map { $0.bounds(for: page) }.filter { $0.width > 1 && $0.height > 1 }
+        if rects.isEmpty { rects = [rect] }   // 抓不到文字（例如字是畫成圖形的）就整塊標
+        for r in rects {
+            let a = PDFAnnotation(bounds: r.insetBy(dx: -1, dy: -0.5), forType: .highlight, withProperties: nil)
+            a.color = color
+            a.userName = Self.syncMark
+            page.addAnnotation(a)
+            syncAnnotations.append((page, a))
+        }
+        let onScreen = view.convert(rect, from: page)
+        if !view.bounds.insetBy(dx: 0, dy: 20).intersects(onScreen) {
+            view.go(to: CGRect(x: rect.minX, y: rect.maxY - 1, width: 1, height: 1), on: page)
+        }
+    }
+
+    func clearSelection() { pdfView?.clearSelection() }
+
+    func clearSync() {
+        for (page, a) in syncAnnotations { page.removeAnnotation(a) }
+        syncAnnotations = []
+    }
+
+    /// 沒有 align.json 時的退路：從選取的那幾行往上下延伸，行距正常就算同一段，
+    /// 遇到大空白（段落間距）或換欄就停。
+    func paragraphRect(page index: Int, around rect: CGRect) -> CGRect? {
+        guard let doc = pdfView?.document, index >= 0, index < doc.pageCount,
+              let page = doc.page(at: index),
+              let all = page.selection(for: page.bounds(for: .mediaBox))?.selectionsByLine() else { return nil }
+        // 同一欄的行（水平方向跟選取重疊夠多），由上而下
+        let column = all.map { $0.bounds(for: page) }
+            .filter { b in
+                let overlap = min(b.maxX, rect.maxX) - max(b.minX, rect.minX)
+                return b.height > 1 && overlap > 0.3 * min(b.width, max(rect.width, 20))
+            }
+            .sorted { $0.maxY > $1.maxY }
+        guard let hit = column.firstIndex(where: { $0.intersects(rect.insetBy(dx: 0, dy: -1)) }) else { return nil }
+        let lineHeight = column[hit].height
+        var top = hit, bottom = hit
+        while top > 0, column[top - 1].minY - column[top].maxY < lineHeight * 0.9 { top -= 1 }
+        while bottom < column.count - 1, column[bottom].minY - column[bottom + 1].maxY < lineHeight * 0.9 { bottom += 1 }
+        return column[top...bottom].reduce(column[top]) { $0.union($1) }
     }
 
     // MARK: 翻頁同步、引文跳轉、選取文字
@@ -712,6 +858,10 @@ struct PDFKitView: NSViewRepresentable {
                 if let i = controller.currentPageIndex { controller.onPageChange?(i) }
             }
         }
+        context.coordinator.selectionObserver = NotificationCenter.default.addObserver(
+            forName: .PDFViewSelectionChanged, object: view, queue: .main) { _ in
+            MainActor.assumeIsolated { controller.onSelectionChange?() }
+        }
         return view
     }
 
@@ -729,8 +879,12 @@ struct PDFKitView: NSViewRepresentable {
     final class Coordinator {
         var lastData: Data
         var pageObserver: NSObjectProtocol?
+        var selectionObserver: NSObjectProtocol?
         init(data: Data) { lastData = data }
-        deinit { if let pageObserver { NotificationCenter.default.removeObserver(pageObserver) } }
+        deinit {
+            if let pageObserver { NotificationCenter.default.removeObserver(pageObserver) }
+            if let selectionObserver { NotificationCenter.default.removeObserver(selectionObserver) }
+        }
     }
 }
 #endif
