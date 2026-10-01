@@ -1460,6 +1460,7 @@ struct SourceTextView: NSViewRepresentable {
                 .font: baseFont,
                 .foregroundColor: SourceTextView.bodyTextColor
             ], range: window)
+            applyHangingIndents(storage: storage, text: ns, font: baseFont)
 
             // Markdown 結構
             apply(Self.headerPattern, in: storage, range: full, clipTo: window) {
@@ -1522,6 +1523,41 @@ struct SourceTextView: NSViewRepresentable {
 
             storage.endEditing()
             recomputeAnchors()   // 文字/版面變了 → 更新捲動同步的標題位置
+        }
+
+        /// 自動換行的續行對齊這一行開頭的縮排（懸掛縮排）。
+        /// 沒有這個的話，縮排過的長段落只有第一個視覺行往右，後面換行的部分都從第 0 欄開始，
+        /// 整塊 Tab 看起來像沒作用（2026-10-01 使用者回報）。
+        /// tab 寬固定 4 格（跟清單縮排單位一致），續行縮排＝行首空白的寬度。
+        /// 跑全文但只在值不同時才設——設了就會讓那段重排，全文重設會讓畫面亂跳（見 2026-08-07）。
+        private func applyHangingIndents(storage: NSTextStorage, text ns: NSString, font: NSFont) {
+            let charWidth = (" " as NSString).size(withAttributes: [.font: font]).width
+            let tabWidth = charWidth * 4
+            ns.enumerateSubstrings(in: NSRange(location: 0, length: ns.length),
+                                   options: [.byParagraphs, .substringNotRequired]) { _, para, enclosing, _ in
+                var indent: CGFloat = 0
+                var i = para.location
+                while i < NSMaxRange(para) {
+                    let c = ns.character(at: i)
+                    if c == 0x20 { indent += charWidth }
+                    else if c == 0x09 { indent = (floor(indent / tabWidth) + 1) * tabWidth }
+                    else { break }
+                    i += 1
+                }
+                // 整行都是空白：不懸掛（不然游標會停在奇怪的位置）
+                if i == NSMaxRange(para) { indent = 0 }
+                let range = enclosing.length > 0 ? enclosing : para
+                guard range.length > 0 else { return }
+                let current = storage.attribute(.paragraphStyle, at: range.location,
+                                                effectiveRange: nil) as? NSParagraphStyle
+                if let current, current.headIndent == indent,
+                   current.defaultTabInterval == tabWidth, current.tabStops.isEmpty { return }
+                let style = NSMutableParagraphStyle()
+                style.tabStops = []
+                style.defaultTabInterval = tabWidth
+                style.headIndent = indent
+                storage.addAttribute(.paragraphStyle, value: style, range: range)
+            }
         }
 
         // 捲動後補色：可視區露出「上次視窗」以外的區域才重上（debounce 0.12s）。
