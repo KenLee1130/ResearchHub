@@ -26,6 +26,9 @@ enum LatexCommandCatalog {
     // MARK: - 文件結構
 
     private static let documentStructure: [LatexCommand] = [
+        // 選了 \begin{} 會接著列環境名稱，選好自動補 \end{}（見 SourceTextView.acceptEnvironment）
+        c(#"\begin{}"#, "開始環境"),
+        c(#"\end{}"#, "結束環境"),
         c(#"\section{}"#, "節"),
         c(#"\subsection{}"#, "小節"),
         c(#"\subsubsection{}"#, "小小節"),

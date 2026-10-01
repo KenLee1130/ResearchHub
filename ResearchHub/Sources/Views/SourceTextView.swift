@@ -373,6 +373,8 @@ final class PastingTextView: NSTextView {
                 let after = item.insert.distance(from: item.insert.index(after: bi), to: item.insert.endIndex)
                 let loc = selectedRange().location
                 setSelectedRange(NSRange(location: max(0, loc - after), length: 0))
+                // \begin{}：游標進到 {} 後直接列環境（清單平常只在打字時更新）
+                if item.insert == "\\begin{}" { updateCompletion() }
             } else {
                 suppressCompletionOnce = true   // 無參數指令，別馬上又跳同一份
             }
@@ -441,8 +443,10 @@ final class PastingTextView: NSTextView {
         var end = completionRange.location + completionRange.length
         if end < ns.length, ns.substring(with: NSRange(location: end, length: 1)) == "}" { end += 1 }
         let region = NSRange(location: start, length: end - start)
-        let head = "\\begin{\(name)}\n\t"
-        let replacement = head + "\n\\end{\(name)}"
+        // 內容多一層、\end 對齊 \begin 那一行的縮排
+        let indent = leadingWhitespace(ofLineAt: start)
+        let head = "\\begin{\(name)}\n" + indent + "\t"
+        let replacement = head + "\n" + indent + "\\end{\(name)}"
         guard shouldChangeText(in: region, replacementString: replacement) else { return }
         textStorage?.replaceCharacters(in: region, with: replacement)
         didChangeText()
@@ -511,6 +515,85 @@ final class PastingTextView: NSTextView {
             }
         }
         super.insertText(string, replacementRange: replacementRange)
+        // 打完 \end{name}（自己打 } 或從補全選 \end{} 再填名稱都算）→ 對齊對應的 \begin
+        if typed != nil, completionRoot != nil, !hasMarkedText() { alignEndWithBegin() }
+    }
+
+    // MARK: - LaTeX 環境縮排（Overleaf 式）
+
+    /// `loc` 所在那一行開頭的空白（tab／空格）
+    private func leadingWhitespace(ofLineAt loc: Int) -> String {
+        let ns = string as NSString
+        let line = ns.lineRange(for: NSRange(location: min(loc, ns.length), length: 0))
+        return String(ns.substring(with: line).prefix { $0 == " " || $0 == "\t" })
+    }
+
+    private static let endLineRegex = try! NSRegularExpression(
+        pattern: #"^([ \t]*)\\end\{([^}]+)\}[ \t]*$"#)
+
+    /// 這一行只有完整的 `\end{name}` 時，縮排改成跟對應的 \begin{name} 一樣。
+    /// 名稱還沒打完（找不到同名 \begin）就不動。
+    private func alignEndWithBegin() {
+        let ns = string as NSString
+        let caret = selectedRange().location
+        guard caret != NSNotFound, caret <= ns.length else { return }
+        let line = ns.lineRange(for: NSRange(location: caret, length: 0))
+        let lineStr = ns.substring(with: line).trimmingCharacters(in: .newlines)
+        let lineNS = lineStr as NSString
+        guard let m = Self.endLineRegex.firstMatch(
+            in: lineStr, range: NSRange(location: 0, length: lineNS.length)) else { return }
+        let current = lineNS.substring(with: m.range(at: 1))
+        let name = lineNS.substring(with: m.range(at: 2))
+        guard let target = indentOfMatchingBegin(name, before: line.location),
+              target != current else { return }
+        let region = NSRange(location: line.location, length: (current as NSString).length)
+        guard shouldChangeText(in: region, replacementString: target) else { return }
+        textStorage?.replaceCharacters(in: region, with: target)
+        didChangeText()
+        let delta = (target as NSString).length - (current as NSString).length
+        setSelectedRange(NSRange(location: max(line.location, caret + delta), length: 0))
+    }
+
+    /// 從 `loc` 往前找還沒被關掉的 \begin{name}（同名巢狀會配對），回傳它那一行的縮排。
+    /// 註解掉的（同一行 % 之後）不算。
+    private func indentOfMatchingBegin(_ name: String, before loc: Int) -> String? {
+        let ns = string as NSString
+        let escaped = NSRegularExpression.escapedPattern(for: name)
+        guard let re = try? NSRegularExpression(pattern: #"\\(begin|end)\{"# + escaped + #"\}"#)
+        else { return nil }
+        let matches = re.matches(in: string, range: NSRange(location: 0, length: loc))
+        var depth = 0
+        for m in matches.reversed() {
+            let lineStart = ns.lineRange(for: NSRange(location: m.range.location, length: 0)).location
+            let beforeOnLine = ns.substring(with: NSRange(location: lineStart,
+                                                          length: m.range.location - lineStart))
+            if beforeOnLine.contains("%") { continue }
+            if ns.substring(with: m.range(at: 1)) == "end" {
+                depth += 1
+            } else if depth == 0 {
+                return leadingWhitespace(ofLineAt: m.range.location)
+            } else {
+                depth -= 1
+            }
+        }
+        return nil
+    }
+
+    /// LaTeX 專案的 Enter：延續這一行的縮排；剛打開一個環境（\begin{…}，document 除外）再多一層。
+    private func insertNewlineKeepingIndent() {
+        let ns = string as NSString
+        let sel = selectedRange()
+        let line = ns.lineRange(for: NSRange(location: sel.location, length: 0))
+        let before = ns.substring(with: NSRange(location: line.location,
+                                                length: sel.location - line.location))
+        var indent = String(before.prefix { $0 == " " || $0 == "\t" })
+        let code = before.split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false)
+            .first.map(String.init) ?? ""
+        if code.range(of: #"\\begin\{(?!document\})[^}]+\}"#, options: .regularExpression) != nil,
+           !code.contains("\\end{") {
+            indent += "\t"
+        }
+        insertText("\n" + indent, replacementRange: sel)
     }
 
     private static let imageExtensions: Set<String> =
@@ -633,7 +716,12 @@ final class PastingTextView: NSTextView {
         guard let match = Self.listPrefixRegex.firstMatch(
             in: line, range: NSRange(location: 0, length: lineNS.length)
         ) else {
-            super.insertNewline(sender)
+            // LaTeX 專案：延續縮排（Markdown 筆記行首縮排會變程式碼區塊，不做）
+            if completionRoot != nil, !hasMarkedText() {
+                insertNewlineKeepingIndent()
+            } else {
+                super.insertNewline(sender)
+            }
             return
         }
 
