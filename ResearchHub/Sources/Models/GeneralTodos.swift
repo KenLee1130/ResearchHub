@@ -155,6 +155,8 @@ final class GeneralTodoStore {
             return
         }
         let hub = rootURL.appendingPathComponent(".hub", isDirectory: true)
+        // 每個主視窗（分頁）出現都會呼叫：同一個資料夾就不必重讀（重讀會讓所有視窗重畫、開分頁變慢）
+        guard hub.appendingPathComponent("todos.json").path != fileURL?.path else { return }
         let claudeDir = hub.appendingPathComponent("claude", isDirectory: true)
         try? FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
         fileURL = hub.appendingPathComponent("todos.json")

@@ -89,8 +89,11 @@ final class EventStore {
             return
         }
         let dir = rootURL.appendingPathComponent(".hub", isDirectory: true)
+        let target = dir.appendingPathComponent("events.json")
+        // 每個主視窗（分頁）出現都會呼叫：同一個資料夾就不必重讀（重讀會讓所有視窗重畫、開分頁變慢）
+        guard target.path != fileURL?.path else { return }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        fileURL = dir.appendingPathComponent("events.json")
+        fileURL = target
         ready = false
         editedWhileNotReady = false
         load()

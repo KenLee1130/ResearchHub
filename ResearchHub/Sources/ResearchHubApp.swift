@@ -28,6 +28,12 @@ struct ResearchHubApp: App {
         // 視窗最小尺寸改由 RootView 裡的 WindowMinSizeSetter 直接設 NSWindow.contentMinSize
         // 處理 —— 比 .windowResizability(.contentMinSize) 在 .hiddenTitleBar 下可靠。
         .commands {
+            CommandGroup(after: .newItem) {
+                Button("新分頁") {
+                    NotificationCenter.default.post(name: RootView.newTabNotification, object: nil)
+                }
+                .keyboardShortcut("t", modifiers: .command)
+            }
             CommandGroup(after: .textEditing) {
                 Button("快速搜尋…") {
                     store.searchPresented = true

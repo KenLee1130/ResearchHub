@@ -37,6 +37,8 @@ struct RootView: View {
 
     /// 把筆記／LaTeX 專案彈到小視窗時，主視窗的導覽欄就用不到了 → 順手收起來
     static let collapseSidebarNotification = Notification.Name("RootView.collapseSidebar")
+    /// 「檔案 → 新分頁」（⌘T）
+    static let newTabNotification = Notification.Name("RootView.newTab")
     /// 側欄寬度，只由右緣的自訂把手改變（見 SidebarSplitControl）。
     /// 最窄可以縮到只剩圖示。
     @AppStorage("sidebarWidth") private var sidebarWidth: Double = 200
@@ -175,6 +177,27 @@ struct RootView: View {
         attachAsTab(excluding: before, attemptsLeft: 20)
     }
 
+    /// 分頁列右端系統的「＋」藏起來：工具列已經有一顆一直在的。
+    /// 系統沒有 API 關掉它，只能從標題列裡找（內部類別 NSTabBarNewTabButton）；
+    /// 找不到（系統改了）就什麼都不做，最差是兩顆都在。
+    /// 分頁增減時整組視窗會改高度（分頁列出現／消失），所以在 resize 與成為主視窗時再藏一次。
+    private func hideSystemNewTabButton() {
+        func pass() {
+            guard let frame = hostWindow?.contentView?.superview else { return }
+            func walk(_ v: NSView) {
+                if String(describing: type(of: v)) == "NSTabBarNewTabButton" {
+                    if !v.isHidden { v.isHidden = true }
+                    return
+                }
+                v.subviews.forEach(walk)
+            }
+            walk(frame)
+        }
+        pass()
+        // 分頁列出現有動畫，按鈕可能晚一點才建好
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { pass() }
+    }
+
     /// 工具列「＋」／⌘T：開一個新的主視窗分頁。
     /// 系統的 newWindowForTab: 只有在這個視窗是前景主視窗時才會自己併成分頁，
     /// 否則會變成獨立視窗——所以一律等新視窗出現後自己併進來。
@@ -298,6 +321,8 @@ struct RootView: View {
             // 最右邊：開新分頁（跟分頁列右端系統的「＋」同一個動作——
             // 只開一個分頁時分頁列是藏起來的，平常就找不到那顆）。
             // 要掛在 detail 這欄：掛在側欄那欄的話會跑到側欄頂端。
+            // 這顆一直都在；分頁列出現時系統自己在它右端放的「＋」藏起來（hideSystemNewTabButton），
+            // 不然會有兩顆。⌘T 在「檔案」選單（見 ResearchHubApp）。
             .toolbar {
                 // 沒有這個空白，按鈕會緊貼在側欄開關旁邊（工具列項目由左往右排）
                 ToolbarSpacer(.flexible)
@@ -305,7 +330,6 @@ struct RootView: View {
                     Button(action: openNewTab) {
                         Image(systemName: "plus")
                     }
-                    .keyboardShortcut("t", modifiers: .command)
                     .help("新分頁（⌘T）")
                 }
             }
@@ -356,6 +380,17 @@ struct RootView: View {
             LibrarySync.shared.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要手機的更新
             BlockEditorHost.shared.preload() // 預載日記編輯器，切分頁即時顯示
             reloadNoteTreeInBackground()
+        }
+        .onChange(of: hostWindow) { hideSystemNewTabButton() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResizeNotification)) { note in
+            if (note.object as? NSWindow) === hostWindow { hideSystemNewTabButton() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)) { note in
+            if (note.object as? NSWindow) === hostWindow { hideSystemNewTabButton() }
+        }
+        // 「檔案 → 新分頁」（⌘T）：只有目前的主視窗處理
+        .onReceive(NotificationCenter.default.publisher(for: RootView.newTabNotification)) { _ in
+            if hostWindow?.isMainWindow == true { openNewTab() }
         }
         .onChange(of: store.rootURL) {
             eventStore.configure(rootURL: store.rootURL)
