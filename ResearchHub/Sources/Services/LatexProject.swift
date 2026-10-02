@@ -129,6 +129,47 @@ nonisolated enum LatexProject {
         return folder
     }
 
+    /// 編譯前呼叫：有用顏色指令（\color、\textcolor、\colorbox…）但主檔沒載入 xcolor／color
+    /// → 在 \usepackage{hyperref} 前（沒有就最後一個 \usepackage 後、再沒有就 \begin{document} 前）補上。
+    /// 舊範本建的專案沒有 xcolor，顏色指令會變成「未定義的指令」整份編不過。
+    static func ensureColorPackage(in root: URL) {
+        guard let main = mainFile(in: root),
+              let text = FileSystemStore.safeRead(main) else { return }
+        func uncommented(_ t: String) -> String {
+            t.components(separatedBy: "\n")
+                .map { String($0.split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false).first ?? "") }
+                .joined(separator: "\n")
+        }
+        let preamble = uncommented(text)
+        if preamble.range(of: #"\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{[^}]*\b(?:x?color)\b[^}]*\}"#,
+                          options: .regularExpression) != nil { return }
+        // 整個專案有沒有用到顏色指令
+        guard let walker = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return }
+        var used = false
+        for case let url as URL in walker where url.pathExtension.lowercased() == "tex" {
+            guard let t = FileSystemStore.safeRead(url) else { return }
+            if uncommented(t).range(of: #"\\(?:color|textcolor|colorbox|fcolorbox|pagecolor|definecolor)\b"#,
+                                    options: .regularExpression) != nil { used = true; break }
+        }
+        guard used else { return }
+
+        var lines = text.components(separatedBy: "\n")
+        let code = lines.map { String($0.split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false).first ?? "") }
+        let line = "\\usepackage{xcolor}   % \\textcolor{red}{字}、{\\color{red} 字}"
+        // hyperref 習慣放最後，插在它前面
+        if let i = code.firstIndex(where: { $0.contains("\\usepackage") && $0.contains("hyperref") }) {
+            lines.insert(line, at: i)
+        } else if let i = code.lastIndex(where: { $0.contains("\\usepackage") }) {
+            lines.insert(line, at: i + 1)
+        } else if let i = code.firstIndex(where: { $0.contains("\\begin{document}") }) {
+            lines.insert(line, at: i)
+        } else {
+            return
+        }
+        try? lines.joined(separator: "\n").write(to: main, atomically: true, encoding: .utf8)
+    }
+
     private static func mainTemplate(title: String) -> String {
         """
         \\documentclass[11pt]{article}
@@ -140,6 +181,7 @@ nonisolated enum LatexProject {
         \\usepackage{physics}   % \\abs \\norm \\dv \\pdv \\bra \\ket …（跟 Markdown 筆記的公式寫法一致）
         \\usepackage{bm}
         \\usepackage{graphicx}
+        \\usepackage{xcolor}   % \\textcolor{red}{字}、{\\color{red} 字}
         \\usepackage{hyperref}
         \\input{format}   % 版面設定（app 的「格式」面板會改 format.tex）
 

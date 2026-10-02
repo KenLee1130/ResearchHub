@@ -102,6 +102,7 @@ final class LatexCompiler: ObservableObject {
                 // 沒人 \cite 的自動條目從 .bib 拿掉（又被引用的放回來），再開始編譯
                 LatexBibliography.reconcile(in: project)
                 LatexBibliography.ensureBibliographyCommand(in: project)
+                LatexProject.ensureColorPackage(in: project)
                 do {
                     try LatexStaging.sync(project: project, to: build)
                 } catch {
