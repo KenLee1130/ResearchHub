@@ -369,7 +369,9 @@ final class PastingTextView: NSTextView {
         switch item.kind {
         case .command:
             insertText(item.insert, replacementRange: completionRange)
-            if let bi = item.insert.firstIndex(of: "{") {
+            // 游標放進第一個「空的」{}：\textcolor{red}{} 要停在文字那格，不是顏色名稱前面
+            let emptyArg = item.insert.range(of: "{}")?.lowerBound
+            if let bi = emptyArg ?? item.insert.firstIndex(of: "{") {
                 let after = item.insert.distance(from: item.insert.index(after: bi), to: item.insert.endIndex)
                 let loc = selectedRange().location
                 setSelectedRange(NSRange(location: max(0, loc - after), length: 0))

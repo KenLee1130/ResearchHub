@@ -173,7 +173,7 @@ enum LatexCommandCatalog {
         c(#"\textcolor{orange}{}"#, "橘字"),
         c(#"\textcolor{purple}{}"#, "紫字"),
         c(#"\color{}"#, "之後的文字換顏色"),
-        c(#"\colorbox{yellow}{}"#, "底色標記"),
+        c(#"\colorbox{red}{}"#, "底色標記"),
         c(#"\tiny"#, "字級：最小"),
         c(#"\scriptsize"#, "字級"),
         c(#"\footnotesize"#, "字級：註腳大小"),
