@@ -41,16 +41,25 @@ struct BlockEditorView {
 
 #if os(macOS)
 extension BlockEditorView: NSViewRepresentable {
+    // 共用的 webView 同時只能在一個容器裡。開了多個主視窗分頁、兩邊都停在日記時，
+    // 以前每次更新（打字就會）都把它搬到「最後更新的那個」容器 → 被背景分頁搶走，
+    // 眼前這個變黑；背景分頁若是別天的日記還會把那天的內容推進編輯器。
+    // 現在只有「看得到的那個」能拿：見 WebViewContainer.shouldOwnWebView。
     func makeNSView(context: Context) -> WebViewContainer {
         let container = WebViewContainer()
-        attachWebView(to: container)
-        sync()
-        return container
+        container.onActivate = { [weak container] in
+            guard let container else { return }
+            attachWebView(to: container); sync()
+        }
+        return container   // 還沒進視窗；viewDidMoveToWindow 時才決定要不要拿
     }
 
     func updateNSView(_ container: WebViewContainer, context: Context) {
-        attachWebView(to: container)
-        sync()
+        container.onActivate = { [weak container] in
+            guard let container else { return }
+            attachWebView(to: container); sync()
+        }
+        if container.shouldOwnWebView { container.onActivate?() }
     }
 
     /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
@@ -62,9 +71,42 @@ extension BlockEditorView: NSViewRepresentable {
 
 /// 容器自己負責把 webView 撐滿（比 autoresizing 從零尺寸起算可靠）。
 final class WebViewContainer: NSView {
+    /// 把共用 webView 搬進來並同步這個畫面的文件（由 BlockEditorView 設定）
+    var onActivate: (() -> Void)?
+
     override func layout() {
         super.layout()
         subviews.first?.frame = bounds
+    }
+
+    /// 這個容器現在該不該擁有共用 webView：
+    /// 已經在這裡 → 是；webView 不在任何視窗、或在同一個視窗的別的容器 → 是（最新的贏，跟以前一樣）；
+    /// 在別的視窗 → 只有那個視窗看不到（背景分頁、關掉了）或這個視窗是目前的主視窗才拿。
+    var shouldOwnWebView: Bool {
+        guard let mine = window else { return false }
+        let web = BlockEditorHost.shared.webView
+        if web.superview === self { return true }
+        guard let other = web.window, other !== mine else { return true }
+        return mine.isKeyWindow || mine.isMainWindow
+            || !other.isVisible || !other.occlusionState.contains(.visible)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        NotificationCenter.default.removeObserver(self)
+        guard let window else { return }
+        // 切到這個分頁／視窗時把 webView 拿回來
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowActivated),
+            name: NSWindow.didBecomeKeyNotification, object: window)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowActivated),
+            name: NSWindow.didBecomeMainNotification, object: window)
+        if shouldOwnWebView { onActivate?() }
+    }
+
+    @objc private func windowActivated(_ note: Notification) {
+        if BlockEditorHost.shared.webView.superview !== self { onActivate?() }
     }
 }
 #else
