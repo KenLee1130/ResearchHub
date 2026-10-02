@@ -77,6 +77,31 @@ struct WindowReader: NSViewRepresentable {
     }
 }
 
+/// 跟 WindowReader 一樣交出所在的視窗，但在 view 被裝進視窗的**當下**同步呼叫
+/// （WindowReader 是下一輪 runloop 才給，那時視窗通常已經畫在螢幕上了）。
+/// 用在「新視窗還沒顯示前就要設定好」的事，例如直接掛成分頁、不先閃一個獨立視窗。
+struct EarlyWindowHook: NSViewRepresentable {
+    let onWindow: (NSWindow) -> Void
+
+    final class HookView: NSView {
+        var onWindow: ((NSWindow) -> Void)?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let window { onWindow?(window) }
+        }
+    }
+
+    func makeNSView(context: Context) -> HookView {
+        let view = HookView(frame: .zero)
+        view.onWindow = onWindow
+        return view
+    }
+
+    func updateNSView(_ nsView: HookView, context: Context) {
+        nsView.onWindow = onWindow
+    }
+}
+
 /// 把這塊畫面對應的 NSView 交出去（用來判斷鍵盤焦點是不是落在這一區裡面）。
 struct ViewProbe: NSViewRepresentable {
     let onView: (NSView) -> Void

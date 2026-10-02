@@ -39,6 +39,8 @@ struct RootView: View {
     static let collapseSidebarNotification = Notification.Name("RootView.collapseSidebar")
     /// 「檔案 → 新分頁」（⌘T）
     static let newTabNotification = Notification.Name("RootView.newTab")
+    /// 按「＋」時記下要併進哪個視窗；新視窗的 EarlyWindowHook 一拿到自己就直接掛上去
+    static weak var pendingTabHost: NSWindow?
     /// 側欄寬度，只由右緣的自訂把手改變（見 SidebarSplitControl）。
     /// 最窄可以縮到只剩圖示。
     @AppStorage("sidebarWidth") private var sidebarWidth: Double = 200
@@ -203,8 +205,20 @@ struct RootView: View {
     /// 否則會變成獨立視窗——所以一律等新視窗出現後自己併進來。
     private func openNewTab() {
         let before = Set(NSApp.windows.map(ObjectIdentifier.init))
+        Self.pendingTabHost = hostWindow
         NSApp.sendAction(#selector(NSResponder.newWindowForTab(_:)), to: nil, from: hostWindow)
+        // 備援：EarlyWindowHook 沒接到（理論上不會）就等新視窗出現再併
         attachAsTab(excluding: before, attemptsLeft: 20)
+    }
+
+    /// 新視窗的內容一裝進視窗（還沒顯示）就掛成分頁，不會先閃一個獨立視窗
+    private func adoptAsPendingTab(_ window: NSWindow) {
+        guard let host = Self.pendingTabHost, host !== window else { return }
+        Self.pendingTabHost = nil
+        window.tabbingMode = .preferred
+        if !(host.tabbedWindows ?? []).contains(where: { $0 === window }) {
+            host.addTabbedWindow(window, ordered: .above)
+        }
     }
 
     /// 新視窗是非同步建立的，等它出現再併進目前視窗當分頁
@@ -344,6 +358,7 @@ struct RootView: View {
         }
         // 側欄平常鎖住「拖太窄就收起」（見 SidebarSplitControl）；
         // 收起中不鎖，否則按鈕收起後會被鎖回展開狀態
+        .background(EarlyWindowHook { adoptAsPendingTab($0) })
         .background(WindowReader { window in
             hostWindow = window
             if columnVisibility != .detailOnly {
