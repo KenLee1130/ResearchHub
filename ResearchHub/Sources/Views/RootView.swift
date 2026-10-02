@@ -175,6 +175,15 @@ struct RootView: View {
         attachAsTab(excluding: before, attemptsLeft: 20)
     }
 
+    /// 工具列「＋」／⌘T：開一個新的主視窗分頁。
+    /// 系統的 newWindowForTab: 只有在這個視窗是前景主視窗時才會自己併成分頁，
+    /// 否則會變成獨立視窗——所以一律等新視窗出現後自己併進來。
+    private func openNewTab() {
+        let before = Set(NSApp.windows.map(ObjectIdentifier.init))
+        NSApp.sendAction(#selector(NSResponder.newWindowForTab(_:)), to: nil, from: hostWindow)
+        attachAsTab(excluding: before, attemptsLeft: 20)
+    }
+
     /// 新視窗是非同步建立的，等它出現再併進目前視窗當分頁
     private func attachAsTab(excluding before: Set<ObjectIdentifier>, attemptsLeft: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -182,7 +191,10 @@ struct RootView: View {
             if let new = NSApp.windows.first(where: {
                 !before.contains(ObjectIdentifier($0)) && $0.isVisible && $0 !== host
             }) {
-                host.addTabbedWindow(new, ordered: .above)
+                // 系統已經自己併成分頁就不用再動
+                if !(host.tabbedWindows ?? []).contains(where: { $0 === new }) {
+                    host.addTabbedWindow(new, ordered: .above)
+                }
                 new.makeKeyAndOrderFront(nil)
             } else if attemptsLeft > 0 {
                 attachAsTab(excluding: before, attemptsLeft: attemptsLeft - 1)
@@ -281,6 +293,20 @@ struct RootView: View {
                 case .notes: NotesBrowserView()
                 case .papers: PapersView()
                 case .journal: JournalView()
+                }
+            }
+            // 最右邊：開新分頁（跟分頁列右端系統的「＋」同一個動作——
+            // 只開一個分頁時分頁列是藏起來的，平常就找不到那顆）。
+            // 要掛在 detail 這欄：掛在側欄那欄的話會跑到側欄頂端。
+            .toolbar {
+                // 沒有這個空白，按鈕會緊貼在側欄開關旁邊（工具列項目由左往右排）
+                ToolbarSpacer(.flexible)
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: openNewTab) {
+                        Image(systemName: "plus")
+                    }
+                    .keyboardShortcut("t", modifiers: .command)
+                    .help("新分頁（⌘T）")
                 }
             }
             .sheet(item: Bindable(pomodoro).completionPrompt) { prompt in
