@@ -938,6 +938,18 @@ final class PomodoroPanelController {
     }
 }
 
+/// 按住就能拖動所在視窗的區域（無邊框面板用）
+struct WindowDragArea: NSViewRepresentable {
+    final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+    }
+    func makeNSView(context: Context) -> DragView { DragView() }
+    func updateNSView(_ nsView: DragView, context: Context) {}
+}
+
 struct PomodoroPanelView: View {
     @Environment(PomodoroModel.self) private var pomodoro
     @State private var hovering = false
@@ -982,6 +994,9 @@ struct PomodoroPanelView: View {
             .frame(width: 120)
         }
         .padding(22)
+        // 面板內容全是 SwiftUI，NSHostingView 會吃掉滑鼠，isMovableByWindowBackground 不會生效 →
+        // 背景鋪一層：按下就請視窗跟著拖。按鈕、計畫欄蓋在上面，照樣能點。
+        .background(WindowDragArea())
         .glassEffect(.regular, in: .rect(cornerRadius: 20))
         .overlay(alignment: .topTrailing) {
             // 滑過面板時顯示關閉鈕
