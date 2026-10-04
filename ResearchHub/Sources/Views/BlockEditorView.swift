@@ -493,11 +493,13 @@ extension BlockEditorView {
       }
       ul, ol { padding-left: 1.4em; margin: 0; }
       ul[data-type="taskList"] { list-style: none; padding-left: 0.15em; }
-      ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
-      ul[data-type="taskList"] li > label { flex: 0 0 auto; margin-top: 4px; }
-      ul[data-type="taskList"] li > div { flex: 1 1 auto; min-width: 0; }
+      /* 只套待辦清單「直屬」的項目：用後代選擇器的話 toggle 裡的編號／項目符號清單也變 flex，
+         1. 和 • 就不見了（看起來像 toggle 裡不支援其他清單） */
+      ul[data-type="taskList"] > li { display: flex; gap: 8px; align-items: flex-start; }
+      ul[data-type="taskList"] > li > label { flex: 0 0 auto; margin-top: 4px; }
+      ul[data-type="taskList"] > li > div { flex: 1 1 auto; min-width: 0; }
       /* 打勾只淡化「這一項自己」，不連帶子項目（母子勾選各自獨立） */
-      ul[data-type="taskList"] li[data-checked="true"] > div > :not(ul):not(ol) { opacity: 0.55; text-decoration: line-through; }
+      ul[data-type="taskList"] > li[data-checked="true"] > div > :not(ul):not(ol) { opacity: 0.55; text-decoration: line-through; }
       /* ---- 待辦摺疊：有子項目的待辦，勾選框後面多一個 ▸ ---- */
       .task-fold-toggle {
         display: inline-block; width: 1em; margin-right: 3px; text-align: center;
@@ -1324,54 +1326,103 @@ extension BlockEditorView {
         return false;
       }
 
-      // 待辦行按 Enter → 新行自動變成命令輸入行「/todo 」：
-      // 打 @標記 全程保持原文，Enter 提交才變成待辦 + 徽章（省去事後點回去編輯）。
-      //   • 行尾（容忍游標後只剩隱藏的 @標記/空白）→ 插在下面
-      //   • 行首 → 插在上面（往上開新行也給 cmd）
-      // 這樣標記永遠不會被劈到別行（先前蕃茄鐘被拖下來的成因）。
-      function todoEnterToCommand(ed) {
-        const { state } = ed;
-        const { $from, empty } = state.selection;
-        if (!empty || $from.parent.type.name !== "paragraph") return false;
-        if ($from.parent.content.size === 0) return false;   // 空項目 → 預設行為（結束清單）
-        const atStart = $from.parentOffset === 0;
-        if (!atStart) {
-          const rest = $from.parent.textContent.slice($from.parentOffset);
-          const markersOnly =
-            /^(?:\s*(?:@(?:due|from|on|est|every|remind|line|pomo)\([^)]*\)|!(?:high|low)\b))*\s*$/i;
-          if (!markersOnly.test(rest)) return false;         // 游標在正文中間 → 一般換行
-        }
-        let itemDepth = -1;
-        for (let d = $from.depth; d > 0; d--) {
-          if ($from.node(d).type.name === "taskItem") { itemDepth = d; break; }
-        }
-        if (itemDepth < 1) return false;
-        const listDepth = itemDepth - 1;
-        const list = $from.node(listDepth);
-        if (list.type.name !== "taskList") return false;
-        const idx = $from.index(listDepth);
-        let tr = state.tr;
-        let insertPos;
-        if (atStart) {
-          if (idx === 0) {
-            insertPos = $from.before(listDepth);             // 第一項：插在清單前面
-          } else {
-            const itemBefore = $from.before(itemDepth);      // 中間項：把清單劈成兩段
-            tr = tr.split(itemBefore, 1);
-            insertPos = itemBefore + 1;
-          }
-        } else if (idx === list.childCount - 1) {
-          insertPos = $from.after(listDepth);                // 最後一項：插在清單後面
-        } else {
-          const itemAfter = $from.after(itemDepth);          // 中間項：把清單劈成兩段
-          tr = tr.split(itemAfter, 1);
-          insertPos = itemAfter + 1;
-        }
-        const node = state.schema.nodes.commandInput.create(null, state.schema.text("/todo "));
-        tr = tr.insert(insertPos, node);
-        tr = tr.setSelection(TextSelection.create(tr.doc, insertPos + 1 + node.content.size));
+      // ---- Enter / Shift+Enter：照 Notion ----
+      // （以前待辦按 Enter 會開 /todo 命令列、Shift+Enter 開項目符號，使用者不要）
+      const MARKERS_ONLY =
+        /^(?:\s*(?:@(?:due|from|on|est|every|remind|line|pomo)\([^)]*\)|!(?:high|low)\b))*\s*$/i;
+
+      /// 游標所在的 textblock 直接屬於哪個項目：{ itemDepth, item, idx（第幾個子節點） }
+      function enclosingItem($from) {
+        const d = $from.depth;
+        if (d < 2) return null;
+        const item = $from.node(d - 1);
+        if (!ITEM_TYPES.includes(item.type.name)) return null;
+        return { itemDepth: d - 1, item, idx: $from.index(d - 1) };
+      }
+
+      /// 游標後面只剩隱藏標記（或什麼都沒有）＝視覺上在行尾
+      function atVisualEnd($from) {
+        return MARKERS_ONLY.test($from.parent.textContent.slice($from.parentOffset));
+      }
+
+      /// 在 pos 插入一個空段落並把游標放進去
+      function insertEmptyParagraphAt(ed, tr, pos) {
+        tr.insert(pos, ed.state.schema.nodes.paragraph.create());
+        tr.setSelection(TextSelection.create(tr.doc, pos + 1));
         ed.view.dispatch(tr.scrollIntoView());
         return true;
+      }
+
+      /// 在這個項目裡、目前這一行後面開新的一行（toggle 裡的下一行）。
+      /// 標題行後面只剩標記時不切開（標記要留在標題上）。
+      function newLineInItem(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty || !$from.parent.isTextblock) return false;
+        const enc = enclosingItem($from);
+        if (!enc) return false;
+        if (atVisualEnd($from) || ($from.parentOffset === 0 && $from.parent.content.size === 0)) {
+          return insertEmptyParagraphAt(ed, state.tr, $from.after());
+        }
+        return ed.commands.splitBlock();
+      }
+
+      function notionEnter(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (!empty || !$from.parent.isTextblock || ed.view.composing) return false;
+        const enc = enclosingItem($from);
+        if (!enc) return false;
+        const { itemDepth, item, idx } = enc;
+        const block = $from.parent;
+        const itemPos = $from.before(itemDepth);
+        const nested = itemDepth >= 3 && ITEM_TYPES.includes($from.node(itemDepth - 2).type.name);
+
+        // toggle 裡的內容行
+        if (idx > 0) {
+          const isLast = idx === item.childCount - 1;
+          if (block.content.size === 0 && isLast) return liftLineOutOfItem(ed);   // 最後的空行再按 Enter → 跳出 toggle
+          return newLineInItem(ed);
+        }
+
+        // 標題行
+        if (block.content.size === 0) {
+          if (nested) return toggleAwareBackspace(ed);   // 子待辦空了按 Enter → 變成文字、留在 toggle 裡
+          return false;                                  // 最外層空待辦 → 預設（退出清單）
+        }
+        if (item.type.name !== "taskItem") return false;  // 一般項目符號清單：預設
+        const types = state.schema.nodes;
+        const emptyItem = () => types.taskItem.create({ checked: false }, types.paragraph.create());
+        if ($from.parentOffset === 0) {
+          // 行首：在上面插一個空待辦，游標留在新的那格
+          const tr = state.tr.insert(itemPos, emptyItem());
+          tr.setSelection(TextSelection.create(tr.doc, itemPos + 2));
+          ed.view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+        if (!atVisualEnd($from)) return false;            // 正文中間：預設（切成兩個待辦）
+        const folded = foldedKeys.has(taskText(item));
+        let tr = state.tr, caret;
+        if (hasBody(item) && !folded) {
+          // 展開的 toggle：在 toggle 裡最上面開一個子待辦
+          const afterTitle = itemPos + 1 + item.firstChild.nodeSize;
+          tr.insert(afterTitle, types.taskList.create(null, emptyItem()));
+          caret = afterTitle + 3;
+        } else {
+          // 一般待辦（或收起來的 toggle）：下一個待辦格子
+          const after = itemPos + item.nodeSize;
+          tr.insert(after, emptyItem());
+          caret = after + 2;
+        }
+        tr.setSelection(TextSelection.create(tr.doc, caret));
+        ed.view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+
+      // Shift+Enter：在項目裡＝這個項目（toggle）裡的下一行；不在項目裡交給預設（軟換行）
+      function notionShiftEnter(ed) {
+        if (ed.view.composing) return false;
+        return newLineInItem(ed);
       }
 
       // ---- 標記保護：標記只能從 /list 改（蕃茄 −/＋ 除外），編輯器裡刪不掉 ----
@@ -1471,42 +1522,14 @@ extension BlockEditorView {
         return false;
       }
 
-      // 待辦行 Shift+Enter → 在該項目底下開縮排子項目（一般 bullet，不帶 checkbox）。
-      // 子項目只屬於當天，不會被播種複製；徽章仍固定在父行行尾。
-      function todoShiftEnterSubItem(ed) {
-        const { state } = ed;
-        const { $from, empty } = state.selection;
-        if (!empty) return false;
-        let itemDepth = -1;
-        for (let d = $from.depth; d > 0; d--) {
-          if ($from.node(d).type.name === "taskItem") { itemDepth = d; break; }
-        }
-        if (itemDepth < 1) return false;
-        const types = state.schema.nodes;
-        const item = $from.node(itemDepth);
-        const endOfItem = $from.end(itemDepth);
-        let tr = state.tr, caret;
-        if (item.lastChild && item.lastChild.type.name === "bulletList") {
-          tr = tr.insert(endOfItem - 1, types.listItem.createAndFill());
-          caret = endOfItem + 1;
-        } else {
-          tr = tr.insert(endOfItem, types.bulletList.createAndFill());
-          caret = endOfItem + 3;
-        }
-        tr = tr.setSelection(TextSelection.create(tr.doc, caret));
-        ed.view.dispatch(tr.scrollIntoView());
-        return true;
-      }
-
       const CommandLine = Extension.create({
         name: "commandLine",
-        // 要贏過 TaskItem 的 Enter（splitListItem 會先接手），否則
-        // todoEnterToCommand 在待辦行永遠輪不到。
+        // 要贏過 TaskItem 的 Enter（splitListItem 會先接手）
         priority: 1000,
         addKeyboardShortcuts() {
           return {
-            Enter: () => runCommandLine(this.editor) || todoEnterToCommand(this.editor),
-            "Shift-Enter": () => todoShiftEnterSubItem(this.editor),
+            Enter: () => runCommandLine(this.editor) || notionEnter(this.editor),
+            "Shift-Enter": () => notionShiftEnter(this.editor),
             Backspace: () => cmdBackspaceToParagraph(this.editor)
               || guardMarkerDelete(this.editor, false),
             Delete: () => guardMarkerDelete(this.editor, true),
