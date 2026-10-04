@@ -1000,6 +1000,103 @@ extension BlockEditorView {
         }
       });
 
+      // ---- 待辦裡的 Backspace（toggle 內容不會被整個拆掉）----
+      // 以前在 toggle 內容的空行按 Backspace，ExitListOnBackspace 會把「包著這一行的項目」
+      // ——也就是 toggle 本身——一路拉出清單，整個 toggle 不見。規則改成：
+      //   • 內容行（項目的第 2 個以後的段落）：空行只刪這一行；有字就接到上一行，不離開 toggle
+      //   • 待辦標題開頭：有子項目＝先拿掉 toggle（子待辦移到後面同一層）；
+      //     沒有＝整項原地變回一般文字（子待辦留在母項目裡）
+      const ITEM_TYPES = ["taskItem", "listItem"];
+
+      function lastTextblockEnd(node, start) {
+        let end = null;
+        node.descendants((n, p) => { if (n.isTextblock) end = start + 1 + p + 1 + n.content.size; });
+        return end;
+      }
+
+      function toggleAwareBackspace(ed) {
+        const { state } = ed;
+        const { $from, empty } = state.selection;
+        if (ed.view.composing) return false;   // 注音選字中的 Backspace 是刪注音
+        if (!empty || $from.parentOffset !== 0 || !$from.parent.isTextblock) return false;
+        const d = $from.depth;
+        if (d < 2) return false;
+        const item = $from.node(d - 1);
+        if (!ITEM_TYPES.includes(item.type.name)) return false;
+        const idx = $from.index(d - 1);
+        const block = $from.parent;
+        const blockStart = $from.before();
+
+        // 內容行
+        if (idx > 0) {
+          const prev = item.child(idx - 1);
+          const prevStart = blockStart - prev.nodeSize;
+          let tr = state.tr;
+          if (block.content.size === 0) {
+            tr.delete(blockStart, blockStart + block.nodeSize);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(blockStart), -1));
+          } else if (prev.isTextblock) {
+            return false;   // 預設 joinBackward：接到上一段，還在同一個項目裡
+          } else {
+            const end = lastTextblockEnd(prev, prevStart);
+            if (end === null) return true;
+            tr.delete(blockStart, blockStart + block.nodeSize);
+            tr.insert(end, block.content);
+            tr.setSelection(TextSelection.create(tr.doc, end));
+          }
+          ed.view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+
+        // 標題行
+        const itemPos = $from.before(d - 1);
+        const listDepth = d - 2;
+        const list = $from.node(listDepth);
+        if (hasChildList(item)) {
+          // 拿掉 toggle：子清單的項目搬到這一項後面（同一層）。只處理同型清單，其他情況不動手。
+          const childItems = [];
+          let ok = true;
+          item.forEach(child => {
+            if (child.type === list.type) child.forEach(ci => childItems.push(ci));
+            else if (["taskList", "bulletList", "orderedList"].includes(child.type.name)) ok = false;
+          });
+          if (!ok || !childItems.length) return true;
+          const kept = [];
+          item.forEach(child => { if (child.type !== list.type) kept.push(child); });
+          const newItem = item.type.create(item.attrs, kept);
+          const tr = state.tr.replaceWith(itemPos, itemPos + item.nodeSize, [newItem, ...childItems]);
+          tr.setSelection(TextSelection.create(tr.doc, itemPos + 2));
+          ed.view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+        // 沒有子項目 → 整項（標題＋內容行）原地變回一般文字：
+        // 子項目就留在母項目裡；最外層就變成清單之間的段落。
+        // （預設的 lift 只拉出標題那段，內容行會被拆成一個新的待辦，很怪）
+        {
+          const at = $from.index(listDepth);
+          const before = [], after = [];
+          list.forEach((ci, _, i) => { if (i < at) before.push(ci); else if (i > at) after.push(ci); });
+          const parts = [];
+          if (before.length) parts.push(list.type.create(list.attrs, before));
+          item.forEach(c => parts.push(c));
+          if (after.length) parts.push(list.type.create(list.attrs, after));
+          const listPos = $from.before(listDepth);
+          const tr = state.tr.replaceWith(listPos, listPos + list.nodeSize, parts);
+          const caret = listPos + (before.length ? parts[0].nodeSize : 0) + 1;
+          tr.setSelection(TextSelection.create(tr.doc, caret));
+          ed.view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+      }
+
+      const ToggleAwareBackspace = Extension.create({
+        name: "toggleAwareBackspace",
+        priority: 1100,   // 比 ExitListOnBackspace（1000）先
+        addKeyboardShortcuts() {
+          return { Backspace: () => toggleAwareBackspace(this.editor) };
+        }
+      });
+
       // ---- Slash 選單項目 ----
       // label 由 Swift 端本地化注入；match 保留中英關鍵字，兩種語言都搜得到。
       const slashItems = [
@@ -1896,6 +1993,7 @@ extension BlockEditorView {
           CommandLine,
           CommandInput,
           MarkerBadges,
+          ToggleAwareBackspace,
           ExitListOnBackspace,
           TaskList,
           TaskItem.configure({ nested: true }),
