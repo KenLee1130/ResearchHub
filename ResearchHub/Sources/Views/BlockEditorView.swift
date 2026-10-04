@@ -15,10 +15,15 @@ struct BlockEditorView {
     private func attachWebView(to container: WebViewContainer) {
         let webView = BlockEditorHost.shared.webView
         guard webView.superview !== container else { return }
+        #if os(macOS)
+        // 搬家會讓 webView 失去鍵盤焦點：網頁裡游標照樣在閃，打字卻沒反應、要再點一次
+        let hadFocus = (webView.window?.firstResponder as? NSView)?.isDescendant(of: webView) ?? false
+        #endif
         webView.removeFromSuperview()
         container.addSubview(webView)
         #if os(macOS)
         container.needsLayout = true
+        container.restoreFocusIfIdle(force: hadFocus)
         #else
         container.setNeedsLayout()
         #endif
@@ -107,6 +112,20 @@ final class WebViewContainer: NSView {
 
     @objc private func windowActivated(_ note: Notification) {
         if BlockEditorHost.shared.webView.superview !== self { onActivate?() }
+        restoreFocusIfIdle(force: false)
+    }
+
+    /// webView 在這個容器、視窗是目前的視窗、而且視窗裡沒有別的東西拿著焦點（或剛搬家前它就有焦點）
+    /// → 把鍵盤焦點交給它。搜尋面板等別的文字區拿著焦點時不搶。
+    func restoreFocusIfIdle(force: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let win = self.window, win.isKeyWindow else { return }
+            let web = BlockEditorHost.shared.webView
+            guard web.superview === self else { return }
+            if (win.firstResponder as? NSView)?.isDescendant(of: web) == true { return }
+            guard force || nothingFocused(in: win) else { return }
+            win.makeFirstResponder(web)
+        }
     }
 }
 #else
@@ -488,8 +507,8 @@ extension BlockEditorView {
       .task-fold-toggle:hover { color: CanvasText; }
       .task-fold-toggle.folded { transform: rotate(0deg); }
       /* 用摺疊時加上的 class 選，不能用 li[data-type=taskItem]——tiptap 的節點畫面不會加那個屬性 */
-      li.task-folded > div > ul,
-      li.task-folded > div > ol { display: none; }
+      /* 收起時標題以外全部藏起來（子待辦、內容行都算 toggle 的內容） */
+      li.task-folded > div > *:not(:first-child) { display: none; }
       code {
         font-family: ui-monospace, monospace; font-size: 0.9em;
         background: rgba(127,127,127,0.15); padding: 1px 5px; border-radius: 4px;
@@ -1004,8 +1023,9 @@ extension BlockEditorView {
       // 以前在 toggle 內容的空行按 Backspace，ExitListOnBackspace 會把「包著這一行的項目」
       // ——也就是 toggle 本身——一路拉出清單，整個 toggle 不見。規則改成：
       //   • 內容行（項目的第 2 個以後的段落）：空行只刪這一行；有字就接到上一行，不離開 toggle
-      //   • 待辦標題開頭：有子項目＝先拿掉 toggle（子待辦移到後面同一層）；
-      //     沒有＝整項原地變回一般文字（子待辦留在母項目裡）
+      //   • 待辦標題開頭：是 toggle（標題以外還有內容）＝先拿掉 toggle（內容照順序搬到後面）；
+      //     不是＝這個待辦變回一般文字（子待辦就留在母項目裡）
+      //   • 刪子待辦後只剩內容行，toggle 仍在；內容行再接回標題、什麼都不剩，toggle 才消失
       const ITEM_TYPES = ["taskItem", "listItem"];
 
       function lastTextblockEnd(node, start) {
@@ -1052,20 +1072,29 @@ extension BlockEditorView {
         const itemPos = $from.before(d - 1);
         const listDepth = d - 2;
         const list = $from.node(listDepth);
-        if (hasChildList(item)) {
-          // 拿掉 toggle：子清單的項目搬到這一項後面（同一層）。只處理同型清單，其他情況不動手。
-          const childItems = [];
-          let ok = true;
-          item.forEach(child => {
-            if (child.type === list.type) child.forEach(ci => childItems.push(ci));
-            else if (["taskList", "bulletList", "orderedList"].includes(child.type.name)) ok = false;
+        if (hasBody(item)) {
+          // 拿掉 toggle：標題以外的內容照原本順序搬到這一項後面——
+          // 同型清單裡的項目接在這一項後面（同一層），內容行變成清單之間的段落。
+          const at = $from.index(listDepth);
+          const parts = [];
+          let segment = [];
+          const flush = () => { if (segment.length) parts.push(list.type.create(list.attrs, segment)); segment = []; };
+          list.forEach((ci, _, i) => { if (i < at) segment.push(ci); });
+          segment.push(item.type.create(item.attrs, [item.firstChild]));
+          item.forEach((child, _, i) => {
+            if (i === 0) return;
+            if (child.type === list.type) child.forEach(ci => segment.push(ci));
+            else { flush(); parts.push(child); }
           });
-          if (!ok || !childItems.length) return true;
-          const kept = [];
-          item.forEach(child => { if (child.type !== list.type) kept.push(child); });
-          const newItem = item.type.create(item.attrs, kept);
-          const tr = state.tr.replaceWith(itemPos, itemPos + item.nodeSize, [newItem, ...childItems]);
-          tr.setSelection(TextSelection.create(tr.doc, itemPos + 2));
+          list.forEach((ci, _, i) => { if (i > at) segment.push(ci); });
+          flush();
+          const listPos = $from.before(listDepth);
+          // 游標回到這一項的標題開頭：它前面的項目都在第一段清單裡
+          let caret = listPos + 1;
+          list.forEach((ci, _, i) => { if (i < at) caret += ci.nodeSize; });
+          caret += 2;   // 進到這一項、進到標題段落
+          const tr = state.tr.replaceWith(listPos, listPos + list.nodeSize, parts);
+          tr.setSelection(TextSelection.create(tr.doc, caret));
           ed.view.dispatch(tr.scrollIntoView());
           return true;
         }
@@ -1758,14 +1787,9 @@ extension BlockEditorView {
         return first ? first.textContent.trim() : "";
       }
 
-      function hasChildList(node) {
-        let found = false;
-        node.forEach(child => {
-          const t = child.type.name;
-          if (t === "taskList" || t === "bulletList" || t === "orderedList") found = true;
-        });
-        return found;
-      }
+      /// 這個待辦是不是 toggle：標題以外還有任何內容（子待辦或內容行）。
+      /// 只看子清單的話，子待辦被刪光（變成文字）toggle 就跟著消失，使用者覺得被整個刪掉。
+      function hasBody(node) { return node.childCount > 1; }
 
       function toggleFold(key) {
         if (!key) return;
@@ -1781,7 +1805,7 @@ extension BlockEditorView {
       function buildFoldDecos(doc) {
         const decos = [];
         doc.descendants((node, pos) => {
-          if (node.type.name !== "taskItem" || !hasChildList(node)) return true;
+          if (node.type.name !== "taskItem" || !hasBody(node)) return true;
           const key = taskText(node);
           const folded = key !== "" && foldedKeys.has(key);
           decos.push(Decoration.node(pos, pos + node.nodeSize, {
@@ -1921,7 +1945,7 @@ extension BlockEditorView {
         if (d < 1 || $from.parent.type.name !== "paragraph") return false;
         const item = $from.node(d - 1);
         if (item.type.name !== "taskItem" || $from.index(d - 1) !== 0) return false;
-        if (hasChildList(item)) return true;
+        if (hasBody(item)) return true;
         const { taskList, taskItem, paragraph } = state.schema.nodes;
         const afterTitle = $from.before(d - 1) + 1 + item.firstChild.nodeSize;
         const tr = state.tr.insert(afterTitle, taskList.create(null,
@@ -1948,7 +1972,7 @@ extension BlockEditorView {
               const itemPos = $from.before(d - 1);
               tr.delete(range.from, range.to);
               const itemNode = tr.doc.nodeAt(itemPos);
-              if (hasChildList(itemNode)) {
+              if (hasBody(itemNode)) {
                 tr.setSelection(TextSelection.create(tr.doc, range.from));
                 return;
               }
