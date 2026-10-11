@@ -167,6 +167,10 @@ struct RootView: View {
                 try FileManager.default.removeItem(at: dest)
             }
             try FileManager.default.copyItem(at: node.url, to: dest)
+            // 下載出來的是新檔案：日期設成現在，「下載項目」依日期排序時才會在最上面
+            let now = Date()
+            try? FileManager.default.setAttributes(
+                [.creationDate: now, .modificationDate: now], ofItemAtPath: dest.path)
         } catch {
             store.errorMessage = error.localizedDescription
         }

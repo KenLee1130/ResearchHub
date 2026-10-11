@@ -688,6 +688,11 @@ struct LatexProjectView: View {
         try? FileManager.default.removeItem(at: dest)
         do {
             try FileManager.default.copyItem(at: pdfURL, to: dest)
+            // 複製會沿用編譯檔的製作／修改日期 → 在「下載項目」等依日期排序的地方
+            // 排不到最上面。匯出出來的是新檔案，日期設成現在。
+            let now = Date()
+            try? FileManager.default.setAttributes(
+                [.creationDate: now, .modificationDate: now], ofItemAtPath: dest.path)
         } catch {
             exportError = error.localizedDescription
         }
