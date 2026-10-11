@@ -73,7 +73,11 @@ struct PapersView: View {
         .task {
             zotero.restoreZoteroDir()
             await zotero.refresh()
+            consumeRequestedPaper()
         }
+        // 全 app 搜尋點了論文 → 選它（論文頁已經開著時也要接得到）
+        .onChange(of: store.requestedPaperKey) { consumeRequestedPaper() }
+        .onAppear { consumeRequestedPaper() }
     }
 
     private func hosted<V: View>(_ view: V) -> AnyView {
@@ -600,6 +604,13 @@ struct PapersView: View {
             Task { @MainActor in importTranslation(from: url) }
         }
         return true
+    }
+
+    private func consumeRequestedPaper() {
+        guard let key = store.requestedPaperKey,
+              let item = zotero.items.first(where: { $0.key == key }) else { return }
+        store.requestedPaperKey = nil
+        if selected?.key != key { select(item) }
     }
 
     private func select(_ item: ZoteroItem) {

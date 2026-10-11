@@ -38,8 +38,13 @@ struct ResearchHubApp: App {
                 .keyboardShortcut("t", modifiers: .command)
             }
             CommandGroup(after: .textEditing) {
+                // 全 app 搜尋：日記、筆記、LaTeX、論文、待辦。只有目前的視窗會跳出來（見 RootView）
+                Button("搜尋…") {
+                    NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
+                }
+                .keyboardShortcut("f", modifiers: .command)
                 Button("快速搜尋…") {
-                    store.searchPresented = true
+                    NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
                 }
                 .keyboardShortcut("k", modifiers: .command)
             }

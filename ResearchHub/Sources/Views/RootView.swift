@@ -30,6 +30,8 @@ struct RootView: View {
     @State private var notesExpanded = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var hostWindow: NSWindow?
+    /// 搜尋面板：每個視窗自己的（以前放在共用 store，開多個分頁時每個分頁都跳出來）
+    @State private var searchPresented = false
     @Environment(\.openWindow) private var openWindow
     /// 側欄筆記樹正在就地改名的項目
     @State private var renamingNode: URL?
@@ -41,6 +43,10 @@ struct RootView: View {
     static let newTabNotification = Notification.Name("RootView.newTab")
     /// 按「＋」時記下要併進哪個視窗；新視窗的 EarlyWindowHook 一拿到自己就直接掛上去
     static weak var pendingTabHost: NSWindow?
+    /// 「編輯 → 搜尋…」（⌘F／⌘K）
+    static let searchNotification = Notification.Name("RootView.search")
+    /// 所有主視窗（分頁）。⌘F 在 LaTeX／筆記獨立視窗按時，交給最前面的主視窗處理
+    static let rootWindows = NSHashTable<NSWindow>.weakObjects()
     /// 側欄寬度，只由右緣的自訂把手改變（見 SidebarSplitControl）。
     /// 最窄可以縮到只剩圖示。
     @AppStorage("sidebarWidth") private var sidebarWidth: Double = 200
@@ -365,6 +371,7 @@ struct RootView: View {
         .background(EarlyWindowHook { adoptAsPendingTab($0) })
         .background(WindowReader { window in
             hostWindow = window
+            if let window { Self.rootWindows.add(window) }
             if columnVisibility != .detailOnly {
                 SidebarSplitControl.lock(in: window, width: sidebarWidth,
                                          min: Self.sidebarMin, max: Self.sidebarMax)
@@ -435,8 +442,24 @@ struct RootView: View {
                 store.requestedTab = nil
             }
         }
-        .sheet(isPresented: Bindable(store).searchPresented) {
+        .sheet(isPresented: $searchPresented) {
             SearchPaletteView()
+                .environment(store)
+                .environment(generalTodos)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: RootView.searchNotification)) { _ in
+            guard let w = hostWindow else { return }
+            if w.isKeyWindow { searchPresented = true; return }
+            // 目前的視窗不是主視窗（例如 LaTeX 獨立視窗）→ 由最前面那個主視窗跳出來
+            let keyIsRoot = Self.rootWindows.allObjects.contains { $0 === NSApp.keyWindow }
+            guard !keyIsRoot else { return }
+            let front = NSApp.orderedWindows.first { win in
+                Self.rootWindows.allObjects.contains { $0 === win }
+            }
+            if front === w {
+                w.makeKeyAndOrderFront(nil)
+                searchPresented = true
+            }
         }
         // 系統 URL scheme（researchhub://…）：外部工具的入口。
         //   note?path=<相對 Notes/ 的路徑> → 開啟筆記

@@ -18,7 +18,8 @@ final class FileSystemStore {
     // 跨分頁導航與全域搜尋
     var requestedTab: AppTab?
     var pendingOpenNote: URL?
-    var searchPresented = false
+    /// 全 app 搜尋點了某篇論文：論文頁出現時選它、然後清空
+    var requestedPaperKey: String?
     /// researchhub://journal?date=… 要求開啟的日記日（JournalView 消化後清空）
     var pendingJournalDate: Date?
 
