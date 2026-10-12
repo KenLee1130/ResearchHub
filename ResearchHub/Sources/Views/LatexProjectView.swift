@@ -687,12 +687,10 @@ struct LatexProjectView: View {
         guard panel.runModal() == .OK, let dest = panel.url else { return }
         try? FileManager.default.removeItem(at: dest)
         do {
-            try FileManager.default.copyItem(at: pdfURL, to: dest)
-            // 複製會沿用編譯檔的製作／修改日期 → 在「下載項目」等依日期排序的地方
-            // 排不到最上面。匯出出來的是新檔案，日期設成現在。
-            let now = Date()
-            try? FileManager.default.setAttributes(
-                [.creationDate: now, .modificationDate: now], ofItemAtPath: dest.path)
+            // 寫成全新的檔案，不用 copyItem：編譯檔放在 .researchhub/ 裡被 iCloud 標成「隱藏」，
+            // 複製會連隱藏旗標、舊的製作／修改日期一起帶過去 → Finder 根本看不到匯出的 PDF。
+            let data = try Data(contentsOf: pdfURL)
+            try data.write(to: dest, options: .atomic)
         } catch {
             exportError = error.localizedDescription
         }
