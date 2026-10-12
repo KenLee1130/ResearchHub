@@ -7,11 +7,11 @@ import PDFKit
 /// ⌘F：只在「目前這一頁／這個檔案」裡找（全 app 搜尋在 ⌘K）。
 ///
 /// 決定找哪裡：
-///   1. 游標在原始碼編輯器（NSTextView，開了 usesFindBar）→ macOS 內建尋找列
-///   2. 游標在網頁（日記、筆記預覽）或 PDF 裡 → 就找它
+///   1. 游標在原始碼編輯器、網頁（日記、筆記預覽）或 PDF 裡 → 就找它
+///   2. （同一個尋找列：輸入框、第幾個／共幾個、上一個／下一個、Esc 關閉）
 ///   3. 都不是 → 目前視窗裡看得到、面積最大的那塊網頁／PDF（例如論文頁的 PDF）
 ///   4. 什麼都沒有（首頁）→ 開全 app 搜尋
-/// 網頁與 PDF 用一個貼在內容右上角的小尋找列（子視窗，跟著視窗移動）。
+/// 尋找列貼在內容右上角（子視窗，跟著視窗移動）。
 @MainActor
 final class PageFinder {
     static let shared = PageFinder()
@@ -27,13 +27,15 @@ final class PageFinder {
                 ?? NSApp.orderedWindows.first(where: { $0.isVisible && !($0 is NSPanel) })
         else { return openGlobalSearch() }
 
+        // 尋找列自己的輸入框有焦點時再按 ⌘F：就是要回到它
+        if let panel, panel.isVisible {
+            panel.makeKeyAndOrderFront(nil)
+            panel.focusField()
+            return
+        }
         if let responder = window.firstResponder as? NSView {
-            if let tv = responder as? NSTextView, tv.usesFindBar {
-                // 內建尋找列靠 sender 的 tag 判斷要做什麼
-                let item = NSMenuItem()
-                item.tag = NSTextFinder.Action.showFindInterface.rawValue
-                tv.performTextFinderAction(item)
-                return
+            if let tv = responder as? NSTextView, isDocumentEditor(tv) {
+                return present(for: tv)
             }
             if let target = enclosingTarget(of: responder) {
                 return present(for: target)
@@ -42,28 +44,26 @@ final class PageFinder {
         // 游標不在可找的東西裡：挑這個視窗裡看得到、最大的那一塊（原始碼編輯器也算）
         var candidates: [NSView] = targets.allObjects.filter { isShowing($0, in: window) }
         if let root = window.contentView {
-            candidates += findBarTextViews(in: root).filter { isShowing($0, in: window) }
+            candidates += documentEditors(in: root).filter { isShowing($0, in: window) }
         }
         guard let best = candidates.max(by: { area($0) < area($1) }) else {
             return openGlobalSearch()
         }
-        if let tv = best as? NSTextView {
-            window.makeFirstResponder(tv)
-            let item = NSMenuItem()
-            item.tag = NSTextFinder.Action.showFindInterface.rawValue
-            tv.performTextFinderAction(item)
-        } else {
-            present(for: best)
-        }
+        present(for: best)
     }
 
     private func openGlobalSearch() {
         NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
     }
 
-    private func findBarTextViews(in view: NSView) -> [NSTextView] {
-        if let tv = view as? NSTextView { return tv.usesFindBar ? [tv] : [] }
-        return view.subviews.flatMap(findBarTextViews)
+    /// 文件編輯器（筆記／LaTeX 原始碼），不是輸入框背後的 field editor
+    private func isDocumentEditor(_ tv: NSTextView) -> Bool {
+        tv is PastingTextView && !tv.isFieldEditor
+    }
+
+    private func documentEditors(in view: NSView) -> [NSTextView] {
+        if let tv = view as? NSTextView { return isDocumentEditor(tv) ? [tv] : [] }
+        return view.subviews.flatMap(documentEditors)
     }
 
     private func enclosingTarget(of view: NSView) -> NSView? {
@@ -87,7 +87,9 @@ final class PageFinder {
     private func present(for target: NSView) {
         panel?.close()
         let engine: FindEngine
-        if let web = target as? WKWebView {
+        if let tv = target as? NSTextView {
+            engine = TextFindEngine(textView: tv)
+        } else if let web = target as? WKWebView {
             engine = WebFindEngine(webView: web)
         } else if let pdf = target as? PDFView {
             engine = PDFFindEngine(pdfView: pdf)
@@ -107,6 +109,74 @@ protocol FindEngine: AnyObject {
     /// 找 query；forward=false 往前找。回傳（第幾個, 共幾個），找不到回 (0, 0)
     func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int)
     func clear()
+}
+
+/// 原始碼編輯器：全部符合處淡黃底（暫時屬性，不動檔案內容／上色），目前這一個選起來並捲過去。
+/// 每次都從目前的文字重新找——中途編輯、重新載入都不會亂掉。
+/// （以前用 macOS 內建尋找列：放在 SwiftUI 版面裡，版面一變就跟編輯器斷開、按鈕失效甚至消失）
+@MainActor
+final class TextFindEngine: FindEngine {
+    private weak var textView: NSTextView?
+    private var highlighted: [NSRange] = []
+
+    init(textView: NSTextView) { self.textView = textView }
+
+    func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
+        guard let tv = textView, !query.isEmpty else {
+            clear()
+            return (0, 0)
+        }
+        let ns = tv.string as NSString
+        var ranges: [NSRange] = []
+        var search = NSRange(location: 0, length: ns.length)
+        while search.length > 0 {
+            let r = ns.range(of: query, options: [.caseInsensitive], range: search)
+            if r.location == NSNotFound { break }
+            ranges.append(r)
+            let next = NSMaxRange(r)
+            search = NSRange(location: next, length: ns.length - next)
+        }
+        highlight(ranges, in: tv)
+        guard !ranges.isEmpty else { return (0, 0) }
+
+        // 從目前選取的位置往下／往上找下一個（重新輸入時包含目前位置）
+        let sel = tv.selectedRange()
+        let i: Int
+        if forward {
+            let from = restart ? sel.location : NSMaxRange(sel)
+            i = ranges.firstIndex { $0.location >= from } ?? 0
+        } else {
+            i = ranges.lastIndex { $0.location < sel.location } ?? ranges.count - 1
+        }
+        let r = ranges[i]
+        tv.setSelectedRange(r)
+        tv.scrollRangeToVisible(r)
+        tv.showFindIndicator(for: r)
+        return (i + 1, ranges.count)
+    }
+
+    private func highlight(_ ranges: [NSRange], in tv: NSTextView) {
+        guard let lm = tv.layoutManager else { return }
+        let length = (tv.string as NSString).length
+        for r in highlighted where NSMaxRange(r) <= length {
+            lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: r)
+        }
+        for r in ranges {
+            lm.addTemporaryAttribute(.backgroundColor,
+                                     value: NSColor.systemYellow.withAlphaComponent(0.35),
+                                     forCharacterRange: r)
+        }
+        highlighted = ranges
+    }
+
+    func clear() {
+        guard let tv = textView, let lm = tv.layoutManager else { return }
+        let length = (tv.string as NSString).length
+        for r in highlighted where NSMaxRange(r) <= length {
+            lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: r)
+        }
+        highlighted = []
+    }
 }
 
 /// 網頁（日記編輯器、筆記預覽）：WKWebView 內建的 find 會選取並捲到符合處；
@@ -212,11 +282,16 @@ final class FindBarPanel: NSPanel {
         hasShadow = true
         let model = FindBarModel(engine: engine)
         model.onClose = { [weak self] in self?.close() }
+        self.model = model
         contentView = NSHostingView(rootView: FindBarView(model: model))
     }
 
+    private var model: FindBarModel?
+
     // 無邊框面板預設不能接鍵盤
     override var canBecomeKey: Bool { true }
+
+    func focusField() { model?.focusToken += 1 }
 
     func show() {
         guard let target, let parent = target.window else { return }
@@ -230,6 +305,8 @@ final class FindBarPanel: NSPanel {
                                y: onScreen.maxY - size.height - 12))
         parent.addChildWindow(self, ordered: .above)
         makeKeyAndOrderFront(nil)
+        // 面板變成 key 之後才能把焦點交給輸入框（onAppear 時還不是 key，設了沒用 → 打字打不進去）
+        DispatchQueue.main.async { [weak self] in self?.model?.focusToken += 1 }
     }
 
     override func close() {
@@ -253,6 +330,8 @@ final class FindBarModel {
     var query = "" { didSet { if query != oldValue { run(forward: true, restart: true) } } }
     var status = ""
     var onClose: (() -> Void)?
+    /// 每加一就把焦點放到輸入框
+    var focusToken = 0
     private let engine: FindEngine
     private var task: Task<Void, Never>?
 
@@ -317,6 +396,7 @@ struct FindBarView: View {
         .frame(width: 360, height: 44)
         .glassEffect(.regular, in: .rect(cornerRadius: 12))
         .onAppear { focused = true }
+        .onChange(of: model.focusToken) { focused = true }
         .onExitCommand { model.onClose?() }
     }
 }

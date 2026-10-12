@@ -1116,9 +1116,7 @@ struct SourceTextView: NSViewRepresentable {
             Array(Set(textView.registeredDraggedTypes + [.fileURL, .png, .tiff])))
         textView.delegate = context.coordinator
         textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        // ⌘F：macOS 內建尋找列（標出全部符合處、上一個／下一個、取代）
-        textView.usesFindBar = true
-        textView.isIncrementalSearchingEnabled = true
+        // ⌘F 用 app 自己的尋找列（PageFind.swift）；不用內建的：在 SwiftUI 版面裡會跟編輯器斷開
         textView.isRichText = false
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
