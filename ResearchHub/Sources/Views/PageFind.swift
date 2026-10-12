@@ -109,6 +109,18 @@ protocol FindEngine: AnyObject {
     /// 找 query；forward=false 往前找。回傳（第幾個, 共幾個），找不到回 (0, 0)
     func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int)
     func clear()
+    /// 能不能取代（只有原始碼編輯器可以；日記網頁、PDF 不行）
+    var supportsReplace: Bool { get }
+    /// 目前選到的那個符合處換成 replacement；回傳有沒有換
+    func replaceCurrent(_ query: String, with replacement: String) -> Bool
+    /// 全部換掉（一步復原）；回傳換了幾個
+    func replaceAll(_ query: String, with replacement: String) -> Int
+}
+
+extension FindEngine {
+    var supportsReplace: Bool { false }
+    func replaceCurrent(_ query: String, with replacement: String) -> Bool { false }
+    func replaceAll(_ query: String, with replacement: String) -> Int { 0 }
 }
 
 /// 原始碼編輯器：全部符合處淡黃底（暫時屬性，不動檔案內容／上色），目前這一個選起來並捲過去。
@@ -126,16 +138,7 @@ final class TextFindEngine: FindEngine {
             clear()
             return (0, 0)
         }
-        let ns = tv.string as NSString
-        var ranges: [NSRange] = []
-        var search = NSRange(location: 0, length: ns.length)
-        while search.length > 0 {
-            let r = ns.range(of: query, options: [.caseInsensitive], range: search)
-            if r.location == NSNotFound { break }
-            ranges.append(r)
-            let next = NSMaxRange(r)
-            search = NSRange(location: next, length: ns.length - next)
-        }
+        let ranges = matches(of: query, in: tv)
         highlight(ranges, in: tv)
         guard !ranges.isEmpty else { return (0, 0) }
 
@@ -153,6 +156,56 @@ final class TextFindEngine: FindEngine {
         tv.scrollRangeToVisible(r)
         tv.showFindIndicator(for: r)
         return (i + 1, ranges.count)
+    }
+
+    private func matches(of query: String, in tv: NSTextView) -> [NSRange] {
+        let ns = tv.string as NSString
+        var ranges: [NSRange] = []
+        var search = NSRange(location: 0, length: ns.length)
+        while search.length > 0 {
+            let r = ns.range(of: query, options: [.caseInsensitive], range: search)
+            if r.location == NSNotFound { break }
+            ranges.append(r)
+            let next = NSMaxRange(r)
+            search = NSRange(location: next, length: ns.length - next)
+        }
+        return ranges
+    }
+
+    var supportsReplace: Bool { true }
+
+    // 直接改 textStorage（夾在 shouldChangeText／didChangeText 之間：會進 undo、會存檔），
+    // 不用 insertText——那裡有「選取後打括號＝包住」之類的自訂行為，取代成 ( 會變成包住。
+    func replaceCurrent(_ query: String, with replacement: String) -> Bool {
+        guard let tv = textView, tv.isEditable, !query.isEmpty else { return false }
+        let sel = tv.selectedRange()
+        let ns = tv.string as NSString
+        guard sel.length > 0, NSMaxRange(sel) <= ns.length,
+              ns.substring(with: sel).compare(query, options: .caseInsensitive) == .orderedSame,
+              tv.shouldChangeText(in: sel, replacementString: replacement) else { return false }
+        clear()
+        tv.textStorage?.replaceCharacters(in: sel, with: replacement)
+        tv.didChangeText()
+        // 游標放在換好的字後面，下一次「找下一個」從這裡往下
+        tv.setSelectedRange(NSRange(location: sel.location + (replacement as NSString).length, length: 0))
+        return true
+    }
+
+    func replaceAll(_ query: String, with replacement: String) -> Int {
+        guard let tv = textView, tv.isEditable, !query.isEmpty else { return 0 }
+        let ranges = matches(of: query, in: tv)
+        guard !ranges.isEmpty,
+              tv.shouldChangeText(inRanges: ranges.map { NSValue(range: $0) },
+                                  replacementStrings: Array(repeating: replacement, count: ranges.count))
+        else { return 0 }
+        clear()
+        tv.textStorage?.beginEditing()
+        for r in ranges.reversed() {   // 由後往前換，前面的位置才不會跑掉
+            tv.textStorage?.replaceCharacters(in: r, with: replacement)
+        }
+        tv.textStorage?.endEditing()
+        tv.didChangeText()
+        return ranges.count
     }
 
     private func highlight(_ ranges: [NSRange], in tv: NSTextView) {
@@ -274,7 +327,7 @@ final class FindBarPanel: NSPanel {
         self.target = target
         self.engine = engine
         self.onClose = onClose
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 360, height: 44),
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 400, height: 44),
                    styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isFloatingPanel = false
         backgroundColor = .clear
@@ -283,7 +336,19 @@ final class FindBarPanel: NSPanel {
         let model = FindBarModel(engine: engine)
         model.onClose = { [weak self] in self?.close() }
         self.model = model
-        contentView = NSHostingView(rootView: FindBarView(model: model))
+        let host = NSHostingView(rootView: FindBarView(model: model))
+        contentView = host
+        setContentSize(host.fittingSize)
+        // 展開取代列：上緣固定、往下長
+        model.onResize = { [weak self, weak host] in
+            DispatchQueue.main.async {
+                guard let self, let host else { return }
+                let top = self.frame.maxY
+                let size = host.fittingSize
+                self.setFrame(NSRect(x: self.frame.minX, y: top - size.height,
+                                     width: size.width, height: size.height), display: true)
+            }
+        }
     }
 
     private var model: FindBarModel?
@@ -332,10 +397,30 @@ final class FindBarModel {
     var onClose: (() -> Void)?
     /// 每加一就把焦點放到輸入框
     var focusToken = 0
+    var replacement = ""
+    var showReplace = false { didSet { onResize?() } }
+    /// 取代列展開／收起時讓面板跟著長高變矮
+    var onResize: (() -> Void)?
+    var supportsReplace: Bool { engine.supportsReplace }
     private let engine: FindEngine
     private var task: Task<Void, Never>?
 
     init(engine: FindEngine) { self.engine = engine }
+
+    /// 「取代」：目前選到的是符合處就換掉，然後跳到下一個（還沒選到就先找到第一個）
+    func replaceOne() {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return }
+        _ = engine.replaceCurrent(q, with: replacement)
+        run(forward: true, restart: false)
+    }
+
+    func replaceAll() {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return }
+        let n = engine.replaceAll(q, with: replacement)
+        status = n == 0 ? "找不到" : "已取代 \(n) 個"
+    }
 
     func run(forward: Bool, restart: Bool) {
         task?.cancel()
@@ -361,8 +446,48 @@ struct FindBarView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            findRow
+            if model.showReplace { replaceRow }
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .frame(width: 400)
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+        .onAppear { focused = true }
+        .onChange(of: model.focusToken) { focused = true }
+        .onExitCommand { model.onClose?() }
+    }
+
+    private var replaceRow: some View {
         HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            Image(systemName: "arrow.2.squarepath").foregroundStyle(.secondary)
+                .frame(width: 16)
+            TextField("取代成", text: $model.replacement)
+                .textFieldStyle(.plain)
+                .onSubmit { model.replaceOne() }
+            Button("取代") { model.replaceOne() }
+                .buttonStyle(.bordered).controlSize(.small)
+                .help("換掉目前這一個，跳到下一個")
+            Button("全部取代") { model.replaceAll() }
+                .buttonStyle(.bordered).controlSize(.small)
+                .help("全部換掉（⌘Z 一次還原）")
+        }
+    }
+
+    private var findRow: some View {
+        HStack(spacing: 6) {
+            if model.supportsReplace {
+                Button { model.showReplace.toggle() } label: {
+                    Image(systemName: model.showReplace ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 16)
+                }
+                .help(model.showReplace ? "收起取代" : "取代…")
+            } else {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            }
             TextField("在此頁尋找", text: $model.query)
                 .textFieldStyle(.plain)
                 .focused($focused)
@@ -391,13 +516,6 @@ struct FindBarView: View {
             }
             .help("關閉（Esc）")
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 12)
-        .frame(width: 360, height: 44)
-        .glassEffect(.regular, in: .rect(cornerRadius: 12))
-        .onAppear { focused = true }
-        .onChange(of: model.focusToken) { focused = true }
-        .onExitCommand { model.onClose?() }
     }
 }
 #endif
