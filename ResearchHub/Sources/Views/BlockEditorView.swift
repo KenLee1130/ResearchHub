@@ -181,6 +181,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     private override init() {
         #if os(macOS)
         webView = FirstMouseWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        PageFinder.shared.register(webView)   // ⌘F 在日記裡找
         #else
         webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
         #endif

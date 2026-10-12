@@ -38,12 +38,13 @@ struct ResearchHubApp: App {
                 .keyboardShortcut("t", modifiers: .command)
             }
             CommandGroup(after: .textEditing) {
-                // 全 app 搜尋：日記、筆記、LaTeX、論文、待辦。只有目前的視窗會跳出來（見 RootView）
-                Button("搜尋…") {
-                    NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
+                // ⌘F：只在目前這一頁／這個檔案裡找（見 PageFinder）
+                Button("在此頁尋找…") {
+                    PageFinder.shared.showFind()
                 }
                 .keyboardShortcut("f", modifiers: .command)
-                Button("快速搜尋…") {
+                // ⌘K：全 app 搜尋（日記、筆記、LaTeX、論文、待辦），只有目前的視窗會跳出來（見 RootView）
+                Button("搜尋全部…") {
                     NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
                 }
                 .keyboardShortcut("k", modifiers: .command)

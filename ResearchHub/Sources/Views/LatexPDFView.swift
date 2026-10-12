@@ -18,6 +18,7 @@ struct LatexPDFView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PDFView {
         let view = PDFView()
+        PageFinder.shared.register(view)   // ⌘F 在 PDF 裡找
         view.autoScales = true
         view.displaysPageBreaks = true
         view.pageShadowsEnabled = true

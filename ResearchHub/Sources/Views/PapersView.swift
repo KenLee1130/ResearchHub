@@ -1142,6 +1142,7 @@ struct PDFKitView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PDFView {
         let view = PDFView()
+        PageFinder.shared.register(view)   // ⌘F 在論文 PDF 裡找
         view.autoScales = true
         view.document = PDFDocument(data: data)
         controller.pdfView = view

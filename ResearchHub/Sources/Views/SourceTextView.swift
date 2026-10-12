@@ -1116,6 +1116,9 @@ struct SourceTextView: NSViewRepresentable {
             Array(Set(textView.registeredDraggedTypes + [.fileURL, .png, .tiff])))
         textView.delegate = context.coordinator
         textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        // ⌘F：macOS 內建尋找列（標出全部符合處、上一個／下一個、取代）
+        textView.usesFindBar = true
+        textView.isIncrementalSearchingEnabled = true
         textView.isRichText = false
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
