@@ -366,7 +366,11 @@ struct RootView: View {
                 AmbientBackground()
                 switch tab ?? .home {
                 case .home: HomeView()
-                case .notes: NotesBrowserView()
+                case .notes:
+                    NotesBrowserView()
+                        .environment(\.openInNewTab) { url, isProject in
+                            openInNewTab(url, isProject: isProject)
+                        }
                 case .papers: PapersView()
                 case .journal: JournalView()
                 }
@@ -576,4 +580,8 @@ struct SidebarResizeHandle: View {
     }
 }
 
+/// 筆記瀏覽器右鍵「在新分頁開啟」：由所在的主視窗（RootView）提供，開成它的分頁
+extension EnvironmentValues {
+    @Entry var openInNewTab: ((URL, Bool) -> Void)? = nil
+}
 #endif

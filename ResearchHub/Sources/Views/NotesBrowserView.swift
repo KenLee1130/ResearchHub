@@ -339,6 +339,7 @@ struct BreadcrumbButton: View {
 
 struct FileIconCell: View {
     @Environment(FileSystemStore.self) private var store
+    @Environment(\.openInNewTab) private var openInNewTab
 
     let item: FileItem
     let isSelected: Bool
@@ -362,6 +363,9 @@ struct FileIconCell: View {
                 .simultaneousGesture(TapGesture().onEnded { onSelect() })
                 .contextMenu {
                     Button(item.isProject ? "開啟專案" : (item.isFolder ? "開啟" : "編輯")) { onOpen() }
+                    if !item.isFolder || item.isProject, let openInNewTab {   // 筆記或 LaTeX 專案
+                        Button("在新分頁開啟") { openInNewTab(item.url, item.isProject) }
+                    }
                     Button("重新命名") { onRename() }
                     Divider()
                     Button("移到垃圾桶", role: .destructive) { onTrash() }
