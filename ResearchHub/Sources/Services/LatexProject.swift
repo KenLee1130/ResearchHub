@@ -42,6 +42,13 @@ nonisolated enum LatexProject {
 
     static func isProject(_ folder: URL) -> Bool { mainFile(in: folder) != nil }
 
+    /// 主檔所在的子資料夾（相對於專案根目錄；主檔在根目錄就是空字串）
+    static func mainSubdirectory(of main: URL, in folder: URL) -> String {
+        let root = folder.standardizedFileURL.path + "/"
+        let dir = main.deletingLastPathComponent().standardizedFileURL.path
+        return dir.hasPrefix(root) ? String(dir.dropFirst(root.count)) : ""
+    }
+
     /// 只讀開頭幾 KB：判定用，不必整份讀進來（也避免 iCloud 大檔卡住）。
     private static func head(of url: URL, bytes: Int = 4096) -> String {
         guard let h = try? FileHandle(forReadingFrom: url) else { return "" }
@@ -94,8 +101,19 @@ nonisolated enum LatexProject {
     static func engine(for folder: URL, main: URL) -> String {
         if let e = settings(of: folder).engine, !e.isEmpty { return e }
         let fm = FileManager.default
-        for rc in ["latexmkrc", ".latexmkrc"] where fm.fileExists(atPath: folder.appendingPathComponent(rc).path) {
-            return "auto"
+        // latexmk 在主檔所在資料夾執行，讀的是那裡的 latexmkrc。
+        // 只有 latexmkrc 真的選了輸出模式才交給它：Overleaf 的 latexmkrc 常常只設時區，
+        // 交給它的話 latexmk 跑 DVI 模式，碰到 \pdfoutput=1 就「Could not handle change of
+        // output extension」中止，bibtex 也不會跑（Overleaf 自己編譯時一定會指定引擎）。
+        for dir in Set([folder, main.deletingLastPathComponent()]) {
+            for rc in ["latexmkrc", ".latexmkrc"] {
+                let url = dir.appendingPathComponent(rc)
+                guard fm.fileExists(atPath: url.path) else { continue }
+                let text = FileSystemStore.safeRead(url) ?? ""
+                if text.range(of: #"\$(pdf|dvi|postscript)_mode"#, options: .regularExpression) != nil {
+                    return "auto"
+                }
+            }
         }
         let preamble = head(of: main, bytes: 8192)
         for pkg in ["xeCJK", "fontspec", "ctex", "polyglossia", "unicode-math"] where preamble.contains(pkg) {

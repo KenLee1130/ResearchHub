@@ -42,9 +42,16 @@ case "$cmd" in
     ;;
 
   compile)
-    work="$1"; main="$2"; engine="$3"
-    require_local "$work"
+    work="$1"; main="$2"; engine="$3"; root="${4:-$1}"
+    require_local "$work"; require_local "$root"
     cd "$work" || { echo "RC=2"; echo "ERR=找不到編譯工作資料夾"; exit 0; }
+    # 主檔在子資料夾時在那裡編譯（相對路徑跟 Overleaf 一樣從主檔算）；
+    # 專案根目錄加進搜尋路徑，從根目錄算的 \input、圖、.bib 也找得到。
+    # 結尾的冒號＝接著用 TeX 系統預設路徑。
+    if [ "$root" != "$work" ]; then
+      export TEXINPUTS=".:$root:${TEXINPUTS:-}"
+      export BIBINPUTS=".:$root:${BIBINPUTS:-}"
+    fi
     case "$engine" in
       xelatex)  flag="-xelatex" ;;
       lualatex) flag="-lualatex" ;;
@@ -53,7 +60,9 @@ case "$cmd" in
     esac
     base="${main%.tex}"
     # 就地編譯：中間檔跟來源放在一起，\include{chapters/x} 的 .aux 自然就有地方寫
-    latexmk $flag -interaction=nonstopmode -file-line-error -synctex=1 \
+    # -f：有錯也把 bibtex、重跑做完（跟 Overleaf 一樣）。不加的話一個小錯（例如全形標點）
+    #     latexmk 就停在第一輪，所有引用都變 [?]，看起來像整份壞掉
+    latexmk $flag -f -interaction=nonstopmode -file-line-error -synctex=1 \
       "$main" > ".rh-latexmk.out" 2>&1 &
     pid=$!
     # 看門狗：卡住（例如套件在等輸入）超過 120 秒就砍掉
