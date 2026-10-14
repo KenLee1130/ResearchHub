@@ -189,8 +189,26 @@ struct RootView: View {
 
     /// 開成目前視窗的一個新分頁（筆記用 note 視窗、LaTeX 專案用 latex 視窗）
     private func openInNewTab(_ node: TreeNode) {
+        openInNewTab(node.url, isProject: node.isProject)
+    }
+
+    /// 新視窗一定要在「顯示的當下」就是分頁。等它顯示出來才併的話，全螢幕時系統已經先
+    /// 把它丟到另一個 Space：分頁列看起來正常，但之後切分頁、選字跳出書寫工具小按鈕、
+    /// 複製貼上時，畫面會被拉去一個空白桌面。
+    ///
+    /// 做法：開之前把目前視窗的 tabbingIdentifier 暫時改成新視窗那種
+    /// （SwiftUI 給 WindowGroup(id:) 的是 "SwiftUI-WindowGroup-<id>"），
+    /// 全螢幕時 AppKit 會在 openWindow 裡顯示的那一刻自己把它併成分頁。
+    /// EarlyWindowHook（NoteWindowView／LatexProjectWindowView）與 attachAsTab 是備援：
+    /// 非全螢幕時系統不自動併，或 SwiftUI 改了命名規則。
+    private func openInNewTab(_ url: URL, isProject: Bool) {
+        let id = isProject ? "latex" : "note"
         let before = Set(NSApp.windows.map(ObjectIdentifier.init))
-        openWindow(id: node.isProject ? "latex" : "note", value: node.url)
+        Self.pendingTabHost = hostWindow
+        let originalIdentifier = hostWindow?.tabbingIdentifier
+        hostWindow?.tabbingIdentifier = "SwiftUI-WindowGroup-\(id)"
+        openWindow(id: id, value: url)   // 同步建立並顯示
+        if let originalIdentifier { hostWindow?.tabbingIdentifier = originalIdentifier }
         attachAsTab(excluding: before, attemptsLeft: 20)
     }
 
@@ -226,8 +244,9 @@ struct RootView: View {
         attachAsTab(excluding: before, attemptsLeft: 20)
     }
 
-    /// 新視窗的內容一裝進視窗（還沒顯示）就掛成分頁，不會先閃一個獨立視窗
-    private func adoptAsPendingTab(_ window: NSWindow) {
+    /// 新視窗的內容一裝進視窗（還沒顯示）就掛成分頁，不會先閃一個獨立視窗。
+    /// 主視窗、筆記視窗、LaTeX 視窗共用。
+    static func adoptAsPendingTab(_ window: NSWindow) {
         guard let host = Self.pendingTabHost, host !== window else { return }
         Self.pendingTabHost = nil
         window.tabbingMode = .preferred
@@ -248,8 +267,13 @@ struct RootView: View {
                     host.addTabbedWindow(new, ordered: .above)
                 }
                 new.makeKeyAndOrderFront(nil)
+                if Self.pendingTabHost === host { Self.pendingTabHost = nil }
             } else if attemptsLeft > 0 {
                 attachAsTab(excluding: before, attemptsLeft: attemptsLeft - 1)
+            } else if Self.pendingTabHost === host {
+                // 沒有新視窗（同一份筆記已經開著，openWindow 只是把它叫到前面）→
+                // 清掉，免得之後「彈到獨立視窗」被誤併成分頁
+                Self.pendingTabHost = nil
             }
         }
     }
@@ -373,7 +397,7 @@ struct RootView: View {
         }
         // 側欄平常鎖住「拖太窄就收起」（見 SidebarSplitControl）；
         // 收起中不鎖，否則按鈕收起後會被鎖回展開狀態
-        .background(EarlyWindowHook { adoptAsPendingTab($0) })
+        .background(EarlyWindowHook { Self.adoptAsPendingTab($0) })
         .background(WindowReader { window in
             hostWindow = window
             if let window { Self.rootWindows.add(window) }

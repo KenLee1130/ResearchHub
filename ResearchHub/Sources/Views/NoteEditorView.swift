@@ -132,6 +132,7 @@ struct NoteWindowView: View {
             }
         }
         .background(WindowMinSizeSetter(minWidth: 460, minHeight: 380))
+        .background(EarlyWindowHook { RootView.adoptAsPendingTab($0) })   // 「在新分頁開啟」
     }
 }
 #endif

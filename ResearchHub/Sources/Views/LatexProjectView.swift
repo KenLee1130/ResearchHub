@@ -753,6 +753,7 @@ struct LatexProjectWindowView: View {
                 Text("找不到這個專案").foregroundStyle(.secondary)
             }
         }
+        .background(EarlyWindowHook { RootView.adoptAsPendingTab($0) })   // 「在新分頁開啟」
     }
 }
 
