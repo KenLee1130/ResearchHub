@@ -404,7 +404,10 @@ struct LatexProjectView: View {
     private var previewPane: some View {
         VStack(spacing: 0) {
             if FileManager.default.fileExists(atPath: pdfURL.path) {
-                LatexPDFView(url: pdfURL, version: compiler.pdfVersion, continuous: continuous)
+                LatexPDFView(url: pdfURL, version: compiler.pdfVersion, continuous: continuous,
+                             onDoubleClick: { page, point, word in
+                                 Task { await jumpToSource(page: page, point: point, word: word) }
+                             })
             } else {
                 placeholder(compiler.status == .running ? "編譯中…" : "還沒有編譯結果，按「編譯」試試")
             }
@@ -561,6 +564,20 @@ struct LatexProjectView: View {
 
     private func relativePath(_ url: URL) -> String {
         url.path.replacingOccurrences(of: projectURL.path + "/", with: "")
+    }
+
+    /// PDF 雙擊 → SyncTeX 找到原始碼的位置 → 左邊打開那個檔、跳到那一行（選到雙擊的字）
+    private func jumpToSource(page: Int, point: CGPoint, word: String?) async {
+        guard let hit = await compiler.inverseSearch(page: page, point: point) else { return }
+        let url = projectURL.appendingPathComponent(hit.file)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        if layout == .pdf { layoutRaw = Layout.split.rawValue }   // 只看 PDF 時把編輯區叫出來
+        let switching = !same(selected, url)
+        selected = url
+        // 換檔的話等編輯器載入新檔再跳（跟點錯誤訊息一樣）
+        DispatchQueue.main.asyncAfter(deadline: .now() + (switching ? 0.2 : 0)) {
+            lineJump = LineJumpRequest(line: hit.line, word: word)
+        }
     }
 
     private func open(_ issue: LatexIssue) {

@@ -277,6 +277,33 @@ final class LatexCompiler: ObservableObject {
         }
     }
 
+    /// SyncTeX 反向搜尋：PDF 上的一點 → 原始碼的檔案（相對專案根目錄）與行號。
+    /// point 是 PDF 點座標、原點在頁面左上（SyncTeX 的慣例）；page 從 0 算。
+    /// 用的是暫存區裡最近一次編譯留下的 .synctex.gz（編譯本來就帶 -synctex=1）。
+    func inverseSearch(page: Int, point: CGPoint) async -> (file: String, line: Int)? {
+        let project = projectURL
+        let build = buildDir
+        let target = await Task.detached(priority: .userInitiated) { () -> (URL, String, String)? in
+            guard let main = LatexProject.mainFile(in: project) else { return nil }
+            let subdir = LatexProject.mainSubdirectory(of: main, in: project)
+            let work = subdir.isEmpty ? build : build.appendingPathComponent(subdir)
+            let name = main.deletingPathExtension().lastPathComponent
+            guard FileManager.default.fileExists(
+                atPath: work.appendingPathComponent("\(name).synctex.gz").path) else { return nil }
+            return (work, "\(name).pdf", subdir)
+        }.value
+        guard let (work, pdf, subdir) = target else { return nil }
+        let args = ["synctex", work.path, pdf, "\(page + 1)",
+                    String(format: "%.1f", point.x), String(format: "%.1f", point.y)]
+        let output: String = await withCheckedContinuation { continuation in
+            Self.runHelper(args) { out, _ in continuation.resume(returning: out) }
+        }
+        let fields = Self.fields(in: output)
+        guard let input = fields["INPUT"], let line = Int(fields["LINE"] ?? ""), line > 0
+        else { return nil }
+        return (Self.projectRelative(input, subdir: subdir, buildRoot: build), line)
+    }
+
     /// log 裡的檔名換成「相對於專案根目錄」，點錯誤才跳得到正確的檔：
     /// 相對路徑是從主檔所在資料夾算的（補上子資料夾）；暫存區的絕對路徑換回專案內的路徑；
     /// 其他絕對路徑（TeX 系統的 .sty）不動。

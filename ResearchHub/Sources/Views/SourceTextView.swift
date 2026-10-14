@@ -1043,6 +1043,8 @@ final class PastingTextView: NSTextView {
 struct LineJumpRequest: Equatable {
     let id = UUID()
     let line: Int
+    /// 有的話：在那一行（或附近幾行）找這個字並選起來（PDF 雙擊的字）
+    var word: String? = nil
 }
 
 /// 右欄預覽雙擊段落 → 左欄源碼跳轉的一次性請求（id 變了才執行，避免重複觸發）。
@@ -1174,7 +1176,7 @@ struct SourceTextView: NSViewRepresentable {
         }
         if let lineJump, lineJump.id != context.coordinator.lastLineJumpID {
             context.coordinator.lastLineJumpID = lineJump.id
-            context.coordinator.jump(toLine: lineJump.line)
+            context.coordinator.jump(toLine: lineJump.line, word: lineJump.word)
         }
     }
 
@@ -1238,23 +1240,35 @@ struct SourceTextView: NSViewRepresentable {
         }
 
         /// 跳到第 line 行（1 起算）：選取整行、捲到中間、閃一下。
-        func jump(toLine line: Int) {
+        func jump(toLine line: Int, word: String? = nil) {
             guard let tv = textView, let sv = tv.enclosingScrollView,
                   let lm = tv.layoutManager, let tc = tv.textContainer else { return }
             let ns = tv.string as NSString
-            var index = 0, current = 1
-            var range = NSRange(location: 0, length: 0)
+            // 每一行的範圍（行號從 1 算）
+            var lines: [NSRange] = []
+            var index = 0
             while index < ns.length {
                 let r = ns.lineRange(for: NSRange(location: index, length: 0))
-                if current == line { range = r; break }
+                lines.append(r)
                 index = r.location + r.length
-                current += 1
             }
-            guard range.length > 0 || current == line else { return }
+            guard line >= 1, line <= max(lines.count, 1) else { return }
+            let range = lines.isEmpty ? NSRange(location: 0, length: 0) : lines[line - 1]
             let trimmed = NSRange(
                 location: range.location,
                 length: max(0, range.length - (ns.substring(with: range).hasSuffix("\n") ? 1 : 0)))
-            tv.setSelectedRange(trimmed)
+            // SyncTeX 的行號常落在段落的頭或尾，字不一定在那一行：由近到遠看前後幾行
+            var target = trimmed
+            if let word, word.count >= 2, !lines.isEmpty {
+                let order = [0] + (1...4).flatMap { [$0, -$0] }
+                for offset in order {
+                    let i = line - 1 + offset
+                    guard lines.indices.contains(i) else { continue }
+                    let found = ns.range(of: word, options: [], range: lines[i])
+                    if found.location != NSNotFound { target = found; break }
+                }
+            }
+            tv.setSelectedRange(target)
             tv.window?.makeFirstResponder(tv)
             flash(trimmed)
             let gr = lm.glyphRange(forCharacterRange: trimmed, actualCharacterRange: nil)

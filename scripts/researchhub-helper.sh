@@ -12,6 +12,7 @@
 #
 # 子指令（輸出最後幾行是 KEY=VALUE，給 app 解析）：
 #   compile <工作資料夾> <主檔.tex> <engine: xelatex|pdflatex|lualatex|auto>
+#   synctex <工作資料夾> <PDF 檔名> <頁碼（1 起算）> <x> <y>（PDF 點座標、原點左上；反向搜尋 PDF → 原始碼）
 #   zip     <來源資料夾> <目的 .zip>            （內容放在 zip 根目錄，跟 Overleaf 下載的格式一樣）
 #   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
 #   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> <effort 或 -> （論文問答，見 PaperChat.swift）
@@ -78,6 +79,20 @@ case "$cmd" in
     rc=$?
     [ -f "$work/$base.pdf" ] && echo "PDF=$work/$base.pdf"
     echo "LOG=$work/$base.log"
+    echo "RC=$rc"
+    ;;
+
+  synctex)
+    work="$1"; pdf="$2"; page="$3"; x="$4"; y="$5"
+    require_local "$work"
+    cd "$work" || { echo "RC=2"; exit 0; }
+    out=$(synctex edit -o "$page:$x:$y:$pdf" 2>&1)
+    rc=$?
+    # 可能對到好幾筆，取第一筆
+    input=$(printf '%s\n' "$out" | sed -n 's/^Input://p' | head -1)
+    line=$(printf '%s\n' "$out" | sed -n 's/^Line://p' | head -1)
+    [ -n "$input" ] && echo "INPUT=$input"
+    [ -n "$line" ] && echo "LINE=$line"
     echo "RC=$rc"
     ;;
 

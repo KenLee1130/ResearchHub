@@ -9,6 +9,8 @@ struct LatexPDFView: NSViewRepresentable {
     let version: Int
     /// true＝連續捲動，false＝一次一頁
     let continuous: Bool
+    /// 雙擊 PDF：(頁碼從 0 算, 點座標〔原點在頁面左上，SyncTeX 的慣例〕, 雙擊選到的字)
+    var onDoubleClick: ((Int, CGPoint, String?) -> Void)? = nil
 
     /// 欄寬規則見 AdaptiveSizing.swift。PDFView 不寫這個的話會回報 A4 頁面的寬度，
     /// 那一欄就縮不下去，把整排三欄撐得比視窗還寬。
@@ -17,7 +19,8 @@ struct LatexPDFView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> PDFView {
-        let view = PDFView()
+        let view = InverseSearchPDFView()
+        view.onDoubleClick = onDoubleClick
         PageFinder.shared.register(view)   // ⌘F 在 PDF 裡找
         view.autoScales = true
         view.displaysPageBreaks = true
@@ -29,6 +32,7 @@ struct LatexPDFView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: PDFView, context: Context) {
+        (view as? InverseSearchPDFView)?.onDoubleClick = onDoubleClick
         let mode: PDFDisplayMode = continuous ? .singlePageContinuous : .singlePage
         if view.displayMode != mode { view.displayMode = mode }
         if context.coordinator.version != version {
@@ -59,6 +63,24 @@ struct LatexPDFView: NSViewRepresentable {
 
     final class Coordinator {
         var version = -1
+    }
+}
+
+/// 雙擊照常選字，選完再回報雙擊的位置與那個字（給 SyncTeX 反向搜尋用）
+final class InverseSearchPDFView: PDFView {
+    var onDoubleClick: ((Int, CGPoint, String?) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
+        guard event.clickCount == 2, let onDoubleClick, let document else { return }
+        let inView = convert(event.locationInWindow, from: nil)
+        guard let page = page(for: inView, nearest: true) else { return }
+        let onPage = convert(inView, to: page)
+        // PDFKit 的頁面座標原點在左下；SyncTeX 要左上
+        let box = page.bounds(for: .mediaBox)
+        let point = CGPoint(x: onPage.x - box.minX, y: box.maxY - onPage.y)
+        let word = currentSelection?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+        onDoubleClick(document.index(for: page), point, word?.isEmpty == false ? word : nil)
     }
 }
 #endif
