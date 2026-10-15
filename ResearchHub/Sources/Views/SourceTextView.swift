@@ -1523,7 +1523,7 @@ struct SourceTextView: NSViewRepresentable {
         private enum Palette {
             static let command = dynamic(dark: 0xD7D787, light: 0x7A7A1E)    // 卡其
             static let argument = dynamic(dark: 0x87D7D7, light: 0x1F7A7A)   // 淡青
-            static let mathBody = dynamic(dark: 0xFFA500, light: 0xB35900)   // 橘
+            static let mathBody = dynamic(dark: 0xE59A85, light: 0xB5533F)   // 鮭魚粉（跟卡其拉開色相）
             static let delimiter = mathBody
             static let comment = dynamic(dark: 0x80A0FF, light: 0x3355CC)    // 藍
             static let task = NSColor.systemOrange
