@@ -1482,10 +1482,17 @@ struct SourceTextView: NSViewRepresentable {
             }
         }()
 
-        /// begin/end 環境整塊（內容上紫色，之後指令/參數再覆蓋）。
-        /// enumerate/itemize 是文字清單環境（預覽端轉成 markdown 清單），不算數學。
+        /// 數學環境整塊（內容上數學色，之後指令/參數再覆蓋）。
+        /// 只列數學環境：以前是「除了清單、圖表…以外都算」，結果 \begin{document} 也中了，
+        /// 整份內文都變成數學色（2026-10-15 使用者：「顏色太多」）。
         private static let envBlockPattern = try! NSRegularExpression(
-            pattern: #"\\begin\{(?!enumerate\}|itemize\}|figure\}|table\}|tabular\}|center\}|quote\}|quotation\}|abstract\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
+            pattern: #"\\begin\{((?:equation|align|alignat|gather|multline|flalign|eqnarray|displaymath|math)\*?)\}[\s\S]*?\\end\{\1\}"#)
+
+        /// % 註解。LaTeX 專案：沒被 \ 跳脫的 % 到行尾；Markdown 筆記只算整行註解（內文常有「50%」）
+        private static let latexCommentPattern = try! NSRegularExpression(
+            pattern: #"(?<!\\)%[^\n]*"#)
+        private static let lineCommentPattern = try! NSRegularExpression(
+            pattern: #"^[ \t]*%[^\n]*"#, options: [.anchorsMatchLines])
 
         private static let commandPattern = try! NSRegularExpression(pattern: #"\\[a-zA-Z]+"#)
 
@@ -1509,15 +1516,27 @@ struct SourceTextView: NSViewRepresentable {
         private static let mathBlockRegex = try! NSRegularExpression(
             pattern: #"\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{(?!enumerate\}|itemize\}|figure\}|table\}|tabular\}|center\}|quote\}|quotation\}|abstract\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
 
-        // MARK: - Colors (Overleaf-ish, adapts to dark mode)
+        // MARK: - Colors（vim default 為底，深淺色模式各一組）
 
+        /// 配色以 vim 內建 default 為底，黃、青調低彩度（2026-10-15 使用者從預覽挑的）；
+        /// 內文一律是一般文字色（深色模式＝白）。light: 是淺色模式用的較深版本。
         private enum Palette {
-            static let delimiter = NSColor.systemOrange
-            static let mathBody = NSColor.systemPurple
-            static let command = NSColor.systemBlue
-            static let argument = NSColor.systemGreen
+            static let command = dynamic(dark: 0xD7D787, light: 0x7A7A1E)    // 卡其
+            static let argument = dynamic(dark: 0x87D7D7, light: 0x1F7A7A)   // 淡青
+            static let mathBody = dynamic(dark: 0xFFA500, light: 0xB35900)   // 橘
+            static let delimiter = mathBody
+            static let comment = dynamic(dark: 0x80A0FF, light: 0x3355CC)    // 藍
             static let task = NSColor.systemOrange
             static let wikiLink = NSColor.systemTeal
+
+            private static func dynamic(dark: UInt32, light: UInt32) -> NSColor {
+                NSColor(name: nil) { appearance in
+                    let v = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+                    return NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255,
+                                   green: CGFloat((v >> 8) & 0xFF) / 255,
+                                   blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+                }
+            }
         }
 
         // MARK: - Highlighting
@@ -1624,6 +1643,12 @@ struct SourceTextView: NSViewRepresentable {
                 if let c = clipped(m.range(at: 1)) {
                     storage.addAttribute(.foregroundColor, value: Palette.argument, range: c)
                 }
+            }
+
+            // 註解最後上，蓋過裡面的指令／數學色
+            let commentPattern = parent.projectRoot != nil ? Self.latexCommentPattern : Self.lineCommentPattern
+            apply(commentPattern, in: storage, range: full, clipTo: window) {
+                [.foregroundColor: Palette.comment]
             }
 
             storage.endEditing()
