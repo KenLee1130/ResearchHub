@@ -516,9 +516,103 @@ final class PastingTextView: NSTextView {
                 return
             }
         }
+        if let typed, completionRoot != nil, !hasMarkedText(),
+           autoPair(typed, replacementRange: replacementRange) { return }
         super.insertText(string, replacementRange: replacementRange)
         // 打完 \end{name}（自己打 } 或從補全選 \end{} 再填名稱都算）→ 對齊對應的 \begin
         if typed != nil, completionRoot != nil, !hasMarkedText() { alignEndWithBegin() }
+    }
+
+    // MARK: - 自動補右括號（LaTeX 專案；Markdown 筆記不做，內文常打半個括號）
+    //
+    //   ( [ { $  → 補上 ) ] } $，游標停在中間
+    //   \( \[ \{ → 補 \) \] \}；\$ 是字面上的錢字號，不補
+    //   $|$ 裡再打 $ → $$|$$（行間公式）
+    //   右邊緊接著就是要打的那個右括號 → 直接跳過去，不會變成兩個
+    //   後面緊接著是字（例如在 word 前面打 (）→ 不補，免得多出一個要刪
+    //   空的一對裡按刪除 → 兩個一起刪
+
+    private static let closers: [Character: Character] = ["(": ")", "[": "]", "{": "}", "$": "$"]
+
+    private func character(at i: Int) -> Character? {
+        let ns = string as NSString
+        guard i >= 0, i < ns.length else { return nil }
+        return Character(ns.substring(with: NSRange(location: i, length: 1)))
+    }
+
+    /// 處理掉了回傳 true（呼叫端就不再插入原本的字）
+    private func autoPair(_ typed: String, replacementRange: NSRange) -> Bool {
+        guard typed.count == 1, let c = typed.first else { return false }
+        let target = replacementRange.location != NSNotFound ? replacementRange : selectedRange()
+        guard target.length == 0, target.location != NSNotFound else { return false }
+        let loc = target.location
+        let prev = character(at: loc - 1), next = character(at: loc)
+        let escaped = prev == "\\" && character(at: loc - 2) != "\\"   // \\ 是換行，不算跳脫
+
+        // 右邊就是要打的右括號 → 跳過去
+        if [")", "]", "}", "$"].contains(c), next == c, !escaped {
+            // 例外：$|$ 裡再打 $ 是要 $$|$$
+            if c == "$", prev == "$", character(at: loc - 2) != "$" {
+                insert("$$", at: loc, caretOffset: 1)
+                return true
+            }
+            setSelectedRange(NSRange(location: loc + 1, length: 0))
+            return true
+        }
+
+        guard let closer = Self.closers[c] else { return false }
+        // 這一行前面已經有奇數個 $（例如 $x 打到一半）→ 這個 $ 是收尾，不是開新的一對
+        if c == "$", !escaped, unescapedDollarCount(beforeLineOf: loc) % 2 == 1 { return false }
+        // 後面緊接著字母／數字 → 不補
+        if let next, next.isLetter || next.isNumber || next == "\\" { return false }
+        if escaped {
+            if c == "$" { return false }                      // \$ 字面錢字號
+            insert("\(c)\\\(closer)", at: loc, caretOffset: 1)   // \( → \(|\)
+            return true
+        }
+        insert("\(c)\(closer)", at: loc, caretOffset: 1)
+        return true
+    }
+
+    /// 同一行、loc 之前沒被 \ 跳脫的 $ 有幾個
+    private func unescapedDollarCount(beforeLineOf loc: Int) -> Int {
+        let ns = string as NSString
+        let lineStart = ns.lineRange(for: NSRange(location: loc, length: 0)).location
+        var count = 0, i = lineStart
+        while i < loc {
+            let ch = ns.character(at: i)
+            if ch == 0x5C { i += 2; continue }   // \ 後面那個字不算
+            if ch == 0x24 { count += 1 }         // $
+            i += 1
+        }
+        return count
+    }
+
+    /// 在 loc 插入 text（一步可復原），游標放在 loc + caretOffset
+    private func insert(_ text: String, at loc: Int, caretOffset: Int) {
+        let range = NSRange(location: loc, length: 0)
+        guard shouldChangeText(in: range, replacementString: text) else { return }
+        textStorage?.replaceCharacters(in: range, with: text)
+        didChangeText()
+        setSelectedRange(NSRange(location: loc + caretOffset, length: 0))
+    }
+
+    /// 游標在空的一對中間（(|)、\(|\)、$$|$$）→ 回傳要整個刪掉的範圍
+    private func emptyPairAroundCaret() -> NSRange? {
+        guard completionRoot != nil, !hasMarkedText() else { return nil }
+        let sel = selectedRange()
+        guard sel.length == 0, sel.location != NSNotFound else { return nil }
+        let ns = string as NSString
+        let loc = sel.location
+        for (open, close) in [("\\(", "\\)"), ("\\[", "\\]"), ("\\{", "\\}"), ("$$", "$$"),
+                              ("(", ")"), ("[", "]"), ("{", "}"), ("$", "$")] {
+            let o = (open as NSString).length, c = (close as NSString).length
+            guard loc - o >= 0, loc + c <= ns.length,
+                  ns.substring(with: NSRange(location: loc - o, length: o)) == open,
+                  ns.substring(with: NSRange(location: loc, length: c)) == close else { continue }
+            return NSRange(location: loc - o, length: o + c)
+        }
+        return nil
     }
 
     // MARK: - LaTeX 環境縮排（Overleaf 式）
@@ -890,6 +984,13 @@ final class PastingTextView: NSTextView {
     }
 
     override func deleteBackward(_ sender: Any?) {
+        if let pair = emptyPairAroundCaret(),
+           shouldChangeText(in: pair, replacementString: "") {
+            textStorage?.replaceCharacters(in: pair, with: "")
+            didChangeText()
+            setSelectedRange(NSRange(location: pair.location, length: 0))
+            return
+        }
         let crossed = deletionCrossesLine(backward: true)
         super.deleteBackward(sender)
         if crossed { renumberAfterDeletion() }
