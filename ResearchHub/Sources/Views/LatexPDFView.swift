@@ -40,29 +40,71 @@ struct LatexPDFView: NSViewRepresentable {
         }
     }
 
+    /// 換成新編好的 PDF，但畫面留在原本看的地方（縮放＋捲動位置）。
+    ///
+    /// 以前用「目前頁碼＋PDFDestination」還原：頁碼取的是「佔畫面最多的那頁」、位置取的是
+    /// 「畫面頂端那頁」，兩者不同頁時會往下錯一頁，連續編譯就一路滑到最後一頁
+    /// （2026-10-17 使用者回報）。重編譯頁面大小不變，直接記捲動位移最準。
+    /// 位置另外按檔案記在 Coordinator 外面：SwiftUI 重建這個 view 時也接得回來。
     private func load(into view: PDFView, coordinator: Coordinator) {
         coordinator.version = version
         // 直接讀 Data 再建 PDFDocument：用 URL 會拿到快取的舊內容
         guard let data = try? Data(contentsOf: url),
               let doc = PDFDocument(data: data), doc.pageCount > 0 else { return }
-        let pageIndex = view.currentPage.flatMap { view.document?.index(for: $0) } ?? 0
-        let point = view.currentDestination?.point
+        let saved: Position? = view.document != nil
+            ? Position(of: view) : Self.lastPosition[url.standardizedFileURL.path]
         view.document = doc
-        let target = min(max(0, pageIndex), doc.pageCount - 1)
-        DispatchQueue.main.async {
-            guard let page = doc.page(at: target) else { return }
-            if let point {
-                view.go(to: PDFDestination(page: page, at: point))
-            } else {
-                view.go(to: page)
-            }
+        coordinator.observeScrolling(of: view, url: url)
+        guard let saved, let clip = view.documentView?.enclosingScrollView?.contentView else { return }
+        let autoScales = view.autoScales
+        view.autoScales = false
+        view.scaleFactor = saved.scale
+        view.layoutDocumentView()
+        clip.scroll(to: saved.origin)
+        clip.enclosingScrollView?.reflectScrolledClipView(clip)
+        // 自動縮放等版面穩定後再開回來（同一輪開會把位置重算掉）
+        DispatchQueue.main.async { view.autoScales = autoScales }
+    }
+
+    struct Position {
+        let origin: CGPoint
+        let scale: CGFloat
+        init?(of view: PDFView) {
+            guard let clip = view.documentView?.enclosingScrollView?.contentView else { return nil }
+            origin = clip.bounds.origin
+            scale = view.scaleFactor
         }
     }
 
+    /// 每個 PDF 最後看到的位置（view 被重建時用）
+    @MainActor static var lastPosition: [String: Position] = [:]
+
     func makeCoordinator() -> Coordinator { Coordinator() }
 
+    @MainActor
     final class Coordinator {
         var version = -1
+        private var observer: NSObjectProtocol?
+
+        /// 捲動時記下位置（給 view 被重建時用）
+        func observeScrolling(of view: PDFView, url: URL) {
+            guard observer == nil, let clip = view.documentView?.enclosingScrollView?.contentView
+            else { return }
+            clip.postsBoundsChangedNotifications = true
+            let key = url.standardizedFileURL.path
+            observer = NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification, object: clip, queue: .main
+            ) { [weak view] _ in
+                MainActor.assumeIsolated {
+                    guard let view, view.document != nil, let p = Position(of: view) else { return }
+                    LatexPDFView.lastPosition[key] = p
+                }
+            }
+        }
+
+        deinit {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
     }
 }
 
