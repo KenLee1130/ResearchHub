@@ -103,6 +103,8 @@ final class LatexCompiler: ObservableObject {
                 LatexBibliography.reconcile(in: project)
                 LatexBibliography.ensureBibliographyCommand(in: project)
                 LatexProject.ensureColorPackage(in: project)
+                // 編輯歷史：每次編譯存一份（內容沒變就不存）
+                LatexHistory.snapshot(project, trigger: .compile)
                 do {
                     try LatexStaging.sync(project: project, to: build)
                 } catch {

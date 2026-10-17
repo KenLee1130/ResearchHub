@@ -1,6 +1,7 @@
 #if os(macOS)
 import SwiftUI
 import AppKit
+import Combine
 import UniformTypeIdentifiers
 
 /// LaTeX 專案編輯畫面：左邊檔案樹、中間源碼、右邊編譯出來的 PDF（像 Overleaf）。
@@ -15,6 +16,7 @@ struct LatexProjectView: View {
     @State private var editorMode: EditorMode = .source
     @State private var continuous = true
     @State private var showFormat = false
+    @State private var showHistory = false
     @State private var showIssues = true
     @State private var lineJump: LineJumpRequest?
     @State private var watcher: DirectoryWatcher?
@@ -75,6 +77,11 @@ struct LatexProjectView: View {
         }
         .surface(.canvas, ambient: .thickMaterial)
         .background(WindowReader { hostWindow = $0 })
+        // 編輯歷史：開著專案時每 10 分鐘存一份（內容沒變就不存；在背景讀檔）
+        .onReceive(Timer.publish(every: 600, on: .main, in: .common).autoconnect()) { _ in
+            let project = projectURL
+            Task.detached(priority: .utility) { LatexHistory.snapshot(project, trigger: .auto) }
+        }
         .onAppear {
             start()
             installDeleteShortcut()
@@ -151,6 +158,28 @@ struct LatexProjectView: View {
                 .buttonStyle(.plain)
                 .keyboardShortcut("n", modifiers: [.command, .shift])
                 .help("在新視窗開啟（⌘⇧N）")
+            }
+
+            Button {
+                showHistory = true
+            } label: {
+                Label("歷史", systemImage: "clock.arrow.circlepath")
+            }
+            .help("編輯歷史：每次編譯、編輯中每 10 分鐘自動存一份")
+            .sheet(isPresented: $showHistory) {
+                LatexHistoryView(projectURL: projectURL) { path, line in
+                    let url = projectURL.appendingPathComponent(path)
+                    let switching = !same(selected, url)
+                    selected = url
+                    if let line {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + (switching ? 0.3 : 0.1)) {
+                            lineJump = LineJumpRequest(line: line)
+                        }
+                    }
+                } onRestored: {
+                    refreshTree()
+                    compiler.requestCompile(after: 0.5)
+                }
             }
 
             Button {
