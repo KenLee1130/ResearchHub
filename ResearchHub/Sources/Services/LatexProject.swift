@@ -188,6 +188,22 @@ nonisolated enum LatexProject {
         try? lines.joined(separator: "\n").write(to: main, atomically: true, encoding: .utf8)
     }
 
+    /// 一般文字放進 LaTeX（\title{…} 之類）前要跳脫的字元。
+    /// 專案名稱常有底線（test_gpt）：原樣放進 \title 會在 \maketitle 炸出一串「Missing $」。
+    static func escapeText(_ s: String) -> String {
+        var out = ""
+        for ch in s {
+            switch ch {
+            case "\\": out += "\\textbackslash{}"
+            case "&", "%", "$", "#", "_", "{", "}": out += "\\" + String(ch)
+            case "~": out += "\\textasciitilde{}"
+            case "^": out += "\\textasciicircum{}"
+            default: out.append(ch)
+            }
+        }
+        return out
+    }
+
     private static func mainTemplate(title: String) -> String {
         """
         \\documentclass[11pt]{article}
@@ -203,7 +219,7 @@ nonisolated enum LatexProject {
         \\usepackage{hyperref}
         \\input{format}   % 版面設定（app 的「格式」面板會改 format.tex）
 
-        \\title{\(title)}
+        \\title{\(escapeText(title))}
         \\author{}
         \\date{\\today}
 
