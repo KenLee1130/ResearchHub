@@ -31,6 +31,58 @@ final class PastingTextView: NSTextView {
     /// 它會跟一般 Return 一樣走 insertNewline:，所以改不了行為。
     var onShiftReturn: (() -> Void)?
 
+    // MARK: - 拖曳選取自己來：拖曳中按的鍵不能掉
+    //
+    // NSTextView 內建的滑鼠追蹤迴圈一收到按鍵就結束追蹤；用三指拖移時「放開」是系統延後合成的，
+    // 使用者常在那個空檔就按下 ⌘C／delete，結果那一下在交接處消失（2026-10-22 紀錄：
+    // WindowServer 有送到 app，app 的事件入口卻沒收到；第二下才正常）。
+    // 這裡只接手最單純的「單擊拖曳選取」：拖曳中收到的按鍵先存起來，選取完成後再送出去，
+    // 所以 ⌘C 會複製到完整的選取、delete 會刪掉完整的選取。雙擊／三擊、Shift 等修飾鍵、
+    // 點在既有選取上（可能要拖曳文字）、點到連結、輸入法組字中：維持交給系統。
+    override func mouseDown(with event: NSEvent) {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let point = convert(event.locationInWindow, from: nil)
+        let index = characterIndexForInsertion(at: point)
+        let sel = selectedRange()
+        let onLink = index < (string as NSString).length
+            && textStorage?.attribute(.link, at: index, effectiveRange: nil) != nil
+        guard event.clickCount == 1, mods.isEmpty, let window, isSelectable, !hasMarkedText(),
+              !(sel.length > 0 && NSLocationInRange(index, sel)), !onLink
+        else {
+            super.mouseDown(with: event)
+            return
+        }
+
+        if window.firstResponder !== self { window.makeFirstResponder(self) }
+        let anchor = index
+        setSelectedRange(NSRange(location: anchor, length: 0))
+        var dragged = false
+        var pendingKeys: [NSEvent] = []
+        func range(to i: Int) -> NSRange { NSRange(location: min(anchor, i), length: abs(i - anchor)) }
+        window.trackEvents(matching: [.leftMouseDragged, .leftMouseUp, .keyDown],
+                           timeout: NSEvent.foreverDuration, mode: .eventTracking) { ev, stop in
+            guard let ev else { stop.pointee = true; return }
+            switch ev.type {
+            case .leftMouseDragged:
+                dragged = true
+                autoscroll(with: ev)
+                let i = characterIndexForInsertion(at: convert(ev.locationInWindow, from: nil))
+                setSelectedRange(range(to: i), affinity: i < anchor ? .upstream : .downstream,
+                                 stillSelecting: true)
+            case .leftMouseUp:
+                let i = characterIndexForInsertion(at: convert(ev.locationInWindow, from: nil))
+                setSelectedRange(dragged ? range(to: i) : NSRange(location: anchor, length: 0),
+                                 affinity: i < anchor ? .upstream : .downstream, stillSelecting: false)
+                stop.pointee = true
+            case .keyDown:
+                pendingKeys.append(ev)   // 拖曳中按的：等選取完成再送
+            default:
+                break
+            }
+        }
+        for key in pendingKeys { NSApp.sendEvent(key) }
+    }
+
     override func keyDown(with event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if let onShiftReturn,
@@ -95,7 +147,8 @@ final class PastingTextView: NSTextView {
         // ⌘/：切換 % 註解。用實體鍵位（44＝/）判斷：注音輸入法下字元不是「/」
         if mods == [.command], event.keyCode == 44 || event.charactersIgnoringModifiers == "/",
            completionRoot != nil, window?.firstResponder === self, !hasMarkedText() {
-            toggleLineComments()
+            // 按住稍久會送出重複按鍵：第二下又把註解拿掉，看起來像沒反應／閃一下
+            if !event.isARepeat { toggleLineComments() }
             return true
         }
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
@@ -545,6 +598,8 @@ final class PastingTextView: NSTextView {
         guard new != old, shouldChangeText(in: block, replacementString: new) else { return }
         textStorage?.replaceCharacters(in: block, with: new)
         didChangeText()
+        // 一般打字是停手 0.25 秒才重新上色；整批改完要馬上上色，不然會先看到沒變色的 %，像卡住
+        (delegate as? SourceTextView.Coordinator)?.applyHighlighting(visibleOnly: true)
         let newLength = (new as NSString).length
         if sel.length == 0 {
             // 游標留在同一行、跟著前面多出／少掉的字移動
@@ -1257,7 +1312,9 @@ struct SourceTextView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let textView = PastingTextView()
+        // 一開始就用 TextKit 1：編輯器處處用 layoutManager（上色可視區、跳行、反白閃爍），
+        // 預設的 TextKit 2 會在第一次碰 layoutManager 時才「中途」切換——不如一開始就定下來。
+        let textView = PastingTextView(usingTextLayoutManager: false)
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.documentView = textView
@@ -1287,6 +1344,17 @@ struct SourceTextView: NSViewRepresentable {
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
+        // 「智慧型剪下貼上」：貼上時自動在前後補空格、刪除時多吃掉空格——對原始碼就是改壞內容
+        // （2026-10-22 使用者回報：同一個 LaTeX 檔裡複製貼上，內容不對）
+        textView.smartInsertDeleteEnabled = false
+        // 原始碼編輯器用不到的系統文字功能一律關掉：書寫工具（改寫文章）、行內預測文字、數學補全。
+        // 反白時少跳東西出來，也少碰系統的 TextInputUI 游標介面。
+        if #available(macOS 15.0, *) { textView.writingToolsBehavior = .none }
+        if #available(macOS 14.0, *) { textView.inlinePredictionType = .no }
+        if #available(macOS 15.0, *) { textView.mathExpressionCompletionType = .no }
+        textView.isGrammarCheckingEnabled = false
+        textView.isAutomaticLinkDetectionEnabled = false
+        textView.isAutomaticDataDetectionEnabled = false
         // 關掉系統補全；改用自己的浮動清單（CompletionPopup，由 updateCompletion 驅動）。
         textView.isAutomaticTextCompletionEnabled = false
         textView.textContainerInset = NSSize(width: 14, height: 14)
