@@ -56,7 +56,9 @@ struct LatexPDFView: NSViewRepresentable {
         view.document = doc
         coordinator.observeScrolling(of: view, url: url)
         guard let saved, let clip = view.documentView?.enclosingScrollView?.contentView else { return }
-        let autoScales = view.autoScales
+        // 自動縮放要還原成「之前那個 view」的狀態：view 被重建時新的預設是開著的，
+        // 照新 view 的值開回去就會把使用者手動放大的比例又縮回欄寬（2026-10-22 回報）
+        let autoScales = saved.autoScales
         view.autoScales = false
         view.scaleFactor = saved.scale
         view.layoutDocumentView()
@@ -69,10 +71,12 @@ struct LatexPDFView: NSViewRepresentable {
     struct Position {
         let origin: CGPoint
         let scale: CGFloat
+        let autoScales: Bool
         init?(of view: PDFView) {
             guard let clip = view.documentView?.enclosingScrollView?.contentView else { return nil }
             origin = clip.bounds.origin
             scale = view.scaleFactor
+            autoScales = view.autoScales
         }
     }
 
