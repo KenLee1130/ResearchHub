@@ -92,6 +92,12 @@ final class PastingTextView: NSTextView {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        // ⌘/：切換 % 註解。用實體鍵位（44＝/）判斷：注音輸入法下字元不是「/」
+        if mods == [.command], event.keyCode == 44 || event.charactersIgnoringModifiers == "/",
+           completionRoot != nil, window?.firstResponder === self, !hasMarkedText() {
+            toggleLineComments()
+            return true
+        }
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
         guard mods == [.command], ["c", "x", "v", "a"].contains(key),
               window?.firstResponder === self else {
@@ -521,6 +527,61 @@ final class PastingTextView: NSTextView {
         super.insertText(string, replacementRange: replacementRange)
         // 打完 \end{name}（自己打 } 或從補全選 \end{} 再填名稱都算）→ 對齊對應的 \begin
         if typed != nil, completionRoot != nil, !hasMarkedText() { alignEndWithBegin() }
+    }
+
+    // MARK: - ⌘/ 批量註解（LaTeX 專案）
+
+    /// 選到的行（沒選就是游標那行）切換 % 註解，一步可復原。選取維持在這幾行上。
+    func toggleLineComments() {
+        let ns = string as NSString
+        let sel = selectedRange()
+        guard sel.location != NSNotFound else { return }
+        // 選取剛好停在下一行行首（整行選取的常見情形）→ 那一行不算
+        var end = NSMaxRange(sel)
+        if sel.length > 0, end > sel.location, ns.character(at: end - 1) == 0x0A { end -= 1 }
+        let block = ns.lineRange(for: NSRange(location: sel.location, length: end - sel.location))
+        let old = ns.substring(with: block)
+        let new = Self.toggledComments(old)
+        guard new != old, shouldChangeText(in: block, replacementString: new) else { return }
+        textStorage?.replaceCharacters(in: block, with: new)
+        didChangeText()
+        let newLength = (new as NSString).length
+        if sel.length == 0 {
+            // 游標留在同一行、跟著前面多出／少掉的字移動
+            let caret = max(block.location, min(block.location + newLength, sel.location + newLength - block.length))
+            setSelectedRange(NSRange(location: caret, length: 0))
+        } else {
+            let trailing = new.hasSuffix("\n") ? 1 : 0
+            setSelectedRange(NSRange(location: block.location, length: newLength - trailing))
+        }
+    }
+
+    /// 一段完整的行：有一行沒註解 → 全部在最淺縮排處加「% 」；全都是註解 → 全部拿掉「%」（連同後面一個空白）。
+    /// 空行不動。
+    static func toggledComments(_ text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        let trailingNewline = text.hasSuffix("\n")
+        if trailingNewline { lines.removeLast() }
+        func isBlank(_ l: String) -> Bool { l.allSatisfy { $0 == " " || $0 == "\t" } }
+        func indent(_ l: String) -> Int { l.prefix { $0 == " " || $0 == "\t" }.count }
+        let content = lines.filter { !isBlank($0) }
+        guard !content.isEmpty else { return text }
+        let allCommented = content.allSatisfy { $0.dropFirst(indent($0)).hasPrefix("%") }
+        let out: [String]
+        if allCommented {
+            out = lines.map { line in
+                guard !isBlank(line) else { return line }
+                var rest = line.dropFirst(indent(line)).dropFirst()   // 拿掉 %
+                if rest.first == " " { rest = rest.dropFirst() }
+                return String(line.prefix(indent(line))) + String(rest)
+            }
+        } else {
+            let column = content.map(indent).min() ?? 0
+            out = lines.map { line in
+                isBlank(line) ? line : String(line.prefix(column)) + "% " + String(line.dropFirst(column))
+            }
+        }
+        return out.joined(separator: "\n") + (trailingNewline ? "\n" : "")
     }
 
     // MARK: - 自動補右括號（LaTeX 專案；Markdown 筆記不做，內文常打半個括號）
