@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubEditor
 import HubCore
 
 /// 筆記編輯器：標題列（返回、檔名、模式切換）+ 共用編輯器核心。

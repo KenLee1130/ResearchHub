@@ -8,10 +8,12 @@ import HubCore
 /// 預覽中點該連結即可開啟對應筆記（透過 researchhub://note 內部協定，由
 /// MarkdownPreviewView 攔截處理）。
 @MainActor
-final class NoteLinkIndex {
+public final class NoteLinkIndex {
+    public init() {}
+
 
     /// Notes/ 根目錄；由 FileSystemStore 設定。
-    var notesRoot: URL? {
+    public var notesRoot: URL? {
         didSet {
             if notesRoot != oldValue {
                 cache = []
@@ -25,13 +27,13 @@ final class NoteLinkIndex {
     private let fm = FileManager.default
 
     /// 所有筆記（每 2 秒最多重掃一次磁碟，避免每次按鍵都掃）。
-    func entries() -> [NoteLink] {
+    public func entries() -> [NoteLink] {
         if Date().timeIntervalSince(lastScan) > 2 { rescan() }
         return cache
     }
 
     /// 強制下次取用時重掃（檔案新增／改名／移動／刪除後呼叫）。
-    func invalidate() { lastScan = .distantPast }
+    public func invalidate() { lastScan = .distantPast }
 
     private func rescan() {
         lastScan = Date()
@@ -60,12 +62,12 @@ final class NoteLinkIndex {
     }
 
     /// 解析 `[[target]]` 的目標（純函式，本體在 HubCore 的 NoteLinkResolver）。
-    nonisolated static func resolve(_ target: String, in links: [NoteLink]) -> NoteLink? {
+    public nonisolated static func resolve(_ target: String, in links: [NoteLink]) -> NoteLink? {
         NoteLinkResolver.resolve(target, in: links)
     }
 
     /// 由相對路徑取回檔案 URL（供預覽點擊開啟）。
-    func url(forRelativePath rel: String) -> URL? {
+    public func url(forRelativePath rel: String) -> URL? {
         guard let root = notesRoot else { return nil }
         let url = root.appendingPathComponent(rel)
         return fm.fileExists(atPath: url.path) ? url : nil

@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import WebKit
 import Combine
 
@@ -140,7 +141,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 // 命令列送出的命令（如 "list"、"go:明天"）→ 由目前擁有 webView 的畫面決定怎麼呈現
                 self.onCommand?(body)
             case "jsError":
-                NSLog("BlockEditor JS error: %@", body)
+                AppLog.editor.error("BlockEditor JS error: \(body, privacy: .public)")
                 if !self.isReady {
                     self.loadError = "編輯器發生錯誤：\(body.prefix(120))"
                 }

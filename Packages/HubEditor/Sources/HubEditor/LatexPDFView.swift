@@ -1,26 +1,34 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 import PDFKit
 
 /// 編譯結果的 PDF 預覽。重新編譯後會換成新的 PDF，但保留原本看到的頁數與位置。
-struct LatexPDFView: NSViewRepresentable {
-    let url: URL
+public struct LatexPDFView: NSViewRepresentable {
+    public let url: URL
     /// 編譯器每次產出新 PDF 就 +1
-    let version: Int
+    public let version: Int
     /// true＝連續捲動，false＝一次一頁
-    let continuous: Bool
+    public let continuous: Bool
     /// 雙擊 PDF：(頁碼從 0 算, 點座標〔原點在頁面左上，SyncTeX 的慣例〕, 雙擊選到的字)
-    var onDoubleClick: ((Int, CGPoint, String?) -> Void)? = nil
+    public var onDoubleClick: ((Int, CGPoint, String?) -> Void)? = nil
     /// 建好 PDFView 時回報（頁面的 EditorHandle 靠它決定 ⌘F 找哪裡）
-    var onPDFViewReady: ((PDFView) -> Void)? = nil
+    public var onPDFViewReady: ((PDFView) -> Void)? = nil
+
+    public init(url: URL, version: Int, continuous: Bool,
+                onDoubleClick: ((Int, CGPoint, String?) -> Void)? = nil,
+                onPDFViewReady: ((PDFView) -> Void)? = nil) {
+        self.url = url; self.version = version; self.continuous = continuous
+        self.onDoubleClick = onDoubleClick; self.onPDFViewReady = onPDFViewReady
+    }
 
     /// 欄寬規則見 AdaptiveSizing.swift。PDFView 不寫這個的話會回報 A4 頁面的寬度，
     /// 那一欄就縮不下去，把整排三欄撐得比視窗還寬。
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: PDFView, context: Context) -> CGSize? {
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView: PDFView, context: Context) -> CGSize? {
         proposal.adaptive
     }
 
-    func makeNSView(context: Context) -> PDFView {
+    public func makeNSView(context: Context) -> PDFView {
         let view = InverseSearchPDFView()
         view.onDoubleClick = onDoubleClick
         onPDFViewReady?(view)
@@ -33,7 +41,7 @@ struct LatexPDFView: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: PDFView, context: Context) {
+    public func updateNSView(_ view: PDFView, context: Context) {
         (view as? InverseSearchPDFView)?.onDoubleClick = onDoubleClick
         let mode: PDFDisplayMode = continuous ? .singlePageContinuous : .singlePage
         if view.displayMode != mode { view.displayMode = mode }
@@ -70,11 +78,11 @@ struct LatexPDFView: NSViewRepresentable {
         DispatchQueue.main.async { view.autoScales = autoScales }
     }
 
-    struct Position {
-        let origin: CGPoint
-        let scale: CGFloat
-        let autoScales: Bool
-        init?(of view: PDFView) {
+    public struct Position {
+        public let origin: CGPoint
+        public let scale: CGFloat
+        public let autoScales: Bool
+        public init?(of view: PDFView) {
             guard let clip = view.documentView?.enclosingScrollView?.contentView else { return nil }
             origin = clip.bounds.origin
             scale = view.scaleFactor
@@ -83,17 +91,17 @@ struct LatexPDFView: NSViewRepresentable {
     }
 
     /// 每個 PDF 最後看到的位置（view 被重建時用）
-    @MainActor static var lastPosition: [String: Position] = [:]
+    @MainActor public static var lastPosition: [String: Position] = [:]
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    public func makeCoordinator() -> Coordinator { Coordinator() }
 
     @MainActor
-    final class Coordinator {
-        var version = -1
+    public final class Coordinator {
+        public var version = -1
         private var observer: NSObjectProtocol?
 
         /// 捲動時記下位置（給 view 被重建時用）
-        func observeScrolling(of view: PDFView, url: URL) {
+        public func observeScrolling(of view: PDFView, url: URL) {
             guard observer == nil, let clip = view.documentView?.enclosingScrollView?.contentView
             else { return }
             clip.postsBoundsChangedNotifications = true
@@ -115,10 +123,10 @@ struct LatexPDFView: NSViewRepresentable {
 }
 
 /// 雙擊照常選字，選完再回報雙擊的位置與那個字（給 SyncTeX 反向搜尋用）
-final class InverseSearchPDFView: PDFView {
-    var onDoubleClick: ((Int, CGPoint, String?) -> Void)?
+public final class InverseSearchPDFView: PDFView {
+    public var onDoubleClick: ((Int, CGPoint, String?) -> Void)?
 
-    override func mouseDown(with event: NSEvent) {
+    public override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
         guard event.clickCount == 2, let onDoubleClick, let document else { return }
         let inView = convert(event.locationInWindow, from: nil)

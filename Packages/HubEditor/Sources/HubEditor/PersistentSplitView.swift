@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 import AppKit
 
 /// 可拖曳、會記住位置的左右分割視圖（包 AppKit 的 NSSplitViewController）。
@@ -10,34 +11,47 @@ import AppKit
 ///   2. 分隔線的粗細與可抓取範圍沒有 API 可調，1pt 的線很難剛好抓到。
 /// 位置只記「使用者拖的那一下」（見 Controller 的 Layout 段），視窗大小變了再照記住的
 /// 比例重排；抓取範圍在 effectiveRect 裡往兩側放寬，線本身維持細的。
-struct PersistentSplitView: NSViewControllerRepresentable {
-    struct Pane {
-        let id: String
-        var minWidth: CGFloat
+public struct PersistentSplitView: NSViewControllerRepresentable {
+    public struct Pane {
+        public let id: String
+        public var minWidth: CGFloat
         /// 第一次開（還沒有存過的位置）時的寬度；nil＝平均分
-        var initialWidth: CGFloat?
+        public var initialWidth: CGFloat?
         /// 視窗縮放時誰先變：數字越大越「不想動」（檔案樹要大，編輯區／預覽要小）
-        var holdingPriority: NSLayoutConstraint.Priority = .defaultLow
-        var isVisible: Bool = true
-        let content: AnyView
+        public var holdingPriority: NSLayoutConstraint.Priority = .defaultLow
+        public var isVisible: Bool = true
+        public let content: AnyView
         /// 使用者用拖曳把這一欄收起／拉開時通知外面，讓畫面上的開關跟著更新
-        var onVisibilityChange: ((Bool) -> Void)? = nil
+        public var onVisibilityChange: ((Bool) -> Void)? = nil
+
+        public init(id: String, minWidth: CGFloat, initialWidth: CGFloat? = nil,
+                    holdingPriority: NSLayoutConstraint.Priority = .defaultLow, isVisible: Bool = true,
+                    content: AnyView, onVisibilityChange: ((Bool) -> Void)? = nil) {
+            self.id = id; self.minWidth = minWidth; self.initialWidth = initialWidth
+            self.holdingPriority = holdingPriority; self.isVisible = isVisible
+            self.content = content; self.onVisibilityChange = onVisibilityChange
+        }
     }
 
     /// 存分隔位置用的名字（不同畫面要不同名字）
-    let autosaveName: String
-    let panes: [Pane]
+    public let autosaveName: String
+    public let panes: [Pane]
 
-    func makeNSViewController(context: Context) -> Container {
+    public init(autosaveName: String, panes: [Pane]) {
+        self.autosaveName = autosaveName
+        self.panes = panes
+    }
+
+    public func makeNSViewController(context: Context) -> Container {
         Container(split: Controller(autosaveName: autosaveName, panes: panes))
     }
 
-    func updateNSViewController(_ container: Container, context: Context) {
+    public func updateNSViewController(_ container: Container, context: Context) {
         container.split.update(panes)
     }
 
     /// 分隔視圖本身不需要內容的寬度——給多少就用多少（見 AdaptiveSizing.swift）
-    func sizeThatFits(_ proposal: ProposedViewSize, nsViewController: Container,
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsViewController: Container,
                       context: Context) -> CGSize? {
         proposal.adaptive
     }
@@ -45,18 +59,18 @@ struct PersistentSplitView: NSViewControllerRepresentable {
     /// 分割視圖＋疊在上面的分隔線高亮層。
     /// 不能用 NSSplitView 子類別自己畫（替換 NSSplitViewController 的 splitView 會閃退），
     /// 所以另外疊一層：不收任何點擊，只負責在滑鼠靠近分隔線時畫藍色。
-    final class Container: NSViewController {
-        let split: Controller
+    public final class Container: NSViewController {
+        public let split: Controller
         private let highlight = DividerHighlightView()
 
-        init(split: Controller) {
+        public init(split: Controller) {
             self.split = split
             super.init(nibName: nil, bundle: nil)
         }
 
         required init?(coder: NSCoder) { fatalError("not used") }
 
-        override func loadView() {
+        public override func loadView() {
             let root = NSView()
             addChild(split)
             split.view.frame = root.bounds
@@ -70,7 +84,7 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         }
     }
 
-    final class Controller: NSSplitViewController {
+    public final class Controller: NSSplitViewController {
         private let autosave: String
         private var hosts: [String: NSHostingController<AnyView>] = [:]
         private var items: [String: NSSplitViewItem] = [:]
@@ -89,7 +103,7 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         /// 正在用程式設分隔線：這時候的欄寬變化不能當成使用者拖的存起來（保險）
         private var isApplying = false
 
-        init(autosaveName: String, panes: [Pane]) {
+        public init(autosaveName: String, panes: [Pane]) {
             self.autosave = autosaveName
             self.initialPanes = panes
             super.init(nibName: nil, bundle: nil)
@@ -99,7 +113,7 @@ struct PersistentSplitView: NSViewControllerRepresentable {
 
         required init?(coder: NSCoder) { fatalError("not used") }
 
-        override func viewDidLoad() {
+        public override func viewDidLoad() {
             super.viewDidLoad()
             splitView.isVertical = true
             for pane in initialPanes {
@@ -127,12 +141,12 @@ struct PersistentSplitView: NSViewControllerRepresentable {
             // （2026-10-14：筆記分頁的原始碼欄一直只剩 150pt）。
         }
 
-        override func viewDidAppear() {
+        public override func viewDidAppear() {
             super.viewDidAppear()
             scheduleApply()
         }
 
-        override func viewDidLayout() {
+        public override func viewDidLayout() {
             super.viewDidLayout()
             // 收起／展開後，要到這次排版欄的 frame 才是新的 → 以這裡為準重排
             let width = splitView.bounds.width
@@ -255,7 +269,7 @@ struct PersistentSplitView: NSViewControllerRepresentable {
             savedWidths = saved
         }
 
-        func update(_ panes: [Pane]) {
+        public func update(_ panes: [Pane]) {
             var changed = false
             for pane in panes {
                 hosts[pane.id]?.rootView = pane.content
@@ -307,7 +321,7 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         }
 
         // 線很細，但抓取範圍往兩側放寬
-        override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
+        public override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
                                 forDrawnRect drawnRect: NSRect,
                                 ofDividerAt dividerIndex: Int) -> NSRect {
             drawnRect.insetBy(dx: -5, dy: 0)
@@ -317,12 +331,12 @@ struct PersistentSplitView: NSViewControllerRepresentable {
 
 /// 分隔線高亮層：滑鼠移到可以拖的範圍內（或正在拖）時，在分隔線上畫一條藍色。
 /// hitTest 永遠回 nil，所以點擊、拖曳都直接穿透到下面的分割視圖。
-final class DividerHighlightView: NSView {
+public final class DividerHighlightView: NSView {
     /// 跟 effectiveRect 的放寬一致：線的兩側各 5pt 都算「在線上」
-    static let grabSlop: CGFloat = 5
+    public static let grabSlop: CGFloat = 5
     private static let barWidth: CGFloat = 3
 
-    weak var splitView: NSSplitView? {
+    public weak var splitView: NSSplitView? {
         didSet {
             NotificationCenter.default.removeObserver(self)
             if let splitView {
@@ -340,7 +354,7 @@ final class DividerHighlightView: NSView {
     }
     private var tracking: NSTrackingArea?
 
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    public override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     /// 每條看得到的分隔線中心的 x（本視圖座標）
     private var dividerCenters: [CGFloat] {
@@ -356,7 +370,7 @@ final class DividerHighlightView: NSView {
         dividerCenters.firstIndex { abs($0 - x) <= Self.grabSlop + 1 }
     }
 
-    override func updateTrackingAreas() {
+    public override func updateTrackingAreas() {
         if let tracking { removeTrackingArea(tracking) }
         let area = NSTrackingArea(
             rect: .zero,
@@ -367,11 +381,11 @@ final class DividerHighlightView: NSView {
         super.updateTrackingAreas()
     }
 
-    override func mouseMoved(with event: NSEvent) {
+    public override func mouseMoved(with event: NSEvent) {
         litDivider = divider(near: convert(event.locationInWindow, from: nil).x)
     }
 
-    override func mouseExited(with event: NSEvent) {
+    public override func mouseExited(with event: NSEvent) {
         if NSEvent.pressedMouseButtons == 0 { litDivider = nil }
     }
 
@@ -380,7 +394,7 @@ final class DividerHighlightView: NSView {
         if NSEvent.pressedMouseButtons != 0, litDivider != nil { needsDisplay = true }
     }
 
-    override func draw(_ dirtyRect: NSRect) {
+    public override func draw(_ dirtyRect: NSRect) {
         guard let index = litDivider, index < dividerCenters.count else { return }
         let x = dividerCenters[index]
         NSColor.controlAccentColor.setFill()

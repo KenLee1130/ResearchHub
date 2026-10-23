@@ -6,16 +6,21 @@ import CoreImage
 import Combine
 import UniformTypeIdentifiers
 
-struct PDFKitView: NSViewRepresentable {
-    let data: Data
-    let controller: PDFViewerController
+public struct PDFKitView: NSViewRepresentable {
+    public let data: Data
+    public let controller: PDFViewerController
+
+    public init(data: Data, controller: PDFViewerController) {
+        self.data = data
+        self.controller = controller
+    }
 
     /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: PDFView, context: Context) -> CGSize? {
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView: PDFView, context: Context) -> CGSize? {
         proposal.adaptive
     }
 
-    func makeNSView(context: Context) -> PDFView {
+    public func makeNSView(context: Context) -> PDFView {
         let view = PDFView()
         view.autoScales = true
         view.document = PDFDocument(data: data)
@@ -42,7 +47,7 @@ struct PDFKitView: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: PDFView, context: Context) {
+    public func updateNSView(_ view: PDFView, context: Context) {
         controller.pdfView = view
         if context.coordinator.lastData != data {
             context.coordinator.lastData = data
@@ -52,16 +57,16 @@ struct PDFKitView: NSViewRepresentable {
         controller.applyAppearance()
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator(data: data) }
+    public func makeCoordinator() -> Coordinator { Coordinator(data: data) }
 
-    final class Coordinator: NSObject {
-        var lastData: Data
-        weak var controller: PDFViewerController?
-        var pageObserver: NSObjectProtocol?
-        var selectionObserver: NSObjectProtocol?
-        init(data: Data) { lastData = data }
+    public final class Coordinator: NSObject {
+        public var lastData: Data
+        public weak var controller: PDFViewerController?
+        public var pageObserver: NSObjectProtocol?
+        public var selectionObserver: NSObjectProtocol?
+        public init(data: Data) { lastData = data }
 
-        @MainActor @objc func clicked(_ g: NSClickGestureRecognizer) {
+        @MainActor @objc public func clicked(_ g: NSClickGestureRecognizer) {
             guard let view = g.view as? PDFView, let doc = view.document else { return }
             let p = g.location(in: view)
             guard let page = view.page(for: p, nearest: false) else { return }

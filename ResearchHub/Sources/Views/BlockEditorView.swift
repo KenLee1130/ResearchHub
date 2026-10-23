@@ -1,4 +1,5 @@
 import SwiftUI
+import HubEditor
 import WebKit
 import Combine
 

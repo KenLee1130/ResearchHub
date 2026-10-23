@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubEditor
 import AppKit
 
 /// 包裝 NSVisualEffectView，強制 behind-window blur（透出視窗後方的桌布/視窗）。

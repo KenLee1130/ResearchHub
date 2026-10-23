@@ -9,7 +9,8 @@ import UniformTypeIdentifiers
 /// 把資料夾放 iCloud Drive 即可跨裝置同步。定位是 companion：捕捉與瀏覽，不是全功能編輯。
 @main
 struct ResearchHubMobileApp: App {
-    @State private var store = FileSystemStore()
+    @State private var store = FileSystemStore(noteLinks: AppContainer.shared.noteLinks,
+                                               librarySync: AppContainer.shared.librarySync)
     @State private var eventStore = EventStore()
     @State private var generalTodos = GeneralTodoStore()
     @State private var pomodoro = PomodoroModel()
