@@ -1,22 +1,5 @@
 import Foundation
-
-/// 一筆「可被引用的筆記」。供 [[...]] 自動補全、預覽解析與插入挑選器共用。
-/// 只含值型別，方便傳進非主執行緒隔離的 NotePreprocessor。
-struct NoteLink: Hashable, Sendable {
-    let url: URL
-    /// 相對於 Notes/ 的路徑（含 .md）
-    let relativePath: String
-
-    /// 檔名（不含副檔名）
-    var name: String { url.deletingPathExtension().lastPathComponent }
-
-    /// 顯示用：相對路徑去掉 .md，便於分辨不同資料夾下的同名筆記。
-    var displayPath: String {
-        relativePath.lowercased().hasSuffix(".md")
-            ? String(relativePath.dropLast(3))
-            : relativePath
-    }
-}
+import HubCore
 
 /// 「筆記互相引用」的索引：列出 Notes/ 下所有筆記，供 `[[...]]` 自動補全與點擊解析。
 ///
@@ -76,18 +59,9 @@ final class NoteLinkIndex {
         }
     }
 
-    /// 解析 `[[target]]` 的目標：先比對相對路徑／顯示路徑，再比對檔名（皆不分大小寫）。
-    /// 純函式（只看傳入的 links），標 nonisolated 讓非主執行緒的前處理器也能呼叫。
+    /// 解析 `[[target]]` 的目標（純函式，本體在 HubCore 的 NoteLinkResolver）。
     nonisolated static func resolve(_ target: String, in links: [NoteLink]) -> NoteLink? {
-        let t = target.trimmingCharacters(in: .whitespaces)
-        guard !t.isEmpty else { return nil }
-        let tl = t.lowercased()
-        let tlMd = tl.hasSuffix(".md") ? tl : tl + ".md"
-        if let e = links.first(where: {
-            $0.relativePath.lowercased() == tlMd || $0.displayPath.lowercased() == tl
-        }) { return e }
-        if let e = links.first(where: { $0.name.lowercased() == tl }) { return e }
-        return nil
+        NoteLinkResolver.resolve(target, in: links)
     }
 
     /// 由相對路徑取回檔案 URL（供預覽點擊開啟）。

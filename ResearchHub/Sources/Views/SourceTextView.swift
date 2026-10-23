@@ -480,7 +480,8 @@ final class PastingTextView: NSTextView {
         let range = completionRange
         let typed = (string as NSString).substring(with: range)
         Task { @MainActor [weak self] in
-            let key = await LatexBibliography.cite(zotero, in: root)
+            let exported = await ZoteroStore.shared.bibtex(for: zotero)
+            let key = LatexBibliography.cite(zotero, in: root, exportedBibtex: exported)
             guard let self else { return }
             // 等 Zotero 回應的這一瞬間使用者又打字了 → 不要硬塞到錯的位置
             let ns = self.string as NSString

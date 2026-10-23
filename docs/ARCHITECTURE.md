@@ -190,9 +190,13 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      `LatexProject`、`LatexProjectIndex`、`GlobalSearch`，加上從 `FileSystemStore` 抽出的
      `ICloudFile.safeRead` 與 `JournalLayout.journalFiles`（原處保留轉呼叫）。只搬家＋加 `public`，
      沒改行為；`LatexProject`／`GlobalSearch` 仍直接讀檔，守則 1 留到第 4 步再收。
-   - 第二批（待做）：`NotePreprocessor`、`LatexBibliography`（要先把 `ZoteroItem`／`NoteLink`
-     資料型別搬進來、`ZoteroStore.shared.bibtex` 改成注入）；Zotero 與 PaperChat client
-     要先把 UserDefaults／PDFKit 的部分拆出去。
+   - 第二批（已搬，2026-10-23）：`NotePreprocessor`、`LatexBibliography`，連同資料型別
+     `ZoteroItem`（從 `Models/Zotero.swift` 切出，`ZoteroStore` 留在 app）與 `NoteLink`＋
+     `NoteLinkResolver`（從 `NoteLinkIndex` 切出，原處保留轉呼叫）。
+     `LatexBibliography.cite` 不再自己找 `ZoteroStore.shared`，改收 `exportedBibtex:`，
+     由呼叫端先向 ZoteroStore 要——這是本批唯一的簽名變動。
+   - 第三批（待做）：Zotero 與 PaperChat 的 client（純 URLSession 的部分）；要先把
+     UserDefaults（port、模型快取）與 PDFKit 的部分拆出去留在 app。
 3. **拆三個巨檔並去重。** 三個編輯器各自的尋找／undo 處理合併；`Mobile/` 與 mac 重複邏輯合併。
    同時落地第 3 節的命令路由，刪除 7 個 `Notification.Name`。
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；

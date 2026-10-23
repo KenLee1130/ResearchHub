@@ -1,67 +1,7 @@
 import SwiftUI
 import Observation
 import Combine
-
-// MARK: - Models（對應 Zotero API v3 的 JSON 格式）
-
-struct ZoteroItem: Codable, Identifiable, Hashable {
-    let key: String
-    let data: ItemData
-
-    var id: String { key }
-
-    struct ItemData: Codable, Hashable {
-        var itemType: String
-        var title: String?
-        var creators: [Creator]?
-        var date: String?
-        var DOI: String?
-        var url: String?
-        var contentType: String?
-        var filename: String?
-        var tags: [Tag]?
-        var publicationTitle: String?
-        var abstractNote: String?
-    }
-
-    struct Creator: Codable, Hashable {
-        var name: String?
-        var firstName: String?
-        var lastName: String?
-
-        var display: String {
-            if let name, !name.isEmpty { return name }
-            return [firstName, lastName].compactMap { $0 }.joined(separator: " ")
-        }
-    }
-
-    struct Tag: Codable, Hashable {
-        var tag: String
-    }
-
-    var title: String { data.title ?? "（無標題）" }
-
-    /// 直接拖進 Zotero、沒有書目資料的 PDF（最上層就是附件本身，例如掃描的書）。
-    /// 論文頁要列出來讀，但它沒有作者、年份，不適合拿來 \cite。
-    var isStandalonePDF: Bool {
-        data.itemType == "attachment"
-            && (data.contentType == "application/pdf"
-                || (data.filename?.lowercased().hasSuffix(".pdf") ?? false))
-    }
-
-    var authors: String {
-        (data.creators ?? []).map(\.display).joined(separator: ", ")
-    }
-
-    var year: String {
-        guard let date = data.date else { return "" }
-        // 取最先出現的四位數年份
-        if let match = date.range(of: #"\d{4}"#, options: .regularExpression) {
-            return String(date[match])
-        }
-        return ""
-    }
-}
+import HubCore
 
 // MARK: - Store（Zotero 7 本地 API：localhost:23119）
 
