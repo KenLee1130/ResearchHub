@@ -100,7 +100,6 @@ public struct GateFocusState: Codable {
 @MainActor
 @Observable
 public final class ReadingGateStore {
-    public static let shared = ReadingGateStore()
 
     public private(set) var bank = GateBank(updatedAt: nil, papers: [])
     /// 手機本機的專注模式開關（不必等 iCloud，立刻生效）
@@ -121,9 +120,9 @@ public final class ReadingGateStore {
     private var log = GateLog()
     private var libraryObserver: AnyCancellable?
 
-    private init() {
+    public init(librarySync: LibrarySync) {
         // Mac 端 Claude 更新了題庫、或另一台裝置記了通過紀錄 → 重讀
-        libraryObserver = LibrarySync.shared.changes
+        libraryObserver = librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self else { return }

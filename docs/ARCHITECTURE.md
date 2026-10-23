@@ -235,8 +235,12 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
    - HubStore 待做：`FileSystemStore` 本身（混著根資料夾書籤、檔案操作與頁面導覽狀態
      `requestedTab`／`openNote`，要先把導覽狀態切回 app）、`.hub/*.json` 的 `EventStore`／
      `GeneralTodoStore`（用了 SwiftUI `Color`）、`PomodoroModel`（1174 行，含 AppKit 面板）。
-   - 套件內還有 4 個 `static let shared`（`LibrarySync`、`LibraryIndex`、`ZoteroStore`、
-     `ReadingGateStore`）：等 `AppContainer` 落地時一起拿掉。
+   - `AppContainer`（已落地，2026-10-23）：`Services/AppContainer.swift` 是唯一的 composition root，
+     持有 `LibrarySync`、`ZoteroStore`、`ReadingGateStore`（建構子注入 `LibrarySync`）、
+     `NoteLinkIndex`、`BlockEditorHost`、`NotificationDelegate`，mac 另有 `PageFinder`、
+     `ActiveEditorRegistry`、`PDFExporter`、`PaperModelCatalog`、`PomodoroPanelController`。
+     12 個 `static let shared` 全部拿掉，呼叫處改 `AppContainer.shared.x`。
+     例外：`LibraryIndex.shared` 是 HubStore 模組內部的快取（不 public、不是可注入的相依）。
 
 ### dev 版（重構期間與正式版並存）
 

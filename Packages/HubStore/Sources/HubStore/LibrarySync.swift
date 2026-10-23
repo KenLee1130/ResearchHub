@@ -5,7 +5,7 @@ import Combine
 
 /// 資料夾裡有檔案被另一台裝置（經 iCloud）或外部工具改動、或剛從 iCloud 下載完成。
 /// `urls` 空陣列＝不確定是哪些（例如切回 app），全部重讀。
-/// 訂閱 `LibrarySync.shared.changes`（以前是 Notification.Name 廣播，誰在收看不出來）。
+/// 訂閱 `LibrarySync.changes`（app 的 AppContainer 持有唯一實例）（以前是 Notification.Name 廣播，誰在收看不出來）。
 public nonisolated struct LibraryChange: Sendable {
     public let urls: [URL]
 
@@ -49,7 +49,6 @@ public nonisolated struct LibraryChange: Sendable {
 @MainActor
 @Observable
 public final class LibrarySync {
-    public static let shared = LibrarySync()
 
     /// 還在從 iCloud 下載的檔案數（>0 時畫面顯示「正在同步」）
     public private(set) var pendingCount = 0
@@ -65,7 +64,7 @@ public final class LibrarySync {
     private var changedBuffer: Set<URL> = []
     private var broadcastTask: Task<Void, Never>?
 
-    private init() {}
+    public init() {}
 
     /// 下載等待上限：超過就不再轉圈（檔案之後到了，presenter 一樣會通知）
     private static let pollLimit = 90

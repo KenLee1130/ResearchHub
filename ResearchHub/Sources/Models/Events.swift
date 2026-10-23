@@ -99,7 +99,7 @@ final class EventStore {
         editedWhileNotReady = false
         load()
         // 另一台裝置改了 events.json（或切回 app）→ 重讀
-        libraryObserver = LibrarySync.shared.changes
+        libraryObserver = AppContainer.shared.librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self, change.affects(self.fileURL) else { return }
@@ -151,7 +151,7 @@ final class EventStore {
         guard ready else {
             // 雲端那份還沒下載到：現在寫會蓋掉它。先記著，檔案到了合併再存。
             editedWhileNotReady = true
-            LibrarySync.shared.syncNow()
+            AppContainer.shared.librarySync.syncNow()
             return
         }
         let encoder = JSONEncoder()

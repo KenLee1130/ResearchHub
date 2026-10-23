@@ -44,11 +44,11 @@ struct MobileNotesView: View {
             }
             .task { await reloadTree() }
             .refreshable {
-                LibrarySync.shared.syncNow()
+                AppContainer.shared.librarySync.syncNow()
                 await reloadTree()
             }
             // Mac 新增／改名的筆記同步進來 → 清單跟著變
-            .onReceive(LibrarySync.shared.changes) { change in
+            .onReceive(AppContainer.shared.librarySync.changes) { change in
                 if change.affectsNoteListing(notes: store.notesURL) {
                     Task { await reloadTree() }
                 }

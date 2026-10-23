@@ -61,7 +61,7 @@ struct SearchPaletteView: View {
         .onAppear { fieldFocused = true }
         // 論文清單只有開過論文頁才會載入：還沒載就在這裡載，載好後重搜一次
         .task {
-            let zotero = ZoteroStore.shared
+            let zotero = AppContainer.shared.zotero
             guard zotero.items.isEmpty else { return }
             zotero.restoreZoteroDir()
             await zotero.refresh()
@@ -141,7 +141,7 @@ struct SearchPaletteView: View {
             return
         }
         // 論文、待辦在主執行緒先抽成純資料，再丟到背景
-        let papers = ZoteroStore.shared.items.map {
+        let papers = AppContainer.shared.zotero.items.map {
             GlobalSearch.PaperEntry(
                 key: $0.key, title: $0.data.title ?? "", authors: $0.authors, year: $0.year,
                 venue: $0.data.publicationTitle ?? "", abstract: $0.data.abstractNote ?? "",

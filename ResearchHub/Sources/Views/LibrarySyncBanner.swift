@@ -5,7 +5,7 @@ import HubStore
 
 /// 「正在從 iCloud 取得另一台裝置的更新…」提示；沒在下載時不佔空間。
 struct LibrarySyncBanner: View {
-    private var sync = LibrarySync.shared
+    private var sync = AppContainer.shared.librarySync
 
     var body: some View {
         if sync.pendingCount > 0 {

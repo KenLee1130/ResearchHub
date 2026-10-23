@@ -9,9 +9,10 @@ import HubCore
 @Observable
 public final class ZoteroStore {
     /// 全 app 共用的實例：論文分頁與筆記引用（\cite）都讀同一份快取。
-    public static let shared = ZoteroStore()
 
     public private(set) var items: [ZoteroItem] = []
+
+    public init() {}
     public private(set) var isLoading = false
     public var errorMessage: String?
 
