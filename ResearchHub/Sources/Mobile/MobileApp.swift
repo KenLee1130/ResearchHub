@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubCore
 import UIKit
 import UniformTypeIdentifiers
 

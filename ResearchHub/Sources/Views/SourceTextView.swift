@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 import AppKit
 
 /// 記住最後取得焦點的 markdown 編輯器，讓「插入引用」能把 \cite{...} 插到游標處

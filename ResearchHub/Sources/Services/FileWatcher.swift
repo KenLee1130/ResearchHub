@@ -1,4 +1,5 @@
 import Foundation
+import HubCore
 
 /// 這個 app 自己剛寫過哪些檔案。
 ///

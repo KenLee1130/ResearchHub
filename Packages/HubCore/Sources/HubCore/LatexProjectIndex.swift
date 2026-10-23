@@ -5,18 +5,18 @@ import Foundation
 /// 打字時每個按鍵都會被問一次，所以結果依專案快取幾秒鐘，
 /// 過期才重新掃（專案通常只有幾十個檔案，掃一次很便宜）。
 @MainActor
-enum LatexProjectIndex {
-    nonisolated struct Snapshot: Sendable {
+public enum LatexProjectIndex {
+    public nonisolated struct Snapshot: Sendable {
         /// .tex 檔（相對專案根目錄、不含副檔名）——給 \input{ \include{
-        var texFiles: [String] = []
+        public var texFiles: [String] = []
         /// 圖片（相對路徑、含副檔名）——給 \includegraphics{
-        var images: [String] = []
+        public var images: [String] = []
         /// .bib 檔（相對路徑；\bibliography 不含副檔名、\addbibresource 含）
-        var bibFiles: [String] = []
+        public var bibFiles: [String] = []
         /// 專案裡 \newcommand／\DeclareMathOperator／\def 定義的指令
-        var macros: [LatexCommand] = []
+        public var macros: [LatexCommand] = []
         /// 所有檔案裡的 \label
-        var labels: [String] = []
+        public var labels: [String] = []
     }
 
     private static var cache: [String: (at: Date, snapshot: Snapshot)] = [:]
@@ -26,7 +26,7 @@ enum LatexProjectIndex {
     /// 立刻回傳手上這份（可能是幾秒前的），過期了就在背景重掃、掃完換上。
     /// 每個按鍵都會問一次，所以這裡絕不讀檔——以前過期時會在主執行緒把整個專案
     /// 的 .tex 從 iCloud 讀一遍，打字就頓一下。
-    static func snapshot(for root: URL) -> Snapshot {
+    public static func snapshot(for root: URL) -> Snapshot {
         let key = root.standardizedFileURL.path
         let hit = cache[key]
         if hit == nil || Date().timeIntervalSince(hit!.at) >= ttl { rescan(root, key: key) }
@@ -34,7 +34,7 @@ enum LatexProjectIndex {
     }
 
     /// 開專案時先掃一次，第一次跳補全清單就有內容。
-    static func prewarm(_ root: URL) {
+    public static func prewarm(_ root: URL) {
         rescan(root, key: root.standardizedFileURL.path)
     }
 
@@ -59,7 +59,7 @@ enum LatexProjectIndex {
         pattern: #"\\label\{([^}]+)\}"#)
 
     /// 同步掃一次（internal 是為了單元測試；app 內請走 snapshot／prewarm）
-    nonisolated static func scan(_ root: URL) -> Snapshot {
+    public nonisolated static func scan(_ root: URL) -> Snapshot {
         var snap = Snapshot()
         let fm = FileManager.default
         let base = root.standardizedFileURL.path

@@ -1,13 +1,13 @@
 import Foundation
 
 /// 一個可補全的 LaTeX 指令。
-nonisolated struct LatexCommand: Sendable {
+public nonisolated struct LatexCommand: Sendable {
     /// 接受時插入的文字，例如 `\frac{}{}`（游標會停在第一個 `{}` 裡）
-    let insert: String
+    public let insert: String
     /// 清單上灰字的說明；符號類直接放長相（α、⇒）
-    let detail: String
+    public let detail: String
     /// 只在 LaTeX 專案裡才有意義的指令（\documentclass、\input…），Markdown 筆記不顯示
-    let projectOnly: Bool
+    public let projectOnly: Bool
 }
 
 /// 編輯器補全用的指令庫。
@@ -15,9 +15,9 @@ nonisolated struct LatexCommand: Sendable {
 /// 分類排序有意義：同樣符合前綴時，越常用的排越前面。
 /// 新增指令時放進對應分類即可；符號類的 detail 放 Unicode 長相，
 /// 其他放一句繁中說明。
-enum LatexCommandCatalog {
+public enum LatexCommandCatalog {
 
-    static let all: [LatexCommand] =
+    public static let all: [LatexCommand] =
         documentStructure + preamble + references + lists + floatsAndTables
         + textStyle + spacing + mathStructure + mathFonts + accents
         + bigOperators + functions + relations + arrows + binaryOperators
@@ -425,7 +425,7 @@ enum LatexCommandCatalog {
     // MARK: - 參數補全用的清單
 
     /// \usepackage{ 後面的套件名稱
-    static let packages: [String] = [
+    public static let packages: [String] = [
         "amsmath", "amssymb", "amsthm", "mathtools", "physics", "braket", "bm",
         "graphicx", "xcolor", "hyperref", "cleveref", "geometry", "setspace",
         "xeCJK", "fontspec", "unicode-math", "microtype", "lmodern",
@@ -447,7 +447,7 @@ enum LatexCommandCatalog {
     ]
 
     /// \documentclass{ 後面的文件類別
-    static let documentClasses: [String] = [
+    public static let documentClasses: [String] = [
         "article", "report", "book", "amsart", "amsbook",
         "revtex4-2", "revtex4-1", "beamer", "memoir",
         "scrartcl", "scrreprt", "scrbook", "elsarticle", "IEEEtran", "llncs",

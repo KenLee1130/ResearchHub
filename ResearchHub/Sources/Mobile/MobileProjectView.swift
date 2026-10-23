@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubCore
 import PDFKit
 
 /// 手機上看 LaTeX 專案：唯讀，直接翻 Mac 版編譯好的 .researchhub/output.pdf。

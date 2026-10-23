@@ -11,15 +11,15 @@ import Foundation
 ///   • `latexmkrc`   編譯器選擇（$pdf_mode = 5 → xelatex）。Overleaf 也讀這個檔。
 ///   • `.researchhub/`  App 自己的東西：project.json（主檔／引擎／檢視模式）與 output.pdf。
 ///                   匯出 zip 時會排除，Overleaf 不會看到。
-nonisolated enum LatexProject {
-    static let stateDirName = ".researchhub"
-    static let outputName = "output.pdf"
-    static let formatName = "format.tex"
+public nonisolated enum LatexProject {
+    public static let stateDirName = ".researchhub"
+    public static let outputName = "output.pdf"
+    public static let formatName = "format.tex"
 
     // MARK: - 判定與主檔
 
     /// 最上層含 \documentclass 的 .tex 就算專案。main.tex 優先。
-    static func mainFile(in folder: URL) -> URL? {
+    public static func mainFile(in folder: URL) -> URL? {
         if let saved = settings(of: folder).main {
             let u = folder.appendingPathComponent(saved)
             if FileManager.default.fileExists(atPath: u.path) { return u }
@@ -40,10 +40,10 @@ nonisolated enum LatexProject {
         return nil
     }
 
-    static func isProject(_ folder: URL) -> Bool { mainFile(in: folder) != nil }
+    public static func isProject(_ folder: URL) -> Bool { mainFile(in: folder) != nil }
 
     /// 主檔所在的子資料夾（相對於專案根目錄；主檔在根目錄就是空字串）
-    static func mainSubdirectory(of main: URL, in folder: URL) -> String {
+    public static func mainSubdirectory(of main: URL, in folder: URL) -> String {
         let root = folder.standardizedFileURL.path + "/"
         let dir = main.deletingLastPathComponent().standardizedFileURL.path
         return dir.hasPrefix(root) ? String(dir.dropFirst(root.count)) : ""
@@ -59,32 +59,37 @@ nonisolated enum LatexProject {
 
     // MARK: - App 自己的設定（.researchhub/project.json）
 
-    struct Settings: Codable, Equatable {
-        var main: String?
+    public struct Settings: Codable, Equatable {
+        public var main: String?
         /// xelatex / pdflatex / lualatex / auto（auto＝交給專案的 latexmkrc）
-        var engine: String?
+        public var engine: String?
         /// continuous / paged
-        var viewMode: String?
+        public var viewMode: String?
         /// app 從 Zotero 自動寫進 .bib 的條目（key → 寫入時刻）。
         /// 只有這些會在不再被 \cite 時自動移除；你自己貼進 .bib 的不會動。
-        var autoBibKeys: [String: Double]?
+        public var autoBibKeys: [String: Double]?
+
+        public init(main: String? = nil, engine: String? = nil, viewMode: String? = nil,
+                    autoBibKeys: [String: Double]? = nil) {
+            self.main = main; self.engine = engine; self.viewMode = viewMode; self.autoBibKeys = autoBibKeys
+        }
     }
 
-    static func stateDir(of folder: URL) -> URL {
+    public static func stateDir(of folder: URL) -> URL {
         folder.appendingPathComponent(stateDirName, isDirectory: true)
     }
 
-    static func settingsURL(of folder: URL) -> URL {
+    public static func settingsURL(of folder: URL) -> URL {
         stateDir(of: folder).appendingPathComponent("project.json")
     }
 
-    static func settings(of folder: URL) -> Settings {
+    public static func settings(of folder: URL) -> Settings {
         guard let data = try? Data(contentsOf: settingsURL(of: folder)),
               let s = try? JSONDecoder().decode(Settings.self, from: data) else { return Settings() }
         return s
     }
 
-    static func save(_ settings: Settings, to folder: URL) {
+    public static func save(_ settings: Settings, to folder: URL) {
         let dir = stateDir(of: folder)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let enc = JSONEncoder()
@@ -93,12 +98,12 @@ nonisolated enum LatexProject {
         try? data.write(to: settingsURL(of: folder), options: .atomic)
     }
 
-    static func outputPDF(of folder: URL) -> URL {
+    public static func outputPDF(of folder: URL) -> URL {
         stateDir(of: folder).appendingPathComponent(outputName)
     }
 
     /// 編譯器：設定 > 專案自己的 latexmkrc（交給它決定）> 看主檔用了什麼套件
-    static func engine(for folder: URL, main: URL) -> String {
+    public static func engine(for folder: URL, main: URL) -> String {
         if let e = settings(of: folder).engine, !e.isEmpty { return e }
         let fm = FileManager.default
         // latexmk 在主檔所在資料夾執行，讀的是那裡的 latexmkrc。
@@ -109,7 +114,7 @@ nonisolated enum LatexProject {
             for rc in ["latexmkrc", ".latexmkrc"] {
                 let url = dir.appendingPathComponent(rc)
                 guard fm.fileExists(atPath: url.path) else { continue }
-                let text = FileSystemStore.safeRead(url) ?? ""
+                let text = ICloudFile.safeRead(url) ?? ""
                 if text.range(of: #"\$(pdf|dvi|postscript)_mode"#, options: .regularExpression) != nil {
                     return "auto"
                 }
@@ -127,7 +132,7 @@ nonisolated enum LatexProject {
     /// 範本刻意做成「帶去 Overleaf 也能直接編譯」：
     /// 字型用 \IfFontExistsTF 在 Mac（黑體）與 Overleaf（Noto）之間自動切換，
     /// 並附 latexmkrc 讓 Overleaf 自動選 XeLaTeX。
-    static func create(in parent: URL, name: String) throws -> URL {
+    public static func create(in parent: URL, name: String) throws -> URL {
         let fm = FileManager.default
         var folder = parent.appendingPathComponent(name, isDirectory: true)
         var n = 2
@@ -150,9 +155,9 @@ nonisolated enum LatexProject {
     /// 編譯前呼叫：有用顏色指令（\color、\textcolor、\colorbox…）但主檔沒載入 xcolor／color
     /// → 在 \usepackage{hyperref} 前（沒有就最後一個 \usepackage 後、再沒有就 \begin{document} 前）補上。
     /// 舊範本建的專案沒有 xcolor，顏色指令會變成「未定義的指令」整份編不過。
-    static func ensureColorPackage(in root: URL) {
+    public static func ensureColorPackage(in root: URL) {
         guard let main = mainFile(in: root),
-              let text = FileSystemStore.safeRead(main) else { return }
+              let text = ICloudFile.safeRead(main) else { return }
         func uncommented(_ t: String) -> String {
             t.components(separatedBy: "\n")
                 .map { String($0.split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false).first ?? "") }
@@ -166,7 +171,7 @@ nonisolated enum LatexProject {
             at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return }
         var used = false
         for case let url as URL in walker where url.pathExtension.lowercased() == "tex" {
-            guard let t = FileSystemStore.safeRead(url) else { return }
+            guard let t = ICloudFile.safeRead(url) else { return }
             if uncommented(t).range(of: #"\\(?:color|textcolor|colorbox|fcolorbox|pagecolor|definecolor)\b"#,
                                     options: .regularExpression) != nil { used = true; break }
         }
@@ -190,7 +195,7 @@ nonisolated enum LatexProject {
 
     /// 一般文字放進 LaTeX（\title{…} 之類）前要跳脫的字元。
     /// 專案名稱常有底線（test_gpt）：原樣放進 \title 會在 \maketitle 炸出一串「Missing $」。
-    static func escapeText(_ s: String) -> String {
+    public static func escapeText(_ s: String) -> String {
         var out = ""
         for ch in s {
             switch ch {
@@ -236,16 +241,16 @@ nonisolated enum LatexProject {
 
     // MARK: - 專案內的檔案樹
 
-    struct Node: Identifiable, Hashable {
-        let url: URL
-        let isFolder: Bool
-        var children: [Node]?
-        var id: URL { url }
-        var name: String { url.lastPathComponent }
+    public struct Node: Identifiable, Hashable {
+        public let url: URL
+        public let isFolder: Bool
+        public var children: [Node]?
+        public var id: URL { url }
+        public var name: String { url.lastPathComponent }
     }
 
     /// 列出專案內容（隱藏 .researchhub 與其他點開頭的檔案）。
-    static func tree(of folder: URL) -> [Node] {
+    public static func tree(of folder: URL) -> [Node] {
         let fm = FileManager.default
         guard let names = try? fm.contentsOfDirectory(atPath: folder.path) else { return [] }
         return names
@@ -268,13 +273,13 @@ nonisolated enum LatexProject {
     }
 
     /// 這個副檔名適合用文字編輯器開嗎？
-    static func isTextFile(_ url: URL) -> Bool {
+    public static func isTextFile(_ url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
         if ext.isEmpty { return ["latexmkrc", "makefile"].contains(url.lastPathComponent.lowercased()) }
         return ["tex", "bib", "sty", "cls", "txt", "md", "bst", "cfg", "def", "tikz"].contains(ext)
     }
 
-    static func isImageFile(_ url: URL) -> Bool {
+    public static func isImageFile(_ url: URL) -> Bool {
         ["png", "jpg", "jpeg", "pdf", "eps", "gif", "tiff", "webp"]
             .contains(url.pathExtension.lowercased())
     }

@@ -186,6 +186,13 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
    （主檔偵測、底線跳脫、PDF 隱藏旗標、todo 語法）。不動架構。
 2. **抽出 HubCore。** `TodoSyntax`、`NotePreprocessor`、`LatexProject*`、`GlobalSearch`
    （改名 `SearchEngine`，加 scope／hit 欄位）、Zotero 與 PaperChat client。
+   - 第一批（已搬，2026-10-23）：`TodoSyntax`、`LatexCommandCatalog`、`LatexFormat`、
+     `LatexProject`、`LatexProjectIndex`、`GlobalSearch`，加上從 `FileSystemStore` 抽出的
+     `ICloudFile.safeRead` 與 `JournalLayout.journalFiles`（原處保留轉呼叫）。只搬家＋加 `public`，
+     沒改行為；`LatexProject`／`GlobalSearch` 仍直接讀檔，守則 1 留到第 4 步再收。
+   - 第二批（待做）：`NotePreprocessor`、`LatexBibliography`（要先把 `ZoteroItem`／`NoteLink`
+     資料型別搬進來、`ZoteroStore.shared.bibtex` 改成注入）；Zotero 與 PaperChat client
+     要先把 UserDefaults／PDFKit 的部分拆出去。
 3. **拆三個巨檔並去重。** 三個編輯器各自的尋找／undo 處理合併；`Mobile/` 與 mac 重複邏輯合併。
    同時落地第 3 節的命令路由，刪除 7 個 `Notification.Name`。
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；

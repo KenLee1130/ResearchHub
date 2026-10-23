@@ -60,6 +60,19 @@ install -m 755 scripts/researchhub-helper.sh "$SCRIPTS_DIR/researchhub-helper.sh
   && install -m 644 scripts/babeldoc-align.py "$SCRIPTS_DIR/babeldoc-align.py" \
   && echo "✓ dev 版小幫手已安裝（$SCRIPTS_DIR）"
 
+# 偏好設定：dev 版的 UserDefaults 是另一份，第一次沒有主題／外觀／字級設定會回到預設的
+# 「流光紫」主題，看起來像另一個 app。第一次執行把正式版的 settings.* 抄過來（之後不覆蓋）。
+if ! defaults read "$DEV_BUNDLE_ID" settings.theme >/dev/null 2>&1; then
+  for key in settings.theme settings.appearance settings.language settings.previewLayout settings.userName; do
+    value=$(defaults read com.ken.ResearchHub "$key" 2>/dev/null) || continue
+    defaults write "$DEV_BUNDLE_ID" "$key" -string "$value"
+  done
+  if size=$(defaults read com.ken.ResearchHub settings.editorFontSize 2>/dev/null); then
+    defaults write "$DEV_BUNDLE_ID" settings.editorFontSize -float "$size"
+  fi
+  echo "✓ 已把正式版的外觀偏好（主題、外觀、語言、字級）複製到 dev 版"
+fi
+
 # 資料隔離：第一次才複製，之後不覆蓋
 FIRST_RUN=0
 if [[ ! -d "$DEV_LIBRARY" ]]; then

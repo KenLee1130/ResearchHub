@@ -1,6 +1,7 @@
 // 守 commit 7855ff6：匯出的 PDF 在 Finder 看不到（帶了隱藏旗標）。
 import XCTest
 @testable import ResearchHub
+@testable import HubCore
 
 final class FileExportTests: XCTestCase {
     private var dir: URL!

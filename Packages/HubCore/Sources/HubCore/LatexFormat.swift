@@ -5,22 +5,24 @@ import Foundation
 ///
 /// 寫回時只換掉自己管的那幾行（\geometry / \setstretch / \parskip），
 /// 使用者自己加的內容原樣保留。
-struct LatexFormat: Equatable {
-    var paper: String = "a4paper"          // a4paper / letterpaper / b5paper / a5paper
-    var top: Double = 25                   // mm
-    var bottom: Double = 25
-    var left: Double = 25
-    var right: Double = 25
-    var lineStretch: Double = 1.2          // \setstretch
-    var parSkip: Double = 0.5              // em
+public struct LatexFormat: Equatable {
+    public var paper: String = "a4paper"          // a4paper / letterpaper / b5paper / a5paper
+    public var top: Double = 25                   // mm
+    public var bottom: Double = 25
+    public var left: Double = 25
+    public var right: Double = 25
+    public var lineStretch: Double = 1.2          // \setstretch
+    public var parSkip: Double = 0.5              // em
     /// 字級不在 format.tex，而是主檔的 \documentclass[11pt]；由面板另外改。
-    var fontSize: Int = 11
+    public var fontSize: Int = 11
 
-    static let papers = ["a4paper", "letterpaper", "b5paper", "a5paper"]
+    public init() {}
+
+    public static let papers = ["a4paper", "letterpaper", "b5paper", "a5paper"]
 
     // MARK: - 解析
 
-    static func parse(_ text: String, fontSize: Int = 11) -> LatexFormat {
+    public static func parse(_ text: String, fontSize: Int = 11) -> LatexFormat {
         var f = LatexFormat()
         f.fontSize = fontSize
         if let geo = firstMatch(#"\\geometry\{([^}]*)\}"#, in: text)
@@ -83,7 +85,7 @@ struct LatexFormat: Equatable {
     private var parSkipLine: String { String(format: "\\setlength{\\parskip}{%.2fem}", parSkip) }
 
     /// 產生新的 format.tex；existing 有給就只換掉自己管的行，其餘保留。
-    func render(into existing: String?) -> String {
+    public func render(into existing: String?) -> String {
         guard let existing, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return """
             % ResearchHub 版面設定
@@ -126,14 +128,14 @@ struct LatexFormat: Equatable {
     // MARK: - 主檔：字級與 \input{format}
 
     /// 從 \documentclass[11pt]{article} 讀字級。
-    static func fontSize(inMain text: String) -> Int {
+    public static func fontSize(inMain text: String) -> Int {
         guard let opts = firstMatch(#"\\documentclass\[([^\]]*)\]"#, in: text),
               let pt = firstMatch(#"(\d+)pt"#, in: opts), let v = Int(pt) else { return 10 }
         return v
     }
 
     /// 改寫主檔的字級選項；沒有選項就加上。
-    static func setFontSize(_ size: Int, inMain text: String) -> String {
+    public static func setFontSize(_ size: Int, inMain text: String) -> String {
         if let opts = firstMatch(#"\\documentclass\[([^\]]*)\]"#, in: text) {
             let newOpts: String
             if opts.range(of: #"\d+pt"#, options: .regularExpression) != nil {
@@ -149,12 +151,12 @@ struct LatexFormat: Equatable {
             options: .regularExpression)
     }
 
-    static func hasFormatInput(_ text: String) -> Bool {
+    public static func hasFormatInput(_ text: String) -> Bool {
         text.range(of: #"\\(input|include)\{format(\.tex)?\}"#, options: .regularExpression) != nil
     }
 
     /// 在 \begin{document} 前插入 \input{format}。
-    static func insertFormatInput(_ text: String) -> String {
+    public static func insertFormatInput(_ text: String) -> String {
         guard !hasFormatInput(text), let r = text.range(of: "\\begin{document}") else { return text }
         return text.replacingCharacters(
             in: r.lowerBound..<r.lowerBound,

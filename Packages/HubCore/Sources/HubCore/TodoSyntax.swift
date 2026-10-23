@@ -12,34 +12,34 @@ import Foundation
 ///   @est(3h / 45m / 90)     預估時長（純數字 = 分鐘），排時段時參考；日記裡渲染成蕃茄進度條
 ///   @pomo(2)                任務自己的進度（已投入幾顆），進度條 ＋/− 改的就是它，不動蕃茄鐘統計
 ///   @line(名字)             主線歸屬（如 A、B），週檢討分線統計用
-nonisolated enum TodoPriority: Int, Comparable, Hashable, Sendable {
+public nonisolated enum TodoPriority: Int, Comparable, Hashable, Sendable {
     case low = 0, normal = 1, high = 2
-    static func < (a: TodoPriority, b: TodoPriority) -> Bool { a.rawValue < b.rawValue }
+    public static func < (a: TodoPriority, b: TodoPriority) -> Bool { a.rawValue < b.rawValue }
 }
 
-nonisolated struct TodoMeta: Hashable, Sendable {
+public nonisolated struct TodoMeta: Hashable, Sendable {
     /// 去掉標記後的文字（顯示與比對用）
-    let cleanText: String
-    let priority: TodoPriority
-    let due: Date?
+    public let cleanText: String
+    public let priority: TodoPriority
+    public let due: Date?
     /// 開始日（@from）：@due 副本從這天才開始出現
-    let from: Date?
+    public let from: Date?
     /// 循環（@every）：Calendar.weekday 集合（1 = Sun … 7 = Sat）
-    let everyWeekdays: Set<Int>?
+    public let everyWeekdays: Set<Int>?
     /// 指定日期（@on）：只在這些天出現（startOfDay）
-    let onDates: Set<Date>?
+    public let onDates: Set<Date>?
     /// 提醒時刻（@remind）
-    let remind: Date?
+    public let remind: Date?
     /// 預估時長（分鐘）
-    let estMinutes: Int?
+    public let estMinutes: Int?
     /// 任務自身已投入的蕃茄顆數（@pomo）
-    let pomoDone: Int?
+    public let pomoDone: Int?
     /// 主線歸屬（@line(A) → "A"），沒標 = nil
-    let line: String?
+    public let line: String?
 
     /// 播種去重／任務總覽歸組用的比對鍵：去掉 markdown 強調符號與多餘空白，
     /// 讓「**A @due(x)**」「**A**@due(x)」等寫法變體視為同一任務（否則會重複播種）。
-    var dedupKey: String {
+    public var dedupKey: String {
         cleanText
             .replacingOccurrences(of: #"[*_`]"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
@@ -47,12 +47,12 @@ nonisolated struct TodoMeta: Hashable, Sendable {
     }
 
     /// 已過期（到期日在今天之前）
-    var isOverdue: Bool {
+    public var isOverdue: Bool {
         guard let due else { return false }
         return due < Calendar.current.startOfDay(for: .now)
     }
 
-    static func parse(_ raw: String, calendar: Calendar = .current) -> TodoMeta {
+    public static func parse(_ raw: String, calendar: Calendar = .current) -> TodoMeta {
         var text = raw
         var priority: TodoPriority = .normal
         var due: Date?
@@ -201,7 +201,7 @@ nonisolated struct TodoMeta: Hashable, Sendable {
     }
 
     /// "2h" / "1.5hr" / "45m" / "30min" / "90"（純數字 = 分鐘）→ 分鐘數。任務總覽的 est 直接輸入也用它解析。
-    static func parseDuration(_ s: String) -> Int? {
+    public static func parseDuration(_ s: String) -> Int? {
         let t = s.trimmingCharacters(in: .whitespaces).lowercased()
         func number(dropping units: [String]) -> Double? {
             for u in units where t.hasSuffix(u) {
@@ -216,7 +216,7 @@ nonisolated struct TodoMeta: Hashable, Sendable {
     }
 
     /// "M/d"（當年）或 "yyyy-M-d" → 日期。日記命令列的 /go 跳日也用它解析。
-    static func parseDate(_ s: String, calendar: Calendar) -> Date? {
+    public static func parseDate(_ s: String, calendar: Calendar) -> Date? {
         let t = s.trimmingCharacters(in: .whitespaces)
         // yyyy-M-d 或 yyyy/M/d
         let full = t.components(separatedBy: CharacterSet(charactersIn: "-/"))
