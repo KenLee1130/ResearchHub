@@ -735,8 +735,7 @@ struct LatexProjectView: View {
         do {
             // 寫成全新的檔案，不用 copyItem：編譯檔放在 .researchhub/ 裡被 iCloud 標成「隱藏」，
             // 複製會連隱藏旗標、舊的製作／修改日期一起帶過去 → Finder 根本看不到匯出的 PDF。
-            let data = try Data(contentsOf: pdfURL)
-            try data.write(to: dest, options: .atomic)
+            try FileExport.writeFreshCopy(of: pdfURL, to: dest)
         } catch {
             exportError = error.localizedDescription
         }

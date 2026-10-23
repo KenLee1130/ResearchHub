@@ -172,16 +172,8 @@ struct RootView: View {
             if FileManager.default.fileExists(atPath: dest.path) {
                 try FileManager.default.removeItem(at: dest)
             }
-            try FileManager.default.copyItem(at: node.url, to: dest)
-            // 下載出來的是新檔案：日期設成現在，「下載項目」依日期排序時才會在最上面；
             // iCloud 裡的檔案可能帶「隱藏」旗標，複製會一起帶過去 → 拿掉，否則 Finder 看不到
-            let now = Date()
-            try? FileManager.default.setAttributes(
-                [.creationDate: now, .modificationDate: now], ofItemAtPath: dest.path)
-            var values = URLResourceValues()
-            values.isHidden = false
-            var visible = dest
-            try? visible.setResourceValues(values)
+            try FileExport.copyVisible(node.url, to: dest)
         } catch {
             store.errorMessage = error.localizedDescription
         }

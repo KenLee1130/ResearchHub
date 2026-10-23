@@ -82,7 +82,13 @@ final class FileSystemStore {
         adopt(root: url)
     }
 
+    /// 單元測試跑在 app 裡（test host）：不要還原使用者的資料夾，測試只用自建的暫存 fixture。
+    nonisolated static let isRunningTests: Bool =
+        NSClassFromString("XCTestCase") != nil
+        || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
     private func restoreRoot() {
+        guard !Self.isRunningTests else { return }
         guard let data = UserDefaults.standard.data(forKey: Self.bookmarkKey) else { return }
         var stale = false
         guard let url = try? URL(

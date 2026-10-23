@@ -58,7 +58,8 @@ enum LatexProjectIndex {
     nonisolated(unsafe) private static let labelPattern = try! NSRegularExpression(
         pattern: #"\\label\{([^}]+)\}"#)
 
-    nonisolated private static func scan(_ root: URL) -> Snapshot {
+    /// 同步掃一次（internal 是為了單元測試；app 內請走 snapshot／prewarm）
+    nonisolated static func scan(_ root: URL) -> Snapshot {
         var snap = Snapshot()
         let fm = FileManager.default
         let base = root.standardizedFileURL.path

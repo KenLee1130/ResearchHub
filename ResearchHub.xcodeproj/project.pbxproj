@@ -9,12 +9,28 @@
 /* Begin PBXFileReference section */
 		73B5158F2FDA6DC200E2640B /* ResearchHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ResearchHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA00000000000000000000A1 /* ResearchHubMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ResearchHubMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7E5700000000000000000001 /* ResearchHubTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ResearchHubTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		7E5700000000000000000007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 73B515872FDA6DC200E2640B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 73B5158E2FDA6DC200E2640B;
+			remoteInfo = ResearchHub;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		73B515912FDA6DC200E2640B /* ResearchHub */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ResearchHub;
+			sourceTree = "<group>";
+		};
+		7E5700000000000000000002 /* ResearchHubTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ResearchHubTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -34,6 +50,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7E5700000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -42,6 +65,7 @@
 			children = (
 				73B515912FDA6DC200E2640B /* ResearchHub */,
 				73B515902FDA6DC200E2640B /* Products */,
+				7E5700000000000000000002 /* ResearchHubTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -50,6 +74,7 @@
 			children = (
 				73B5158F2FDA6DC200E2640B /* ResearchHub.app */,
 				AA00000000000000000000A1 /* ResearchHubMobile.app */,
+				7E5700000000000000000001 /* ResearchHubTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -101,6 +126,29 @@
 			productReference = AA00000000000000000000A1 /* ResearchHubMobile.app */;
 			productType = "com.apple.product-type.application";
 		};
+		7E5700000000000000000006 /* ResearchHubTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7E5700000000000000000009 /* Build configuration list for PBXNativeTarget "ResearchHubTests" */;
+			buildPhases = (
+				7E5700000000000000000003 /* Sources */,
+				7E5700000000000000000004 /* Frameworks */,
+				7E5700000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7E5700000000000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				7E5700000000000000000002 /* ResearchHubTests */,
+			);
+			name = ResearchHubTests;
+			packageProductDependencies = (
+			);
+			productName = ResearchHubTests;
+			productReference = 7E5700000000000000000001 /* ResearchHubTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -113,6 +161,10 @@
 				TargetAttributes = {
 					73B5158E2FDA6DC200E2640B = {
 						CreatedOnToolsVersion = 26.5;
+					};
+					7E5700000000000000000006 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 73B5158E2FDA6DC200E2640B;
 					};
 				};
 			};
@@ -133,6 +185,7 @@
 			targets = (
 				73B5158E2FDA6DC200E2640B /* ResearchHub */,
 				AA00000000000000000000A5 /* ResearchHubMobile */,
+				7E5700000000000000000006 /* ResearchHubTests */,
 			);
 		};
 /* End PBXProject section */
@@ -146,6 +199,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AA00000000000000000000A3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7E5700000000000000000005 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -169,7 +229,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7E5700000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7E5700000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 73B5158E2FDA6DC200E2640B /* ResearchHub */;
+			targetProxy = 7E5700000000000000000007 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		73B515982FDA6DC300E2640B /* Debug */ = {
@@ -582,6 +657,69 @@
 			};
 			name = Dev;
 		};
+		7E57000000000000000000A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.ResearchHubTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ResearchHub.app/Contents/MacOS/ResearchHub";
+			};
+			name = Debug;
+		};
+		7E57000000000000000000A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.ResearchHubTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ResearchHub.app/Contents/MacOS/ResearchHub";
+			};
+			name = Release;
+		};
+		7E57000000000000000000A3 /* Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ken.ResearchHubTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ResearchHub Dev.app/Contents/MacOS/ResearchHub Dev";
+			};
+			name = Dev;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -611,6 +749,16 @@
 				AA00000000000000000000A7 /* Debug */,
 				AA00000000000000000000A8 /* Release */,
 				DE00000000000000000000D3 /* Dev */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7E5700000000000000000009 /* Build configuration list for PBXNativeTarget "ResearchHubTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7E57000000000000000000A1 /* Debug */,
+				7E57000000000000000000A2 /* Release */,
+				7E57000000000000000000A3 /* Dev */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
