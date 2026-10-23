@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubEditor
 import HubCore
 
 /// 論文右側的問答欄（像 alphaXiv）：選取 PDF 文字 →「引用」→ 問 Claude 或 ChatGPT。
@@ -50,7 +51,7 @@ struct PaperChatPanel: View {
             if session.chat.messages.isEmpty && !session.isAsking {
                 emptyState
             } else {
-                MarkdownPreviewView(text: transcript, onLink: handleLink)
+                MarkdownPreviewView(text: transcript, onLink: handleLink, noteLinks: AppContainer.shared.noteLinks)
             }
             Divider()
             composer

@@ -19,7 +19,7 @@ extension PastingTextView {
         "\"": ("\"", "\""),
     ]
 
-    override func insertText(_ string: Any, replacementRange: NSRange) {
+    public override func insertText(_ string: Any, replacementRange: NSRange) {
         let typed = (string as? String) ?? (string as? NSAttributedString)?.string
         // 輸入法組字中不攔（中文選字過程也會走 insertText）
         if let typed, let pair = Self.wrapPairs[typed], !hasMarkedText() {
@@ -50,7 +50,7 @@ extension PastingTextView {
     // MARK: - ⌘/ 批量註解（LaTeX 專案）
 
     /// 選到的行（沒選就是游標那行）切換 % 註解，一步可復原。選取維持在這幾行上。
-    func toggleLineComments() {
+    public func toggleLineComments() {
         let ns = string as NSString
         let sel = selectedRange()
         guard sel.location != NSNotFound else { return }
@@ -78,7 +78,7 @@ extension PastingTextView {
 
     /// 一段完整的行：有一行沒註解 → 全部在最淺縮排處加「% 」；全都是註解 → 全部拿掉「%」（連同後面一個空白）。
     /// 空行不動。
-    static func toggledComments(_ text: String) -> String {
+    public static func toggledComments(_ text: String) -> String {
         var lines = text.components(separatedBy: "\n")
         let trailingNewline = text.hasSuffix("\n")
         if trailingNewline { lines.removeLast() }
@@ -179,7 +179,7 @@ extension PastingTextView {
     }
 
     /// 游標在空的一對中間（(|)、\(|\)、$$|$$）→ 回傳要整個刪掉的範圍
-    func emptyPairAroundCaret() -> NSRange? {
+    public func emptyPairAroundCaret() -> NSRange? {
         guard completionRoot != nil, !hasMarkedText() else { return nil }
         let sel = selectedRange()
         guard sel.length == 0, sel.location != NSNotFound else { return nil }
@@ -199,7 +199,7 @@ extension PastingTextView {
     // MARK: - LaTeX 環境縮排（Overleaf 式）
 
     /// `loc` 所在那一行開頭的空白（tab／空格）
-    func leadingWhitespace(ofLineAt loc: Int) -> String {
+    public func leadingWhitespace(ofLineAt loc: Int) -> String {
         let ns = string as NSString
         let line = ns.lineRange(for: NSRange(location: min(loc, ns.length), length: 0))
         return String(ns.substring(with: line).prefix { $0 == " " || $0 == "\t" })
@@ -257,7 +257,7 @@ extension PastingTextView {
     }
 
     /// LaTeX 專案的 Enter：延續這一行的縮排；剛打開一個環境（\begin{…}，document 除外）再多一層。
-    func insertNewlineKeepingIndent() {
+    public func insertNewlineKeepingIndent() {
         let ns = string as NSString
         let sel = selectedRange()
         let line = ns.lineRange(for: NSRange(location: sel.location, length: 0))
@@ -277,7 +277,7 @@ extension PastingTextView {
         ["png", "jpg", "jpeg", "gif", "tiff", "heic", "webp", "bmp"]
 
     /// 宣告可讀圖片類型，否則剪貼簿只有圖片時「貼上」選單會被停用，paste() 不會被呼叫。
-    override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
+    public override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
         var types = super.readablePasteboardTypes
         for t in [NSPasteboard.PasteboardType.tiff, .png, .fileURL] where !types.contains(t) {
             types.append(t)
@@ -285,7 +285,7 @@ extension PastingTextView {
         return types
     }
 
-    override func paste(_ sender: Any?) {
+    public override func paste(_ sender: Any?) {
         let pb = NSPasteboard.general
 
         // 1. Finder 複製的圖片檔（pasteboard 是 file URL）
@@ -337,19 +337,19 @@ extension PastingTextView {
         return images
     }
 
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         hasDroppableImage(sender) ? .copy : super.draggingEntered(sender)
     }
 
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
         hasDroppableImage(sender) ? .copy : super.draggingUpdated(sender)
     }
 
-    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    public override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
         hasDroppableImage(sender) ? true : super.prepareForDragOperation(sender)
     }
 
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let images = droppedImages(sender)
         guard !images.isEmpty, onPasteImage != nil else {
             return super.performDragOperation(sender)   // 非圖片 → 交回原本行為（例如拖文字）

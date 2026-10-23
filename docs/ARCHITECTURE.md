@@ -244,9 +244,14 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      `PersistentSplitView`、`WindowAccessor`（視窗探針、`SidebarSplitControl`）、`LatexPDFView`、
      `ActiveEditorRegistry`、`AdaptiveSizing`。套件 deployment target 跟 app 一樣是 26.0。
      OSLog：`EditorLog`（hub.editor）。
-   - HubEditor 待做：`PastingTextView`＋三個 extension 與 `SourceTextView`（補全要 `ZoteroStore`／
-     `NoteLinkIndex`、三句 `L()` 字串、`AppTheme`／`InkPalette` 的底色，都要改成注入）、
-     `BlockEditorHost`／`BlockEditorView`（模板載入與 `L()`）、`MarkdownPreviewView`（`NoteLinkIndex`）。
+   - HubEditor 第二批（已搬，2026-10-23）：`PastingTextView`＋三個 extension、`SourceTextView`、
+     `BlockEditorHost`／`BlockEditorView`／`BlockEditorTemplate`、`MarkdownPreviewView`、`WebResources`。
+     注入方式：`EditorLocalization.L`（app 啟動時掛上自己的 `L()`，套件字串跟隨 app 語言）；
+     `EditorPalette`（app 依主題算好傳給 `SourceTextView`，取代直接讀 `AppTheme`）；
+     `SourceTextView` 轉交 `zotero`／`noteLinks`／`activeEditor` 給 `PastingTextView`；
+     `BlockEditorView` 明確收 `host`，`BlockEditorHost.pomoMinutesProvider` 由 `AppContainer` 掛上；
+     `MarkdownPreviewView` 收 `noteLinks`。HubEditor 不再引用 app 的任何型別。
+     `Views/` 只剩 SwiftUI 頁面與 `CommandRouting`／`EditorHandle`（守則 2 達成）。
    - `AppContainer`（已落地，2026-10-23）：`Services/AppContainer.swift` 是唯一的 composition root，
      持有 `LibrarySync`、`ZoteroStore`、`ReadingGateStore`（建構子注入 `LibrarySync`）、
      `NoteLinkIndex`、`BlockEditorHost`、`NotificationDelegate`，mac 另有 `PageFinder`、

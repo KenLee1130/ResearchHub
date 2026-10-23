@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubEditor
 import HubStore
 import HubCore
 import UIKit
@@ -18,6 +19,7 @@ struct ResearchHubMobileApp: App {
     init() {
         LanguageManager.activate()
         ReminderScheduler.install()   // @remind 推播由 app 排程（HubStore 不碰 UserNotifications）
+        EditorLocalization.L = { L($0) }   // 套件裡的字串跟隨 app 的語言設定
         LanguageManager.apply(UserDefaults.standard.string(forKey: "settings.language"))
     }
 
@@ -233,6 +235,7 @@ struct MobileTodayView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         BlockEditorView(
+                            host: AppContainer.shared.blockEditor,
                             text: $doc.text,
                             baseDir: journalURL?.deletingLastPathComponent(),
                             documentID: journalURL,

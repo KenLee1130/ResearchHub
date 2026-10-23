@@ -11,7 +11,7 @@ extension PastingTextView {
     private static let listPrefixRegex = try! NSRegularExpression(
         pattern: #"^(\s*)(?:([-*+])\s+\[[ xX]\]\s+|([-*+])\s+|(\d+)([.)])\s+)"#)
 
-    override func insertNewline(_ sender: Any?) {
+    public override func insertNewline(_ sender: Any?) {
         let ns = string as NSString
         let sel = selectedRange()
         guard sel.location != NSNotFound else {
@@ -197,7 +197,7 @@ extension PastingTextView {
         return sel.location < ns.length && ns.character(at: sel.location) == 0x0A
     }
 
-    override func deleteBackward(_ sender: Any?) {
+    public override func deleteBackward(_ sender: Any?) {
         if let pair = emptyPairAroundCaret(),
            shouldChangeText(in: pair, replacementString: "") {
             textStorage?.replaceCharacters(in: pair, with: "")
@@ -210,13 +210,13 @@ extension PastingTextView {
         if crossed { renumberAfterDeletion() }
     }
 
-    override func deleteForward(_ sender: Any?) {
+    public override func deleteForward(_ sender: Any?) {
         let crossed = deletionCrossesLine(backward: false)
         super.deleteForward(sender)
         if crossed { renumberAfterDeletion() }
     }
 
-    override func cut(_ sender: Any?) {
+    public override func cut(_ sender: Any?) {
         let sel = selectedRange()
         let crossed = sel.length > 0
             && (string as NSString).substring(with: sel).contains("\n")
@@ -239,7 +239,7 @@ extension PastingTextView {
     /// 空白行不加縮排。整塊一次替換＝一步復原；做完選取擴成完整的那幾行，可以連按。
     /// 選取沒有跨行時回傳 false，交給原本的 Tab 行為（清單升降層／插入 tab）。
     /// `singleLine`：選取沒跨行也照做（只動游標那一行，用於 Shift-Tab）。
-    func shiftSelectedLines(by delta: Int, singleLine: Bool = false) -> Bool {
+    public func shiftSelectedLines(by delta: Int, singleLine: Bool = false) -> Bool {
         let ns = string as NSString
         let sel = selectedRange()
         guard sel.location != NSNotFound, NSMaxRange(sel) <= ns.length,
@@ -291,7 +291,7 @@ extension PastingTextView {
 
     /// 游標所在的清單項升（+1）/降（-1）一層；編號項會重編「離開」與「加入」兩層。
     /// 非清單行回傳 false，維持原本 Tab 行為。
-    func changeListLevel(by delta: Int) -> Bool {
+    public func changeListLevel(by delta: Int) -> Bool {
         let ns = string as NSString
         let sel = selectedRange()
         guard sel.length == 0, sel.location != NSNotFound, sel.location <= ns.length
