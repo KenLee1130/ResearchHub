@@ -239,6 +239,14 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      比 app 新就警告照開（第 7 節的未決事項暫定如此）。`NSLog` 已全部換成 OSLog（`AppLog`，hub.app）。
    - HubStore 待做：`.hub/*.json` 的 `EventStore`／`GeneralTodoStore`（用了 SwiftUI `Color`）、
      `PomodoroModel`（1174 行，含 AppKit 面板）。
+   - HubEditor 第一批（已搬，2026-10-23）：沒有 app 相依的橋接——`CompletionPopup`、
+     `PDFViewerController`／`PDFKitView`、`PageFind`（尋找列與三種 `FindEngine`）、
+     `PersistentSplitView`、`WindowAccessor`（視窗探針、`SidebarSplitControl`）、`LatexPDFView`、
+     `ActiveEditorRegistry`、`AdaptiveSizing`。套件 deployment target 跟 app 一樣是 26.0。
+     OSLog：`EditorLog`（hub.editor）。
+   - HubEditor 待做：`PastingTextView`＋三個 extension 與 `SourceTextView`（補全要 `ZoteroStore`／
+     `NoteLinkIndex`、三句 `L()` 字串、`AppTheme`／`InkPalette` 的底色，都要改成注入）、
+     `BlockEditorHost`／`BlockEditorView`（模板載入與 `L()`）、`MarkdownPreviewView`（`NoteLinkIndex`）。
    - `AppContainer`（已落地，2026-10-23）：`Services/AppContainer.swift` 是唯一的 composition root，
      持有 `LibrarySync`、`ZoteroStore`、`ReadingGateStore`（建構子注入 `LibrarySync`）、
      `NoteLinkIndex`、`BlockEditorHost`、`NotificationDelegate`，mac 另有 `PageFinder`、

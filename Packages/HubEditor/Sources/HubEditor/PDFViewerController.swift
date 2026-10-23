@@ -8,31 +8,32 @@ import UniformTypeIdentifiers
 
 /// PDF 檢視控制：暗色模式（反色 + 色相旋轉，顏色大致保留）與螢光筆。
 @MainActor
-final class PDFViewerController: ObservableObject {
-    weak var pdfView: PDFView?
+public final class PDFViewerController: ObservableObject {
+    public init() {}
+    public weak var pdfView: PDFView?
     /// 掃描書：畫面顯示原檔（沒有文字），文字位置改從 OCR 版讀（同一份掃描、頁面幾何一樣）。
     /// 使用者希望看到的永遠是原檔——OCR 有錯也不會出現在眼前。
-    var textDocument: PDFDocument? { didSet { resetTextCache() } }
+    public var textDocument: PDFDocument? { didSet { resetTextCache() } }
 
     /// 用來找字的那一頁：有 OCR 版就用它，沒有就用畫面上的文件
-    func textPage(_ index: Int) -> PDFPage? {
+    public func textPage(_ index: Int) -> PDFPage? {
         let doc = textDocument ?? pdfView?.document
         guard let doc, index >= 0, index < doc.pageCount else { return nil }
         return doc.page(at: index)
     }
 
     /// 點了頁面上的某一點（掃描原檔沒辦法反白，對照改用點的）
-    var onClick: ((Int, CGPoint) -> Void)?
-    @Published var isDark = false
+    public var onClick: ((Int, CGPoint) -> Void)?
+    @Published public var isDark = false
     /// 本地檔案路徑（有才能把註記寫回）
-    var fileURL: URL?
+    public var fileURL: URL?
 
-    func toggleDark() {
+    public func toggleDark() {
         isDark.toggle()
         applyAppearance()
     }
 
-    func applyAppearance() {
+    public func applyAppearance() {
         guard let view = pdfView else { return }
         view.wantsLayer = true
         if isDark {
@@ -57,7 +58,7 @@ final class PDFViewerController: ObservableObject {
     }
 
     /// 螢光筆 toggle：選取處已有標記 → 移除；沒有 → 加上。存回 PDF 檔。
-    func highlightSelection() {
+    public func highlightSelection() {
         guard let view = pdfView, let selection = view.currentSelection else { return }
         let lines = selection.selectionsByLine()
 
@@ -103,12 +104,12 @@ final class PDFViewerController: ObservableObject {
     // MARK: 對照模式：反白一邊、另一邊標出同一段
 
     /// 選取改變時通知（並排對照用來在另一邊標出對應段落）
-    var onSelectionChange: (() -> Void)?
+    public var onSelectionChange: (() -> Void)?
     private static let syncMark = "researchhub-sync"
     private var syncAnnotations: [(PDFPage, PDFAnnotation)] = []
 
     /// 目前選取在第幾頁（0 起算）、選取範圍的方框
-    func selectionAnchor() -> (page: Int, rect: CGRect)? {
+    public func selectionAnchor() -> (page: Int, rect: CGRect)? {
         guard let view = pdfView, let doc = view.document, let sel = view.currentSelection,
               let text = sel.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               let page = sel.pages.first else { return nil }
@@ -116,7 +117,7 @@ final class PDFViewerController: ObservableObject {
     }
 
     /// 在這一頁的 rect 範圍內，把文字一行一行淡淡標色，並捲到看得到的地方
-    func showSync(page index: Int, rect: CGRect) {
+    public func showSync(page index: Int, rect: CGRect) {
         guard let page = textPage(index) else { return }
         let lines = page.selection(for: rect.insetBy(dx: -1, dy: -1))?.selectionsByLine() ?? []
         var rects = lines.map { $0.bounds(for: page) }.filter { $0.width > 1 && $0.height > 1 }
@@ -125,7 +126,7 @@ final class PDFViewerController: ObservableObject {
     }
 
     /// 只標這幾段文字（句子等級的對照）
-    func showSync(page index: Int, ranges: [NSRange]) {
+    public func showSync(page index: Int, ranges: [NSRange]) {
         guard let page = textPage(index) else { return }
         let rects = ranges.flatMap { range in
             (page.selection(for: range)?.selectionsByLine() ?? []).map { $0.bounds(for: page) }
@@ -156,17 +157,17 @@ final class PDFViewerController: ObservableObject {
     /// 由 app 自己清掉選取（不是使用者取消反白）。選取改變的通知是非同步送來的，
     /// 所以記個時間：這之後短時間內收到的「選取變空」是 app 造成的。
     private var appClearedSelectionAt: Date?
-    var selectionWasClearedByApp: Bool {
+    public var selectionWasClearedByApp: Bool {
         appClearedSelectionAt.map { Date().timeIntervalSince($0) < 0.6 } ?? false
     }
 
-    func clearSelection() {
+    public func clearSelection() {
         guard pdfView?.currentSelection != nil else { return }
         appClearedSelectionAt = Date()
         pdfView?.clearSelection()
     }
 
-    func clearSync() {
+    public func clearSync() {
         for (page, a) in syncAnnotations { page.removeAnnotation(a) }
         syncAnnotations = []
     }
@@ -179,7 +180,7 @@ final class PDFViewerController: ObservableObject {
     private var charCache: [Int: [(i: Int, b: CGRect, s: String)]] = [:]
     private var boxCache: [String: (chars: [Character], idx: [Int])] = [:]
     /// 換了文件（例如新的譯文）就要丟掉
-    func resetTextCache() { charCache = [:]; boxCache = [:] }
+    public func resetTextCache() { charCache = [:]; boxCache = [:] }
 
     private func pageChars(_ index: Int) -> [(i: Int, b: CGRect, s: String)] {
         if let hit = charCache[index] { return hit }
@@ -225,7 +226,7 @@ final class PDFViewerController: ObservableObject {
         return (chars, idx)
     }
 
-    nonisolated static func loose(_ s: String) -> [Character] {
+    public nonisolated static func loose(_ s: String) -> [Character] {
         var t = s.lowercased()
         for (a, b) in [("ﬁ", "fi"), ("ﬂ", "fl"), ("ﬀ", "ff"), ("ﬃ", "ffi"), ("ﬄ", "ffl")] {
             t = t.replacingOccurrences(of: a, with: b)
@@ -238,7 +239,7 @@ final class PDFViewerController: ObservableObject {
     /// 這句話在段落方框裡的位置（page.string 的字元索引）。
     /// 以空白切成片段依序比對（公式、引用編號在對照資料裡是空白，PDF 裡卻有字），
     /// 片段之間允許夾少量多出來的字。實測 Das 2018：原文 96%、譯文 98% 的句子找得到。
-    func locate(_ sentence: String, page index: Int, within box: CGRect) -> [Int]? {
+    public func locate(_ sentence: String, page index: Int, within box: CGRect) -> [Int]? {
         let pieces = sentence.split(whereSeparator: { $0.isWhitespace })
             .map { Self.loose(String($0)) }.filter { !$0.isEmpty }
         guard let first = pieces.first, pieces.reduce(0, { $0 + $1.count }) >= 2 else { return nil }
@@ -266,13 +267,13 @@ final class PDFViewerController: ObservableObject {
     }
 
     /// 這些字有沒有包住這一點（掃描原檔用點的對照）
-    func charsContain(_ indices: [Int], page index: Int, point: CGPoint) -> Bool {
+    public func charsContain(_ indices: [Int], page index: Int, point: CGPoint) -> Bool {
         let wanted = Set(indices)
         return pageChars(index).contains { wanted.contains($0.i) && $0.b.insetBy(dx: -2, dy: -2).contains(point) }
     }
 
     /// 這些字有沒有落在目前的選取裡
-    func selectionTouches(_ indices: [Int], page index: Int) -> Bool {
+    public func selectionTouches(_ indices: [Int], page index: Int) -> Bool {
         guard let view = pdfView, let doc = view.document, let sel = view.currentSelection,
               let page = sel.pages.first, doc.index(for: page) == index else { return false }
         let lines = sel.selectionsByLine().map { $0.bounds(for: page).insetBy(dx: -0.5, dy: -0.5) }
@@ -283,7 +284,7 @@ final class PDFViewerController: ObservableObject {
     }
 
     /// 把字元索引併成連續範圍（中間隔幾個空白、標點也算連續）再標色
-    func showSync(page index: Int, indices: [Int]) {
+    public func showSync(page index: Int, indices: [Int]) {
         let sorted = Array(Set(indices)).sorted()
         guard var start = sorted.first else { return }
         var ranges: [NSRange] = [], last = start
@@ -300,7 +301,7 @@ final class PDFViewerController: ObservableObject {
 
     /// 沒有 align.json 時的退路：從選取的那幾行往上下延伸，行距正常就算同一段，
     /// 遇到大空白（段落間距）或換欄就停。
-    func paragraphRect(page index: Int, around rect: CGRect) -> CGRect? {
+    public func paragraphRect(page index: Int, around rect: CGRect) -> CGRect? {
         guard let page = textPage(index),
               let all = page.selection(for: page.bounds(for: .mediaBox))?.selectionsByLine() else { return nil }
         // 同一欄的行（水平方向跟選取重疊夠多），由上而下
@@ -321,14 +322,14 @@ final class PDFViewerController: ObservableObject {
     // MARK: 翻頁同步、引文跳轉、選取文字
 
     /// 翻頁時通知（並排對照用來同步另一邊）
-    var onPageChange: ((Int) -> Void)?
+    public var onPageChange: ((Int) -> Void)?
 
-    var currentPageIndex: Int? {
+    public var currentPageIndex: Int? {
         guard let view = pdfView, let page = view.currentPage, let doc = view.document else { return nil }
         return doc.index(for: page)
     }
 
-    func go(toPage index: Int) {
+    public func go(toPage index: Int) {
         guard let view = pdfView, let doc = view.document,
               index >= 0, index < doc.pageCount, let page = doc.page(at: index),
               view.currentPage != page else { return }
@@ -336,7 +337,7 @@ final class PDFViewerController: ObservableObject {
     }
 
     /// 選取的文字與它在第幾頁（1 起算），給「引用到提問」用
-    func selectionInfo() -> (text: String, page: Int)? {
+    public func selectionInfo() -> (text: String, page: Int)? {
         guard let view = pdfView, let sel = view.currentSelection,
               let text = sel.string?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
               let page = sel.pages.first, let doc = view.document else { return nil }
@@ -345,7 +346,7 @@ final class PDFViewerController: ObservableObject {
 
     /// 點了回答裡的引文：跳到那頁，並把那段原文選起來（找不到就只跳頁）。
     /// PDF 的文字常有斷行與連字號，整句找不到時改用前幾個字找。
-    func reveal(quote: String, page: Int) {
+    public func reveal(quote: String, page: Int) {
         guard let view = pdfView, let shown = view.document else { return }
         // 掃描原檔沒有文字：在 OCR 版裡找，找到後在原檔同一位置標出來
         let doc = textDocument ?? shown

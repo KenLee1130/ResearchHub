@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 import AppKit
 import WebKit
 import PDFKit
@@ -9,19 +10,20 @@ import PDFKit
 ///   用幾何猜焦點是橋接 bug 的根源，見 docs/ARCHITECTURE.md 第 3 節。）
 /// 尋找列貼在內容右上角（子視窗，跟著視窗移動）。
 @MainActor
-final class PageFinder {
+public final class PageFinder {
+    public init() {}
 
     private var panel: FindBarPanel?
 
     /// 在 target（原始碼 NSTextView、網頁、PDF）裡找。尋找列已開著就只把焦點放回去。
-    func show(in target: NSView) {
+    public func show(in target: NSView) {
         if refocusIfVisible() { return }
         present(for: target)
     }
 
     /// 尋找列開著（例如它自己的輸入框是 key）時再按 ⌘F：回到它。
     @discardableResult
-    func refocusIfVisible() -> Bool {
+    public func refocusIfVisible() -> Bool {
         guard let panel, panel.isVisible else { return false }
         panel.makeKeyAndOrderFront(nil)
         panel.focusField()
@@ -49,7 +51,7 @@ final class PageFinder {
 // MARK: - 找的方式
 
 @MainActor
-protocol FindEngine: AnyObject {
+public protocol FindEngine: AnyObject {
     /// 找 query；forward=false 往前找。回傳（第幾個, 共幾個），找不到回 (0, 0)
     func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int)
     func clear()
@@ -62,22 +64,22 @@ protocol FindEngine: AnyObject {
 }
 
 extension FindEngine {
-    var supportsReplace: Bool { false }
-    func replaceCurrent(_ query: String, with replacement: String) -> Bool { false }
-    func replaceAll(_ query: String, with replacement: String) -> Int { 0 }
+    public var supportsReplace: Bool { false }
+    public func replaceCurrent(_ query: String, with replacement: String) -> Bool { false }
+    public func replaceAll(_ query: String, with replacement: String) -> Int { 0 }
 }
 
 /// 原始碼編輯器：全部符合處淡黃底（暫時屬性，不動檔案內容／上色），目前這一個選起來並捲過去。
 /// 每次都從目前的文字重新找——中途編輯、重新載入都不會亂掉。
 /// （以前用 macOS 內建尋找列：放在 SwiftUI 版面裡，版面一變就跟編輯器斷開、按鈕失效甚至消失）
 @MainActor
-final class TextFindEngine: FindEngine {
+public final class TextFindEngine: FindEngine {
     private weak var textView: NSTextView?
     private var highlighted: [NSRange] = []
 
-    init(textView: NSTextView) { self.textView = textView }
+    public init(textView: NSTextView) { self.textView = textView }
 
-    func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
+    public func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
         guard let tv = textView, !query.isEmpty else {
             clear()
             return (0, 0)
@@ -116,11 +118,11 @@ final class TextFindEngine: FindEngine {
         return ranges
     }
 
-    var supportsReplace: Bool { true }
+    public var supportsReplace: Bool { true }
 
     // 直接改 textStorage（夾在 shouldChangeText／didChangeText 之間：會進 undo、會存檔），
     // 不用 insertText——那裡有「選取後打括號＝包住」之類的自訂行為，取代成 ( 會變成包住。
-    func replaceCurrent(_ query: String, with replacement: String) -> Bool {
+    public func replaceCurrent(_ query: String, with replacement: String) -> Bool {
         guard let tv = textView, tv.isEditable, !query.isEmpty else { return false }
         let sel = tv.selectedRange()
         let ns = tv.string as NSString
@@ -135,7 +137,7 @@ final class TextFindEngine: FindEngine {
         return true
     }
 
-    func replaceAll(_ query: String, with replacement: String) -> Int {
+    public func replaceAll(_ query: String, with replacement: String) -> Int {
         guard let tv = textView, tv.isEditable, !query.isEmpty else { return 0 }
         let ranges = matches(of: query, in: tv)
         guard !ranges.isEmpty,
@@ -166,7 +168,7 @@ final class TextFindEngine: FindEngine {
         highlighted = ranges
     }
 
-    func clear() {
+    public func clear() {
         guard let tv = textView, let lm = tv.layoutManager else { return }
         let length = (tv.string as NSString).length
         for r in highlighted where NSMaxRange(r) <= length {
@@ -179,13 +181,13 @@ final class TextFindEngine: FindEngine {
 /// 網頁（日記編輯器、筆記預覽）：WKWebView 內建的 find 會選取並捲到符合處；
 /// 總數用 JS 數畫面文字裡出現幾次（WebKit 沒有給數量）。
 @MainActor
-final class WebFindEngine: FindEngine {
+public final class WebFindEngine: FindEngine {
     private weak var webView: WKWebView?
     private var index = 0
 
-    init(webView: WKWebView) { self.webView = webView }
+    public init(webView: WKWebView) { self.webView = webView }
 
-    func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
+    public func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
         guard let webView, !query.isEmpty else { return (0, 0) }
         let total = await count(query, in: webView)
         guard total > 0 else { return (0, 0) }
@@ -214,20 +216,20 @@ final class WebFindEngine: FindEngine {
         return (try? await webView.evaluateJavaScript(js) as? Int) ?? 0
     }
 
-    func clear() {}
+    public func clear() {}
 }
 
 /// PDF：全部符合處標黃，目前這一個選起來並捲過去
 @MainActor
-final class PDFFindEngine: FindEngine {
+public final class PDFFindEngine: FindEngine {
     private weak var pdfView: PDFView?
     private var hits: [PDFSelection] = []
     private var lastQuery = ""
     private var index = -1
 
-    init(pdfView: PDFView) { self.pdfView = pdfView }
+    public init(pdfView: PDFView) { self.pdfView = pdfView }
 
-    func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
+    public func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
         guard let pdfView, let doc = pdfView.document, !query.isEmpty else {
             clear()
             return (0, 0)
@@ -252,7 +254,7 @@ final class PDFFindEngine: FindEngine {
         return (index + 1, hits.count)
     }
 
-    func clear() {
+    public func clear() {
         pdfView?.highlightedSelections = nil
         hits = []
     }
@@ -262,12 +264,12 @@ final class PDFFindEngine: FindEngine {
 
 /// 貼在內容右上角的小尋找列（子視窗：跟著主視窗移動、不會被內容蓋住）
 @MainActor
-final class FindBarPanel: NSPanel {
+public final class FindBarPanel: NSPanel {
     private let engine: FindEngine
     private let onClose: () -> Void
     private weak var target: NSView?
 
-    init(target: NSView, engine: FindEngine, onClose: @escaping () -> Void) {
+    public init(target: NSView, engine: FindEngine, onClose: @escaping () -> Void) {
         self.target = target
         self.engine = engine
         self.onClose = onClose
@@ -298,11 +300,11 @@ final class FindBarPanel: NSPanel {
     private var model: FindBarModel?
 
     // 無邊框面板預設不能接鍵盤
-    override var canBecomeKey: Bool { true }
+    public override var canBecomeKey: Bool { true }
 
-    func focusField() { model?.focusToken += 1 }
+    public func focusField() { model?.focusToken += 1 }
 
-    func show() {
+    public func show() {
         guard let target, let parent = target.window else { return }
         var inWindow = target.convert(target.visibleRect, to: nil)
         // 內容可能延伸到工具列底下（日記）：尋找列一律放在工具列下方，不要蓋住工具列的按鈕
@@ -318,7 +320,7 @@ final class FindBarPanel: NSPanel {
         DispatchQueue.main.async { [weak self] in self?.model?.focusToken += 1 }
     }
 
-    override func close() {
+    public override func close() {
         engine.clear()
         parent?.removeChildWindow(self)
         // 找完把焦點還給原本的內容（例如日記編輯器，可以直接接著打字）
@@ -330,43 +332,43 @@ final class FindBarPanel: NSPanel {
         onClose()
     }
 
-    override func cancelOperation(_ sender: Any?) { close() }
+    public override func cancelOperation(_ sender: Any?) { close() }
 }
 
 @MainActor
 @Observable
-final class FindBarModel {
-    var query = "" { didSet { if query != oldValue { run(forward: true, restart: true) } } }
-    var status = ""
-    var onClose: (() -> Void)?
+public final class FindBarModel {
+    public var query = "" { didSet { if query != oldValue { run(forward: true, restart: true) } } }
+    public var status = ""
+    public var onClose: (() -> Void)?
     /// 每加一就把焦點放到輸入框
-    var focusToken = 0
-    var replacement = ""
-    var showReplace = false { didSet { onResize?() } }
+    public var focusToken = 0
+    public var replacement = ""
+    public var showReplace = false { didSet { onResize?() } }
     /// 取代列展開／收起時讓面板跟著長高變矮
-    var onResize: (() -> Void)?
-    var supportsReplace: Bool { engine.supportsReplace }
+    public var onResize: (() -> Void)?
+    public var supportsReplace: Bool { engine.supportsReplace }
     private let engine: FindEngine
     private var task: Task<Void, Never>?
 
-    init(engine: FindEngine) { self.engine = engine }
+    public init(engine: FindEngine) { self.engine = engine }
 
     /// 「取代」：目前選到的是符合處就換掉，然後跳到下一個（還沒選到就先找到第一個）
-    func replaceOne() {
+    public func replaceOne() {
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return }
         _ = engine.replaceCurrent(q, with: replacement)
         run(forward: true, restart: false)
     }
 
-    func replaceAll() {
+    public func replaceAll() {
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return }
         let n = engine.replaceAll(q, with: replacement)
         status = n == 0 ? "找不到" : "已取代 \(n) 個"
     }
 
-    func run(forward: Bool, restart: Bool) {
+    public func run(forward: Bool, restart: Bool) {
         task?.cancel()
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else {
@@ -385,11 +387,11 @@ final class FindBarModel {
     }
 }
 
-struct FindBarView: View {
-    @Bindable var model: FindBarModel
+public struct FindBarView: View {
+    @Bindable public var model: FindBarModel
     @FocusState private var focused: Bool
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             findRow
             if model.showReplace { replaceRow }

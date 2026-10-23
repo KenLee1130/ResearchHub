@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ED170000000000000000B1 /* HubEditor in Frameworks */ = {isa = PBXBuildFile; productRef = ED170000000000000000A2 /* HubEditor */; };
+		ED170000000000000000B2 /* HubEditor in Frameworks */ = {isa = PBXBuildFile; productRef = ED170000000000000000A3 /* HubEditor */; };
+		ED170000000000000000B3 /* HubEditor in Frameworks */ = {isa = PBXBuildFile; productRef = ED170000000000000000A4 /* HubEditor */; };
 		570E0000000000000000B1 /* HubStore in Frameworks */ = {isa = PBXBuildFile; productRef = 570E0000000000000000A2 /* HubStore */; };
 		570E0000000000000000B2 /* HubStore in Frameworks */ = {isa = PBXBuildFile; productRef = 570E0000000000000000A3 /* HubStore */; };
 		570E0000000000000000B3 /* HubStore in Frameworks */ = {isa = PBXBuildFile; productRef = 570E0000000000000000A4 /* HubStore */; };
@@ -49,6 +52,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED170000000000000000B1 /* HubEditor in Frameworks */,
 				570E0000000000000000B1 /* HubStore in Frameworks */,
 				C0DE0000000000000000B1 /* HubCore in Frameworks */,
 			);
@@ -58,6 +62,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED170000000000000000B2 /* HubEditor in Frameworks */,
 				570E0000000000000000B2 /* HubStore in Frameworks */,
 				C0DE0000000000000000B2 /* HubCore in Frameworks */,
 			);
@@ -67,6 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED170000000000000000B3 /* HubEditor in Frameworks */,
 				570E0000000000000000B3 /* HubStore in Frameworks */,
 				C0DE0000000000000000B3 /* HubCore in Frameworks */,
 			);
@@ -114,6 +120,7 @@
 			);
 			name = ResearchHub;
 			packageProductDependencies = (
+				ED170000000000000000A2 /* HubEditor */,
 				570E0000000000000000A2 /* HubStore */,
 				C0DE0000000000000000A2 /* HubCore */,
 			);
@@ -138,6 +145,7 @@
 			);
 			name = ResearchHubMobile;
 			packageProductDependencies = (
+				ED170000000000000000A3 /* HubEditor */,
 				570E0000000000000000A3 /* HubStore */,
 				C0DE0000000000000000A3 /* HubCore */,
 			);
@@ -163,6 +171,7 @@
 			);
 			name = ResearchHubTests;
 			packageProductDependencies = (
+				ED170000000000000000A4 /* HubEditor */,
 				570E0000000000000000A4 /* HubStore */,
 				C0DE0000000000000000A4 /* HubCore */,
 			);
@@ -200,6 +209,7 @@
 			mainGroup = 73B515862FDA6DC200E2640B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				ED170000000000000000A1 /* XCLocalSwiftPackageReference "Packages/HubEditor" */,
 				570E0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/HubStore" */,
 				C0DE0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/HubCore" */,
 			);
@@ -272,6 +282,10 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		ED170000000000000000A1 /* XCLocalSwiftPackageReference "Packages/HubEditor" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/HubEditor;
+		};
 		570E0000000000000000A1 /* XCLocalSwiftPackageReference "Packages/HubStore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/HubStore;
@@ -802,6 +816,18 @@
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		ED170000000000000000A2 /* HubEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HubEditor;
+		};
+		ED170000000000000000A3 /* HubEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HubEditor;
+		};
+		ED170000000000000000A4 /* HubEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HubEditor;
+		};
 		570E0000000000000000A2 /* HubStore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = HubStore;

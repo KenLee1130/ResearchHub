@@ -2,21 +2,25 @@
 import AppKit
 
 /// 一筆補全建議。display = 清單上顯示的文字；insert = 接受時實際插入（cite 是 Zotero key）。
-struct CompletionItem {
-    let display: String
-    let insert: String
+public struct CompletionItem {
+    public let display: String
+    public let insert: String
     /// 參數補全：texFile＝\input{、image＝\includegraphics{、package＝\usepackage{、
     /// docClass＝\documentclass{、bibFile＝\bibliography{
-    enum Kind { case command, cite, env, eqref, noteLink, texFile, image, package, docClass, bibFile }
-    let kind: Kind
+    public enum Kind { case command, cite, env, eqref, noteLink, texFile, image, package, docClass, bibFile }
+    public let kind: Kind
     /// 清單上跟在後面的灰字（指令說明、符號長相）
-    var detail: String = ""
+    public var detail: String = ""
+
+    public init(display: String, insert: String, kind: Kind, detail: String = "") {
+        self.display = display; self.insert = insert; self.kind = kind; self.detail = detail
+    }
 }
 
 /// Overleaf 式浮動補全清單：非啟用面板（不搶焦點），由編輯器用方向鍵/Tab 控制，
 /// 滑鼠也可點選。不會像系統補全那樣強制把建議插進文字。
 @MainActor
-final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+public final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private let panel: NSPanel
     private let table = NSTableView()
     private let scroll = NSScrollView()
@@ -24,11 +28,11 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
     private let hintLabel = NSTextField(labelWithString: "")
     private static let hintHeight: CGFloat = 20
 
-    private(set) var items: [CompletionItem] = []
-    private(set) var selectedIndex = 0
-    var onAccept: ((CompletionItem) -> Void)?
+    public private(set) var items: [CompletionItem] = []
+    public private(set) var selectedIndex = 0
+    public var onAccept: ((CompletionItem) -> Void)?
 
-    override init() {
+    public override init() {
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 440, height: 180),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -78,9 +82,9 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
         panel.contentView = glass
     }
 
-    var isVisible: Bool { panel.isVisible }
+    public var isVisible: Bool { panel.isVisible }
 
-    func show(items: [CompletionItem], hint: String? = nil,
+    public func show(items: [CompletionItem], hint: String? = nil,
               below caretRect: NSRect, parent: NSWindow) {
         // 內容換了（例如多打一個字篩選）就回到第一筆：最符合的在最上面
         if items.map(\.insert) != self.items.map(\.insert) { selectedIndex = 0 }
@@ -116,19 +120,19 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
         selectRow(selectedIndex)
     }
 
-    func hide() {
+    public func hide() {
         guard panel.isVisible else { return }
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
     }
 
-    func move(by delta: Int) {
+    public func move(by delta: Int) {
         guard !items.isEmpty else { return }
         selectedIndex = (selectedIndex + delta + items.count) % items.count
         selectRow(selectedIndex)
     }
 
-    func acceptSelected() {
+    public func acceptSelected() {
         guard items.indices.contains(selectedIndex) else { return }
         onAccept?(items[selectedIndex])
     }
@@ -148,9 +152,9 @@ final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegat
 
     // MARK: - Table
 
-    func numberOfRows(in tableView: NSTableView) -> Int { items.count }
+    public func numberOfRows(in tableView: NSTableView) -> Int { items.count }
 
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+    public func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let id = NSUserInterfaceItemIdentifier("cell")
         let field = (tableView.makeView(withIdentifier: id, owner: self) as? NSTextField) ?? {
             let tf = NSTextField(labelWithString: "")

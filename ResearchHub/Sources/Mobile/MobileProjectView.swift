@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubEditor
 import HubCore
 import PDFKit
 

@@ -1,4 +1,5 @@
 import Foundation
+import HubEditor
 import HubCore
 import HubStore
 

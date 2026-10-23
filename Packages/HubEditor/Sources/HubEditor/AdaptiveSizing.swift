@@ -13,7 +13,7 @@ import SwiftUI
 ///   • 問最大（∞）→ ∞，有多少空間就佔多少
 ///   • 問理想（nil）→ 一個小的預設值，絕不回報內容的寬度
 /// 新增任何 representable 時都要照做。
-extension ProposedViewSize {
+public extension ProposedViewSize {
     var adaptive: CGSize {
         replacingUnspecifiedDimensions(by: CGSize(width: 100, height: 100))
     }
