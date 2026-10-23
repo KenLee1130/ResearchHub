@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 /// 首頁 v2：今天的工作台。

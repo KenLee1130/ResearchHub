@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import HubStore
 import Observation
 import PDFKit
 

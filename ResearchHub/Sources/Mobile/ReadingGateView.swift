@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubStore
 import UIKit
 
 /// 閱讀關卡畫面：讀 abstract → 答理解題 → 全對才放行回原本的 app。

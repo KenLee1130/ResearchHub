@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 /// 全 app 搜尋面板（⌘F／⌘K）：日記、筆記、LaTeX 專案、論文、一般待辦一起搜，點結果跳過去。

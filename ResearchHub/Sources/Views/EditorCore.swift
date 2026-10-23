@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 import AppKit
 import WebKit

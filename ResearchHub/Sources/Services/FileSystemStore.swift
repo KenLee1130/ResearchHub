@@ -1,4 +1,5 @@
 import SwiftUI
+import HubStore
 import HubCore
 import Observation
 import Combine
@@ -9,6 +10,10 @@ import UserNotifications
 @MainActor
 @Observable
 final class FileSystemStore {
+    // 這三個值型別搬到 HubStore 成頂層型別；留 typealias 讓既有呼叫處不用改
+    typealias TreeNode = LibraryTreeNode
+    typealias TodoItem = LibraryTodoItem
+    typealias RepeatedTodo = HubStore.RepeatedTodo
 
     private(set) var rootURL: URL?
     /// 從 Notes/ 開始的導航堆疊，最後一個是目前所在目錄。
@@ -363,19 +368,6 @@ final class FileSystemStore {
 
     // MARK: - 側欄檔案樹
 
-    nonisolated struct TreeNode: Identifiable, Hashable, Sendable {
-        let url: URL
-        let isFolder: Bool
-        /// LaTeX 專案：本身是資料夾，但當成一篇筆記看待（不展開內容）
-        var isProject: Bool = false
-        var children: [TreeNode]?
-
-        var id: URL { url }
-        var name: String {
-            (isFolder || isProject) ? url.lastPathComponent
-                                    : url.deletingPathExtension().lastPathComponent
-        }
-    }
 
     /// Notes/ 的完整樹狀結構（資料夾在前、排除 assets）
     func noteTree() -> [TreeNode] {
@@ -394,18 +386,6 @@ final class FileSystemStore {
         LibraryScan.recentNotes(notes: notesURL, limit: limit)
     }
 
-    nonisolated struct TodoItem: Identifiable, Hashable, Sendable {
-        let noteURL: URL
-        let lineIndex: Int
-        /// 原始文字（含 !high / @due 標記）
-        let text: String
-        let done: Bool
-        /// 解析後的標記（顯示用 cleanText、priority、due）
-        let meta: TodoMeta
-
-        var id: String { "\(noteURL.path)#\(lineIndex)" }
-        var noteName: String { noteURL.deletingPathExtension().lastPathComponent }
-    }
 
     /// 安全讀檔：iCloud 佔位檔（尚未下載到本機）同步讀取會阻塞到下載完成，
     /// 在 iOS 主執行緒上會被 watchdog 砍掉（0x8BADF00D 黑畫面閃退）。
@@ -555,13 +535,6 @@ final class FileSystemStore {
     // MARK: - 日記重複待辦
 
     /// 同一句待辦在多天日記重複出現（且都沒完成）的彙整。
-    nonisolated struct RepeatedTodo: Identifiable, Hashable, Sendable {
-        let text: String
-        /// 出現且未完成的日記日期（由舊到新）
-        let dates: [Date]
-        var count: Int { dates.count }
-        var id: String { text }
-    }
 
     /// 掃描 Journal/ 中重複出現的未完成待辦：
     /// 同一句「- [ ] 文字」出現在 minCount 天以上的日記 → 回報次數。

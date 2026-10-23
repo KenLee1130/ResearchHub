@@ -10,10 +10,10 @@ import CryptoKit
 /// 什麼時候存：每次編譯、編輯中每 10 分鐘（內容沒變就不存）、還原前。
 /// 保留：最近 7 天全部；更早的每天只留最後一份；沒人用的 blob 順手清掉。
 /// 只記文字檔（.tex/.bib/.sty/.cls…），圖片和 PDF 不記。
-nonisolated enum LatexHistory {
-    enum Trigger: String, Codable, Sendable {
+public nonisolated enum LatexHistory {
+    public enum Trigger: String, Codable, Sendable {
         case compile, auto, beforeRestore
-        var label: String {
+        public var label: String {
             switch self {
             case .compile: "編譯"
             case .auto: "自動"
@@ -22,21 +22,21 @@ nonisolated enum LatexHistory {
         }
     }
 
-    struct Snapshot: Codable, Identifiable, Hashable, Sendable {
-        var date: Date
-        var trigger: Trigger
+    public struct Snapshot: Codable, Identifiable, Hashable, Sendable {
+        public var date: Date
+        public var trigger: Trigger
         /// 相對專案根目錄的路徑 → blob 雜湊
-        var files: [String: String]
+        public var files: [String: String]
         /// 存在哪個檔（讀進來時填；不寫進 JSON）。清理時照這個刪，
         /// 不能用日期反推檔名——日期存進 JSON 會少掉毫秒，反推出來的名字對不上
-        var fileName = ""
-        var id: Date { date }
+        public var fileName = ""
+        public var id: Date { date }
 
-        enum CodingKeys: String, CodingKey { case date, trigger, files }
+        public enum CodingKeys: String, CodingKey { case date, trigger, files }
     }
 
-    static let keepAllDays = 7
-    static let textExtensions: Set<String> = ["tex", "bib", "sty", "cls", "bst", "txt", "md", "bbx", "cbx"]
+    public static let keepAllDays = 7
+    public static let textExtensions: Set<String> = ["tex", "bib", "sty", "cls", "bst", "txt", "md", "bbx", "cbx"]
     private static let maxFileBytes = 2_000_000
 
     // MARK: - 位置
@@ -63,7 +63,7 @@ nonisolated enum LatexHistory {
 
     /// 目前專案裡所有文字檔（相對路徑 → 內容）。讀不到的檔（iCloud 還沒下載）回 nil：
     /// 那次就不存，免得記成「檔案被刪了」。
-    static func currentFiles(of project: URL) -> [String: String]? {
+    public static func currentFiles(of project: URL) -> [String: String]? {
         let root = project.standardizedFileURL.path + "/"
         guard let walker = FileManager.default.enumerator(
             at: project, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
@@ -73,7 +73,7 @@ nonisolated enum LatexHistory {
             guard textExtensions.contains(url.pathExtension.lowercased()),
                   let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
                   values.isRegularFile == true, (values.fileSize ?? 0) <= maxFileBytes else { continue }
-            guard let text = FileSystemStore.safeRead(url) else { return nil }
+            guard let text = ICloudFile.safeRead(url) else { return nil }
             let path = url.standardizedFileURL.path
             guard path.hasPrefix(root) else { continue }
             files[String(path.dropFirst(root.count))] = text
@@ -83,7 +83,7 @@ nonisolated enum LatexHistory {
 
     /// 存一份快照；跟上一份一模一樣就不存。在背景執行緒呼叫。
     @discardableResult
-    static func snapshot(_ project: URL, trigger: Trigger) -> Bool {
+    public static func snapshot(_ project: URL, trigger: Trigger) -> Bool {
         guard let files = currentFiles(of: project), !files.isEmpty else { return false }
         let fm = FileManager.default
         let blobs = blobsDir(project)
@@ -112,7 +112,7 @@ nonisolated enum LatexHistory {
     }
 
     /// 全部快照，新的在前
-    static func snapshots(of project: URL) -> [Snapshot] {
+    public static func snapshots(of project: URL) -> [Snapshot] {
         let dir = snapshotsDir(project)
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return [] }
         let decoder = JSONDecoder()
@@ -127,8 +127,8 @@ nonisolated enum LatexHistory {
             .sorted { $0.date > $1.date }
     }
 
-    static func content(_ hash: String, in project: URL) -> String? {
-        FileSystemStore.safeRead(blobsDir(project).appendingPathComponent(hash))
+    public static func content(_ hash: String, in project: URL) -> String? {
+        ICloudFile.safeRead(blobsDir(project).appendingPathComponent(hash))
     }
 
     // MARK: - 清理
@@ -160,7 +160,7 @@ nonisolated enum LatexHistory {
     // MARK: - 還原
 
     /// 把一個檔案寫回快照裡的內容（先存一份「還原前」）
-    static func restore(file path: String, from snap: Snapshot, in project: URL) -> Bool {
+    public static func restore(file path: String, from snap: Snapshot, in project: URL) -> Bool {
         guard let hash = snap.files[path], let text = content(hash, in: project) else { return false }
         snapshot(project, trigger: .beforeRestore)
         let url = project.appendingPathComponent(path)
@@ -171,13 +171,13 @@ nonisolated enum LatexHistory {
 
     /// 整個專案的文字檔寫回快照（先存一份「還原前」）。快照之後才新增的檔案不刪，
     /// 免得還原一下就把新寫的東西弄不見；回傳還原了幾個檔。
-    static func restoreAll(from snap: Snapshot, in project: URL) -> Int {
+    public static func restoreAll(from snap: Snapshot, in project: URL) -> Int {
         snapshot(project, trigger: .beforeRestore)
         var restored = 0
         for (path, hash) in snap.files {
             guard let text = content(hash, in: project) else { continue }
             let url = project.appendingPathComponent(path)
-            if FileSystemStore.safeRead(url) == text { continue }
+            if ICloudFile.safeRead(url) == text { continue }
             try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                      withIntermediateDirectories: true)
             if (try? text.write(to: url, atomically: true, encoding: .utf8)) != nil { restored += 1 }
@@ -187,16 +187,16 @@ nonisolated enum LatexHistory {
 
     // MARK: - 差異
 
-    struct DiffLine: Hashable, Sendable {
-        enum Kind: Hashable, Sendable { case same, added, removed, gap }
-        var kind: Kind
-        var text: String
+    public struct DiffLine: Hashable, Sendable {
+        public enum Kind: Hashable, Sendable { case same, added, removed, gap }
+        public var kind: Kind
+        public var text: String
         /// 新版的行號（刪掉的行沒有）；gap 時是省略的行數
-        var number: Int?
+        public var number: Int?
     }
 
     /// 逐行差異，只留改動處前後 3 行，其餘折成「⋯ N 行相同」
-    static func diff(old: String, new: String, context: Int = 3) -> [DiffLine] {
+    public static func diff(old: String, new: String, context: Int = 3) -> [DiffLine] {
         let a = old.components(separatedBy: "\n"), b = new.components(separatedBy: "\n")
         let changes = b.difference(from: a)
         var removed = Set<Int>(), inserted = Set<Int>()
@@ -238,7 +238,7 @@ nonisolated enum LatexHistory {
     }
 
     /// (加幾行, 刪幾行)
-    static func lineCounts(old: String?, new: String?) -> (added: Int, removed: Int) {
+    public static func lineCounts(old: String?, new: String?) -> (added: Int, removed: Int) {
         let a = old.map { $0.components(separatedBy: "\n") } ?? []
         let b = new.map { $0.components(separatedBy: "\n") } ?? []
         var added = 0, removed = 0

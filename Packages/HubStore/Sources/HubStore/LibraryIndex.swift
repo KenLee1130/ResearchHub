@@ -1,16 +1,15 @@
 import Foundation
 import HubCore
-import UserNotifications
 
 /// 一行待辦（`- [ ]` 或 `- [x]`）解析後的結果。
-nonisolated struct TodoLine: Sendable {
-    let lineIndex: Int
+public nonisolated struct TodoLine: Sendable {
+    public let lineIndex: Int
     /// checkbox 後面的原始文字（含 !high / @due 標記）
-    let text: String
-    let done: Bool
-    let meta: TodoMeta
+    public let text: String
+    public let done: Bool
+    public let meta: TodoMeta
     /// TodoMeta.dedupKey 要跑兩次 regex，播種時每行都會問，所以先算好
-    let dedupKey: String
+    public let dedupKey: String
 }
 
 /// 整個資料夾的待辦索引：每個 .md 檔解析一次，結果留在記憶體裡，
@@ -21,8 +20,8 @@ nonisolated struct TodoLine: Sendable {
 /// 的修改時間」，有變動的檔才會真的被讀。
 ///
 /// 可以從任何執行緒呼叫（內部用鎖保護）。
-nonisolated final class LibraryIndex: @unchecked Sendable {
-    static let shared = LibraryIndex()
+public nonisolated final class LibraryIndex: @unchecked Sendable {
+    public static let shared = LibraryIndex()
 
     private struct Entry {
         let modified: Date
@@ -36,7 +35,7 @@ nonisolated final class LibraryIndex: @unchecked Sendable {
     private var entries: [String: Entry] = [:]
 
     /// 這個檔裡的待辦行。檔案讀不到（例如還在 iCloud 上沒下載）回 nil。
-    func todoLines(in url: URL) -> [TodoLine]? {
+    public func todoLines(in url: URL) -> [TodoLine]? {
         let path = url.path
         var probe = url
         probe.removeAllCachedResourceValues()
@@ -53,7 +52,7 @@ nonisolated final class LibraryIndex: @unchecked Sendable {
         }
         lock.unlock()
 
-        guard let content = FileSystemStore.safeRead(url) else { return nil }
+        guard let content = ICloudFile.safeRead(url) else { return nil }
         let lines = Self.parse(content)
         lock.lock()
         entries[path] = Entry(modified: modified, size: size, parsedDay: today, lines: lines)
@@ -61,7 +60,7 @@ nonisolated final class LibraryIndex: @unchecked Sendable {
         return lines
     }
 
-    static func parse(_ content: String) -> [TodoLine] {
+    public static func parse(_ content: String) -> [TodoLine] {
         var result: [TodoLine] = []
         for (i, line) in content.components(separatedBy: "\n").enumerated() {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -81,10 +80,10 @@ nonisolated final class LibraryIndex: @unchecked Sendable {
 
 /// 全資料夾的掃描（待辦、重複待辦、每日播種…）。
 /// 全部是不綁主執行緒的純函式：畫面在背景算好再一次換上，打字和捲動不會被擋。
-nonisolated enum LibraryScan {
+public nonisolated enum LibraryScan {
 
     /// 開 app 時在背景把所有筆記與日記解析一遍，之後畫面要資料就都是現成的。
-    static func warm(notes: URL?, journal: URL?) {
+    public static func warm(notes: URL?, journal: URL?) {
         for url in noteURLs(notes: notes) { _ = LibraryIndex.shared.todoLines(in: url) }
         for (url, _) in journalFiles(journal: journal) { _ = LibraryIndex.shared.todoLines(in: url) }
     }
@@ -92,12 +91,12 @@ nonisolated enum LibraryScan {
     // MARK: 側欄檔案樹
 
     /// Notes/ 的完整樹狀結構（資料夾在前、排除 assets）
-    static func noteTree(notes: URL?) -> [FileSystemStore.TreeNode] {
+    public static func noteTree(notes: URL?) -> [LibraryTreeNode] {
         guard let notes else { return [] }
         return treeChildren(of: notes, depth: 0)
     }
 
-    private static func treeChildren(of dir: URL, depth: Int) -> [FileSystemStore.TreeNode] {
+    private static func treeChildren(of dir: URL, depth: Int) -> [LibraryTreeNode] {
         guard depth < 8,
               let urls = try? FileManager.default.contentsOfDirectory(
                 at: dir,
@@ -105,22 +104,22 @@ nonisolated enum LibraryScan {
                 options: [.skipsHiddenFiles])
         else { return [] }
 
-        var nodes: [FileSystemStore.TreeNode] = []
+        var nodes: [LibraryTreeNode] = []
         for url in urls {
             let isFolder = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
             if isFolder {
                 guard url.lastPathComponent != "assets" else { continue }
                 // LaTeX 專案是「一個資料夾＝一篇筆記」，所以當成葉節點，不展開裡面的 .tex
                 if LatexProject.isProject(url) {
-                    nodes.append(FileSystemStore.TreeNode(url: url, isFolder: false,
+                    nodes.append(LibraryTreeNode(url: url, isFolder: false,
                                                           isProject: true, children: nil))
                     continue
                 }
-                nodes.append(FileSystemStore.TreeNode(
+                nodes.append(LibraryTreeNode(
                     url: url, isFolder: true,
                     children: treeChildren(of: url, depth: depth + 1)))
             } else if url.pathExtension.lowercased() == "md" {
-                nodes.append(FileSystemStore.TreeNode(url: url, isFolder: false, children: nil))
+                nodes.append(LibraryTreeNode(url: url, isFolder: false, children: nil))
             }
         }
         return nodes.sorted { a, b in
@@ -132,7 +131,7 @@ nonisolated enum LibraryScan {
     // MARK: 檔案清單
 
     /// 所有筆記檔（排除 assets/）
-    static func noteURLs(notes: URL?) -> [URL] {
+    public static func noteURLs(notes: URL?) -> [URL] {
         guard let notes,
               let enumerator = FileManager.default.enumerator(
                 at: notes, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
@@ -147,10 +146,10 @@ nonisolated enum LibraryScan {
     }
 
     /// 所有日記檔與其日期（檔名 yyyy-MM-dd.md）。
-    static func journalFiles(journal: URL?) -> [(URL, Date)] { JournalLayout.journalFiles(journal: journal) }
+    public static func journalFiles(journal: URL?) -> [(URL, Date)] { JournalLayout.journalFiles(journal: journal) }
 
     /// 某日的日記檔路徑
-    static func journalURL(for date: Date, journal: URL?) -> URL? {
+    public static func journalURL(for date: Date, journal: URL?) -> URL? {
         guard let journal else { return nil }
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -162,7 +161,7 @@ nonisolated enum LibraryScan {
     }
 
     /// 最近修改的筆記
-    static func recentNotes(notes: URL?, limit: Int) -> [FileItem] {
+    public static func recentNotes(notes: URL?, limit: Int) -> [FileItem] {
         noteURLs(notes: notes)
             .map { url in
                 let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey])
@@ -176,18 +175,18 @@ nonisolated enum LibraryScan {
 
     // MARK: 待辦
 
-    private static func items(in url: URL, includeDone: Bool) -> [FileSystemStore.TodoItem] {
+    private static func items(in url: URL, includeDone: Bool) -> [LibraryTodoItem] {
         (LibraryIndex.shared.todoLines(in: url) ?? []).compactMap { line in
             if line.done && !includeDone { return nil }
-            return FileSystemStore.TodoItem(
+            return LibraryTodoItem(
                 noteURL: url, lineIndex: line.lineIndex, text: line.text,
                 done: line.done, meta: line.meta)
         }
     }
 
     /// 彙整所有筆記中的 - [ ] / - [x]，依優先級（高→低）、到期日（近→遠）排序。
-    static func noteTodos(notes: URL?, includeDone: Bool) -> [FileSystemStore.TodoItem] {
-        var result: [FileSystemStore.TodoItem] = []
+    public static func noteTodos(notes: URL?, includeDone: Bool) -> [LibraryTodoItem] {
+        var result: [LibraryTodoItem] = []
         for url in noteURLs(notes: notes) {
             result += items(in: url, includeDone: includeDone)
         }
@@ -203,12 +202,12 @@ nonisolated enum LibraryScan {
     }
 
     /// 帶日期類標記（due/from/every/remind/est）的待辦（日記＋筆記），依到期日排序。
-    static func markerTodos(notes: URL?, journal: URL?, includeDone: Bool) -> [FileSystemStore.TodoItem] {
+    public static func markerTodos(notes: URL?, journal: URL?, includeDone: Bool) -> [LibraryTodoItem] {
         func hasDateMarkers(_ meta: TodoMeta) -> Bool {
             meta.due != nil || meta.from != nil || meta.everyWeekdays != nil
                 || meta.onDates != nil || meta.remind != nil || meta.estMinutes != nil
         }
-        var result: [FileSystemStore.TodoItem] = []
+        var result: [LibraryTodoItem] = []
         for (url, _) in journalFiles(journal: journal) {
             result += items(in: url, includeDone: includeDone).filter { hasDateMarkers($0.meta) }
         }
@@ -217,10 +216,10 @@ nonisolated enum LibraryScan {
     }
 
     /// 關鍵字搜尋：日記＋筆記的待辦行（含已完成、含無標記的）。
-    static func searchTodos(keyword: String, notes: URL?, journal: URL?) -> [FileSystemStore.TodoItem] {
+    public static func searchTodos(keyword: String, notes: URL?, journal: URL?) -> [LibraryTodoItem] {
         let q = keyword.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return [] }
-        var result: [FileSystemStore.TodoItem] = []
+        var result: [LibraryTodoItem] = []
         for (url, _) in journalFiles(journal: journal) {
             result += items(in: url, includeDone: true)
                 .filter { $0.text.localizedCaseInsensitiveContains(q) }
@@ -232,7 +231,7 @@ nonisolated enum LibraryScan {
 
     /// Journal/ 中重複出現的未完成待辦：同一句出現在 minCount 天以上 → 回報次數。
     /// 比對時剝掉 !high / @due 標記，同一件事加不加標記都算同一件。
-    static func repeatedJournalTodos(journal: URL?, minCount: Int) -> [FileSystemStore.RepeatedTodo] {
+    public static func repeatedJournalTodos(journal: URL?, minCount: Int) -> [RepeatedTodo] {
         var occurrences: [String: Set<Date>] = [:]
         for (url, day) in journalFiles(journal: journal) {
             for line in LibraryIndex.shared.todoLines(in: url) ?? [] where !line.done {
@@ -247,7 +246,7 @@ nonisolated enum LibraryScan {
         }
         return occurrences
             .filter { $0.value.count >= minCount }
-            .map { FileSystemStore.RepeatedTodo(text: $0.key, dates: $0.value.sorted()) }
+            .map { RepeatedTodo(text: $0.key, dates: $0.value.sorted()) }
             .sorted { a, b in
                 if a.count != b.count { return a.count > b.count }
                 return a.text.localizedStandardCompare(b.text) == .orderedAscending
@@ -257,7 +256,7 @@ nonisolated enum LibraryScan {
     // MARK: 每日播種：@due/@from/@every 的獨立日副本 + @remind 通知
 
     /// 冪等播種（規則見 FileSystemStore.seedTodos 的說明）。
-    static func seedTodos(for date: Date, generalTexts: [String], notes: URL?, journal: URL?) {
+    public static func seedTodos(for date: Date, generalTexts: [String], notes: URL?, journal: URL?) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
         let day = cal.startOfDay(for: date)
@@ -316,7 +315,7 @@ nonisolated enum LibraryScan {
         if !toSeed.isEmpty {
             // 那天的日記在 iCloud 上但還沒下載到：不能當成空的寫回去，這次先不播
             let exists = FileManager.default.fileExists(atPath: targetURL.path)
-            if let content = FileSystemStore.safeRead(targetURL) {
+            if let content = ICloudFile.safeRead(targetURL) {
                 appendTodoLines(toSeed, existingContent: content, to: targetURL)
             } else if !exists {
                 appendTodoLines(toSeed, existingContent: "", to: targetURL)
@@ -327,31 +326,29 @@ nonisolated enum LibraryScan {
         }
     }
 
-    /// @remind：未完成且時刻在未來的 → 排程推播（id 固定為內容，重排自動覆蓋）。
+    /// 一則要排程的 @remind 提醒
+    public struct Reminder: Sendable, Hashable {
+        public let text: String
+        public let at: Date
+    }
+
+    /// 推播由 app 接手（UserNotifications 不進 HubStore）：app 啟動時指定；沒指定就不排。
+    nonisolated(unsafe) public static var reminderScheduler: (@Sendable ([Reminder]) -> Void)?
+
+    /// @remind：未完成且時刻在未來的 → 交給 reminderScheduler（id 固定為內容，重排自動覆蓋）。
     private static func scheduleReminders(for raws: [String]) {
-        let reminders: [(text: String, at: Date)] = raws.compactMap { raw in
+        let reminders: [Reminder] = raws.compactMap { raw in
             guard raw.contains("@remind") else { return nil }
             let meta = TodoMeta.parse(raw)
             guard let remind = meta.remind, remind > .now else { return nil }
-            return (meta.cleanText, remind)
+            return Reminder(text: meta.cleanText, at: remind)
         }
         guard !reminders.isEmpty else { return }   // 不碰通知中心（也讓無 bundle 的測試環境能跑）
-        let center = UNUserNotificationCenter.current()
-        for r in reminders {
-            let content = UNMutableNotificationContent()
-            content.title = "⏰ \(r.text)"
-            content.sound = .default
-            let comps = Calendar.current.dateComponents(
-                [.year, .month, .day, .hour, .minute], from: r.at)
-            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-            center.add(UNNotificationRequest(
-                identifier: "todo.remind.\(r.text)",
-                content: content, trigger: trigger))
-        }
+        reminderScheduler?(reminders)
     }
 
     /// 把待辦行（不含 checkbox 前綴）附加到日記檔尾端，項目之間留空行。
-    static func appendTodoLines(_ raws: [String], existingContent: String, to url: URL) {
+    public static func appendTodoLines(_ raws: [String], existingContent: String, to url: URL) {
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         var content = existingContent
@@ -364,15 +361,15 @@ nonisolated enum LibraryScan {
     // MARK: 首頁
 
     /// 首頁需要的全部資料，一次在背景算好。
-    struct HomeSnapshot: Sendable {
-        var recentNotes: [FileItem] = []
-        var todos: [FileSystemStore.TodoItem] = []
-        var repeatedTodos: [FileSystemStore.RepeatedTodo] = []
-        var noteCount = 0
-        var journalPreview: String?
+    public struct HomeSnapshot: Sendable {
+        public var recentNotes: [FileItem] = []
+        public var todos: [LibraryTodoItem] = []
+        public var repeatedTodos: [RepeatedTodo] = []
+        public var noteCount = 0
+        public var journalPreview: String?
     }
 
-    static func homeSnapshot(notes: URL?, journal: URL?, generalTexts: [String]) -> HomeSnapshot {
+    public static func homeSnapshot(notes: URL?, journal: URL?, generalTexts: [String]) -> HomeSnapshot {
         // 先播種（可能會在今天的日記補上待辦），再讀
         seedTodos(for: .now, generalTexts: generalTexts, notes: notes, journal: journal)
         var snap = HomeSnapshot()
@@ -381,7 +378,7 @@ nonisolated enum LibraryScan {
         snap.noteCount = noteURLs(notes: notes).count
         snap.repeatedTodos = repeatedJournalTodos(journal: journal, minCount: 2)
         if let url = journalURL(for: .now, journal: journal),
-           let content = FileSystemStore.safeRead(url) {
+           let content = ICloudFile.safeRead(url) {
             let preview = content
                 .components(separatedBy: "\n")
                 .map { $0.trimmingCharacters(in: .whitespaces) }

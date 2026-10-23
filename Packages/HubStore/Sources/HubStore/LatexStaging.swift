@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import HubCore
 import CryptoKit
 
 /// 沙盒外小幫手的工作區。
@@ -12,16 +13,16 @@ import CryptoKit
 /// 所以規矩是：**小幫手只准碰純本機路徑**，iCloud 那側的讀寫一律由 app 自己做。
 /// 編譯時把專案原始檔鏡射到 app 容器的 Caches/latex/<雜湊>/src，小幫手在那裡編譯，
 /// 成品 PDF 再由 app 搬回 <專案>/.researchhub/output.pdf。
-nonisolated enum LatexStaging {
+public nonisolated enum LatexStaging {
     /// LaTeX 的編譯中間檔。鏡射時不能因為「專案裡沒有」就把它們刪掉——
     /// latexmk 要靠這些檔案做增量編譯。
-    static let artifactExtensions: Set<String> = [
+    public static let artifactExtensions: Set<String> = [
         "aux", "log", "pdf", "fls", "fdb_latexmk", "gz", "out", "toc", "lof", "lot",
         "bbl", "blg", "bcf", "xml", "xdv", "nav", "snm", "vrb", "idx", "ind", "ilg", "dvi"
     ]
 
     /// app 容器裡的編譯工作區（用專案路徑的雜湊當資料夾名，每個專案各自獨立）。
-    static func workDir(for project: URL) -> URL {
+    public static func workDir(for project: URL) -> URL {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let digest = SHA256.hash(data: Data(project.standardizedFileURL.path.utf8))
             .prefix(8).map { String(format: "%02x", $0) }.joined()
@@ -29,7 +30,7 @@ nonisolated enum LatexStaging {
     }
 
     /// 一次性的暫存資料夾（匯入 zip、打包匯出用完就丟）。
-    static func scratchDir() throws -> URL {
+    public static func scratchDir() throws -> URL {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let url = caches.appendingPathComponent("latex/scratch/\(UUID().uuidString)",
                                                 isDirectory: true)
@@ -38,7 +39,7 @@ nonisolated enum LatexStaging {
     }
 
     /// 專案 → 工作區的單向鏡射（大小或修改時間不一樣才複製）。
-    static func sync(project: URL, to dest: URL) throws {
+    public static func sync(project: URL, to dest: URL) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
 
@@ -94,7 +95,7 @@ nonisolated enum LatexStaging {
     }
 
     /// 把整棵樹複製過去（匯入專案用；略過 .researchhub 與 .DS_Store 之類的隱藏檔）。
-    static func copyTree(from src: URL, to dest: URL) throws {
+    public static func copyTree(from src: URL, to dest: URL) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
         guard let walker = fm.enumerator(at: src, includingPropertiesForKeys: [.isDirectoryKey],

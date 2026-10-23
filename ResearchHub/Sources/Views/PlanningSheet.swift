@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 /// 晚間規劃儀式：左邊直接寫明天的日記，右邊是你的生產力節奏、

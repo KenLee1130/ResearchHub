@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubStore
 import HubCore
 import UIKit
 import UniformTypeIdentifiers
@@ -15,6 +16,7 @@ struct ResearchHubMobileApp: App {
 
     init() {
         LanguageManager.activate()
+        ReminderScheduler.install()   // @remind 推播由 app 排程（HubStore 不碰 UserNotifications）
         LanguageManager.apply(UserDefaults.standard.string(forKey: "settings.language"))
     }
 
