@@ -3,6 +3,9 @@
 macOS + iOS SwiftUI app（日記 + 筆記 + 事件 + 番茄鐘）。所有資料都是純文字檔，
 Claude 可以直接讀寫下列檔案來參與工作流程。
 
+> 程式碼結構（套件分層、命令路由、搜尋 scope、擴充功能模板、重構順序）見
+> `docs/ARCHITECTURE.md`；改 code 前先對照該文件決定改動歸哪個套件。
+
 > ⚠️ **本 repo 只有程式碼。使用者的資料（根資料夾）在
 > `~/Library/Mobile Documents/com~apple~CloudDocs/ResearchHubLibrary/`**
 > （iCloud Drive，Mac 與 iPhone 共用）。下表的相對路徑都以那裡為準；

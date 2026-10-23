@@ -18,7 +18,8 @@ final class FileSystemStore {
     // 跨分頁導航與全域搜尋
     var requestedTab: AppTab?
     var pendingOpenNote: URL?
-    var searchPresented = false
+    /// 全 app 搜尋點了某篇論文：論文頁出現時選它、然後清空
+    var requestedPaperKey: String?
     /// researchhub://journal?date=… 要求開啟的日記日（JournalView 消化後清空）
     var pendingJournalDate: Date?
 
@@ -81,7 +82,13 @@ final class FileSystemStore {
         adopt(root: url)
     }
 
+    /// 單元測試跑在 app 裡（test host）：不要還原使用者的資料夾，測試只用自建的暫存 fixture。
+    nonisolated static let isRunningTests: Bool =
+        NSClassFromString("XCTestCase") != nil
+        || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
     private func restoreRoot() {
+        guard !Self.isRunningTests else { return }
         guard let data = UserDefaults.standard.data(forKey: Self.bookmarkKey) else { return }
         var stale = false
         guard let url = try? URL(

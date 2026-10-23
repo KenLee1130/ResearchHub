@@ -30,6 +30,8 @@ struct RootView: View {
     @State private var notesExpanded = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var hostWindow: NSWindow?
+    /// 搜尋面板：每個視窗自己的（以前放在共用 store，開多個分頁時每個分頁都跳出來）
+    @State private var searchPresented = false
     @Environment(\.openWindow) private var openWindow
     /// 側欄筆記樹正在就地改名的項目
     @State private var renamingNode: URL?
@@ -41,6 +43,10 @@ struct RootView: View {
     static let newTabNotification = Notification.Name("RootView.newTab")
     /// 按「＋」時記下要併進哪個視窗；新視窗的 EarlyWindowHook 一拿到自己就直接掛上去
     static weak var pendingTabHost: NSWindow?
+    /// 「編輯 → 搜尋…」（⌘F／⌘K）
+    static let searchNotification = Notification.Name("RootView.search")
+    /// 所有主視窗（分頁）。⌘F 在 LaTeX／筆記獨立視窗按時，交給最前面的主視窗處理
+    static let rootWindows = NSHashTable<NSWindow>.weakObjects()
     /// 側欄寬度，只由右緣的自訂把手改變（見 SidebarSplitControl）。
     /// 最窄可以縮到只剩圖示。
     @AppStorage("sidebarWidth") private var sidebarWidth: Double = 200
@@ -166,7 +172,8 @@ struct RootView: View {
             if FileManager.default.fileExists(atPath: dest.path) {
                 try FileManager.default.removeItem(at: dest)
             }
-            try FileManager.default.copyItem(at: node.url, to: dest)
+            // iCloud 裡的檔案可能帶「隱藏」旗標，複製會一起帶過去 → 拿掉，否則 Finder 看不到
+            try FileExport.copyVisible(node.url, to: dest)
         } catch {
             store.errorMessage = error.localizedDescription
         }
@@ -174,8 +181,26 @@ struct RootView: View {
 
     /// 開成目前視窗的一個新分頁（筆記用 note 視窗、LaTeX 專案用 latex 視窗）
     private func openInNewTab(_ node: TreeNode) {
+        openInNewTab(node.url, isProject: node.isProject)
+    }
+
+    /// 新視窗一定要在「顯示的當下」就是分頁。等它顯示出來才併的話，全螢幕時系統已經先
+    /// 把它丟到另一個 Space：分頁列看起來正常，但之後切分頁、選字跳出書寫工具小按鈕、
+    /// 複製貼上時，畫面會被拉去一個空白桌面。
+    ///
+    /// 做法：開之前把目前視窗的 tabbingIdentifier 暫時改成新視窗那種
+    /// （SwiftUI 給 WindowGroup(id:) 的是 "SwiftUI-WindowGroup-<id>"），
+    /// 全螢幕時 AppKit 會在 openWindow 裡顯示的那一刻自己把它併成分頁。
+    /// EarlyWindowHook（NoteWindowView／LatexProjectWindowView）與 attachAsTab 是備援：
+    /// 非全螢幕時系統不自動併，或 SwiftUI 改了命名規則。
+    private func openInNewTab(_ url: URL, isProject: Bool) {
+        let id = isProject ? "latex" : "note"
         let before = Set(NSApp.windows.map(ObjectIdentifier.init))
-        openWindow(id: node.isProject ? "latex" : "note", value: node.url)
+        Self.pendingTabHost = hostWindow
+        let originalIdentifier = hostWindow?.tabbingIdentifier
+        hostWindow?.tabbingIdentifier = "SwiftUI-WindowGroup-\(id)"
+        openWindow(id: id, value: url)   // 同步建立並顯示
+        if let originalIdentifier { hostWindow?.tabbingIdentifier = originalIdentifier }
         attachAsTab(excluding: before, attemptsLeft: 20)
     }
 
@@ -211,8 +236,9 @@ struct RootView: View {
         attachAsTab(excluding: before, attemptsLeft: 20)
     }
 
-    /// 新視窗的內容一裝進視窗（還沒顯示）就掛成分頁，不會先閃一個獨立視窗
-    private func adoptAsPendingTab(_ window: NSWindow) {
+    /// 新視窗的內容一裝進視窗（還沒顯示）就掛成分頁，不會先閃一個獨立視窗。
+    /// 主視窗、筆記視窗、LaTeX 視窗共用。
+    static func adoptAsPendingTab(_ window: NSWindow) {
         guard let host = Self.pendingTabHost, host !== window else { return }
         Self.pendingTabHost = nil
         window.tabbingMode = .preferred
@@ -233,8 +259,13 @@ struct RootView: View {
                     host.addTabbedWindow(new, ordered: .above)
                 }
                 new.makeKeyAndOrderFront(nil)
+                if Self.pendingTabHost === host { Self.pendingTabHost = nil }
             } else if attemptsLeft > 0 {
                 attachAsTab(excluding: before, attemptsLeft: attemptsLeft - 1)
+            } else if Self.pendingTabHost === host {
+                // 沒有新視窗（同一份筆記已經開著，openWindow 只是把它叫到前面）→
+                // 清掉，免得之後「彈到獨立視窗」被誤併成分頁
+                Self.pendingTabHost = nil
             }
         }
     }
@@ -327,7 +358,11 @@ struct RootView: View {
                 AmbientBackground()
                 switch tab ?? .home {
                 case .home: HomeView()
-                case .notes: NotesBrowserView()
+                case .notes:
+                    NotesBrowserView()
+                        .environment(\.openInNewTab) { url, isProject in
+                            openInNewTab(url, isProject: isProject)
+                        }
                 case .papers: PapersView()
                 case .journal: JournalView()
                 }
@@ -358,9 +393,10 @@ struct RootView: View {
         }
         // 側欄平常鎖住「拖太窄就收起」（見 SidebarSplitControl）；
         // 收起中不鎖，否則按鈕收起後會被鎖回展開狀態
-        .background(EarlyWindowHook { adoptAsPendingTab($0) })
+        .background(EarlyWindowHook { Self.adoptAsPendingTab($0) })
         .background(WindowReader { window in
             hostWindow = window
+            if let window { Self.rootWindows.add(window) }
             if columnVisibility != .detailOnly {
                 SidebarSplitControl.lock(in: window, width: sidebarWidth,
                                          min: Self.sidebarMin, max: Self.sidebarMax)
@@ -431,15 +467,32 @@ struct RootView: View {
                 store.requestedTab = nil
             }
         }
-        .sheet(isPresented: Bindable(store).searchPresented) {
+        .sheet(isPresented: $searchPresented) {
             SearchPaletteView()
+                .environment(store)
+                .environment(generalTodos)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: RootView.searchNotification)) { _ in
+            guard let w = hostWindow else { return }
+            if w.isKeyWindow { searchPresented = true; return }
+            // 目前的視窗不是主視窗（例如 LaTeX 獨立視窗）→ 由最前面那個主視窗跳出來
+            let keyIsRoot = Self.rootWindows.allObjects.contains { $0 === NSApp.keyWindow }
+            guard !keyIsRoot else { return }
+            let front = NSApp.orderedWindows.first { win in
+                Self.rootWindows.allObjects.contains { $0 === win }
+            }
+            if front === w {
+                w.makeKeyAndOrderFront(nil)
+                searchPresented = true
+            }
         }
         // 系統 URL scheme（researchhub://…）：外部工具的入口。
         //   note?path=<相對 Notes/ 的路徑> → 開啟筆記
         //   project?path=<相對 Notes/ 的資料夾> → 開啟 LaTeX 專案
         //   journal?date=YYYY-MM-DD → 開啟該日日記（省略 = 今天）
         .onOpenURL { url in
-            guard url.scheme == "researchhub" else { return }
+            // dev 版（scripts/install-dev.sh）註冊的是 researchhub-dev://，不搶正式版的 scheme
+            guard url.scheme == "researchhub" || url.scheme == "researchhub-dev" else { return }
             let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
             switch url.host {
             case "note":
@@ -520,4 +573,8 @@ struct SidebarResizeHandle: View {
     }
 }
 
+/// 筆記瀏覽器右鍵「在新分頁開啟」：由所在的主視窗（RootView）提供，開成它的分頁
+extension EnvironmentValues {
+    @Entry var openInNewTab: ((URL, Bool) -> Void)? = nil
+}
 #endif

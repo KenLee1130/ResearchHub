@@ -282,10 +282,15 @@ struct NotesBrowserView: View {
     /// 專案改名後，如果主檔的 \title 還是舊名稱就一起更新。
     private func renameProjectTitle(in folder: URL, from old: String, to new: String) {
         guard let main = LatexProject.mainFile(in: folder),
-              let text = try? String(contentsOf: main, encoding: .utf8),
-              text.contains("\\title{\(old)}") else { return }
-        try? text.replacingOccurrences(of: "\\title{\(old)}", with: "\\title{\(new.trimmingCharacters(in: .whitespaces))}")
-            .write(to: main, atomically: true, encoding: .utf8)
+              let text = try? String(contentsOf: main, encoding: .utf8) else { return }
+        // 舊專案的標題可能是沒跳脫的原樣（test_gpt），兩種都認
+        let newTitle = "\\title{\(LatexProject.escapeText(new.trimmingCharacters(in: .whitespaces)))}"
+        for oldTitle in ["\\title{\(LatexProject.escapeText(old))}", "\\title{\(old)}"]
+        where text.contains(oldTitle) {
+            try? text.replacingOccurrences(of: oldTitle, with: newTitle)
+                .write(to: main, atomically: true, encoding: .utf8)
+            return
+        }
     }
 
     private func commitRename(_ item: FileItem) {
@@ -339,6 +344,7 @@ struct BreadcrumbButton: View {
 
 struct FileIconCell: View {
     @Environment(FileSystemStore.self) private var store
+    @Environment(\.openInNewTab) private var openInNewTab
 
     let item: FileItem
     let isSelected: Bool
@@ -362,6 +368,9 @@ struct FileIconCell: View {
                 .simultaneousGesture(TapGesture().onEnded { onSelect() })
                 .contextMenu {
                     Button(item.isProject ? "開啟專案" : (item.isFolder ? "開啟" : "編輯")) { onOpen() }
+                    if !item.isFolder || item.isProject, let openInNewTab {   // 筆記或 LaTeX 專案
+                        Button("在新分頁開啟") { openInNewTab(item.url, item.isProject) }
+                    }
                     Button("重新命名") { onRename() }
                     Divider()
                     Button("移到垃圾桶", role: .destructive) { onTrash() }

@@ -8,8 +8,8 @@ import AppKit
 ///   1. 它不記分隔位置，而且子畫面內容一變（例如檔案樹多了一個改名欄）就重新分配寬度——
 ///      使用者拖好的版面會自己跑掉。
 ///   2. 分隔線的粗細與可抓取範圍沒有 API 可調，1pt 的線很難剛好抓到。
-/// NSSplitView 只有在使用者拖的時候才動分隔線，位置用 autosaveName 存起來；
-/// 抓取範圍在 effectiveRect 裡往兩側放寬，線本身維持細的。
+/// 位置只記「使用者拖的那一下」（見 Controller 的 Layout 段），視窗大小變了再照記住的
+/// 比例重排；抓取範圍在 effectiveRect 裡往兩側放寬，線本身維持細的。
 struct PersistentSplitView: NSViewControllerRepresentable {
     struct Pane {
         let id: String
@@ -82,6 +82,12 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         private var desiredVisible: [String: Bool] = [:]
         private var actualVisible: [String: Bool] = [:]
         private var visibilityCallbacks: [String: (Bool) -> Void] = [:]
+        /// 上次排版時分割視圖的寬度與看得到的欄：其中一個變了才重排
+        private var lastLayoutWidth: CGFloat = 0
+        private var lastVisiblePanes: [String] = []
+        private var applyScheduled = false
+        /// 正在用程式設分隔線：這時候的欄寬變化不能當成使用者拖的存起來（保險）
+        private var isApplying = false
 
         init(autosaveName: String, panes: [Pane]) {
             self.autosave = autosaveName
@@ -116,30 +122,137 @@ struct PersistentSplitView: NSViewControllerRepresentable {
             NotificationCenter.default.addObserver(
                 self, selector: #selector(splitResized),
                 name: NSSplitView.didResizeSubviewsNotification, object: splitView)
-            // 放在加完 item 之後：有存過的位置會在這時候套回來
-            splitView.autosaveName = autosave
+            // 不用 splitView.autosaveName：NSSplitView 每次縮放都會存，新視窗先以小尺寸排版時
+            // 欄被壓到最小寬度，放大時又等比例長大 → 存下來的就是被壓扁的版面
+            // （2026-10-14：筆記分頁的原始碼欄一直只剩 150pt）。
         }
 
         override func viewDidAppear() {
             super.viewDidAppear()
-            applyInitialWidthsIfNeeded()
+            scheduleApply()
         }
 
-        /// 第一次開、還沒有存過位置時，套用每欄指定的初始寬度
-        private func applyInitialWidthsIfNeeded() {
-            let key = "NSSplitView Subview Frames \(autosave)"
-            guard UserDefaults.standard.object(forKey: key) == nil else { return }
-            var x: CGFloat = 0
-            var dividerIndex = 0
-            for pane in initialPanes {
-                defer { dividerIndex += 1 }
-                guard let width = pane.initialWidth,
-                      dividerIndex < splitViewItems.count - 1,
-                      items[pane.id]?.isCollapsed == false else { continue }
-                x += width
-                splitView.setPosition(x, ofDividerAt: dividerIndex)
-                x += splitView.dividerThickness
+        override func viewDidLayout() {
+            super.viewDidLayout()
+            // 收起／展開後，要到這次排版欄的 frame 才是新的 → 以這裡為準重排
+            let width = splitView.bounds.width
+            let visible = initialPanes.map(\.id).filter { items[$0]?.isCollapsed == false }
+            guard width > 0, abs(width - lastLayoutWidth) > 0.5 || visible != lastVisiblePanes
+            else { return }
+            lastLayoutWidth = width
+            lastVisiblePanes = visible
+            scheduleApply()
+        }
+
+        // MARK: - Layout：只記使用者拖的位置，尺寸變了就照記住的版面重排
+        //
+        // 規則跟 holdingPriority 一致：「不想動」的欄（檔案樹、論文清單、對話欄）維持記住的
+        // 寬度；其餘的欄照記住的寬度比例分剩下的空間。沒記過的欄：前者用 initialWidth，
+        // 後者平均分。
+
+        private var storageKey: String { "PersistentSplitView.\(autosave)" }
+
+        private var savedWidths: [String: Double] {
+            get {
+                if let saved = UserDefaults.standard.dictionary(forKey: storageKey) as? [String: Double] {
+                    return saved
+                }
+                return migratedWidths()
             }
+            set { UserDefaults.standard.set(newValue, forKey: storageKey) }
+        }
+
+        /// 舊版存在 NSSplitView autosave 裡的位置（"x, y, 寬, 高, 收起, 隱藏"，依欄順序）。
+        /// 有欄剛好是最小寬度＝當初被壓扁時存的，不搬，回到預設版面。
+        private func migratedWidths() -> [String: Double] {
+            guard let frames = UserDefaults.standard.array(
+                forKey: "NSSplitView Subview Frames \(autosave)") as? [String],
+                  frames.count == initialPanes.count else { return [:] }
+            var result: [String: Double] = [:]
+            for (pane, frame) in zip(initialPanes, frames) {
+                let parts = frame.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                guard parts.count >= 5, let width = Double(parts[2]) else { return [:] }
+                if parts[4] == "YES" || width < 1 { continue }   // 收起的欄沒有寬度可搬
+                if !Self.isHeld(pane), width <= Double(pane.minWidth) + 1 { return [:] }
+                result[pane.id] = width
+            }
+            return result
+        }
+
+        /// 視窗縮放時維持寬度的欄（檔案樹、論文清單、對話欄）
+        private static func isHeld(_ pane: Pane) -> Bool {
+            pane.holdingPriority.rawValue > NSLayoutConstraint.Priority.defaultLow.rawValue
+        }
+
+        private func scheduleApply() {
+            guard !applyScheduled else { return }
+            applyScheduled = true
+            // 不在版面計算途中動分隔線（會重入 SwiftUI 的更新，見 c610ec9 的卡死）
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                applyScheduled = false
+                applySavedLayout()
+            }
+        }
+
+        private func applySavedLayout() {
+            splitView.layoutSubtreeIfNeeded()   // 剛展開的欄 frame 可能還沒更新
+            let visible = initialPanes.enumerated().filter { items[$0.element.id]?.isCollapsed == false }
+            guard visible.count > 1 else { return }
+            let saved = savedWidths
+            let available = splitView.bounds.width
+                - splitView.dividerThickness * CGFloat(visible.count - 1)
+            let isHeld = Self.isHeld
+            var widths: [String: CGFloat] = [:]
+            var flexWeight: CGFloat = 0
+            for (_, pane) in visible {
+                if isHeld(pane) {
+                    let w = saved[pane.id].map { CGFloat($0) } ?? pane.initialWidth
+                        ?? hosts[pane.id]?.view.frame.width ?? pane.minWidth
+                    widths[pane.id] = max(pane.minWidth, w)
+                } else {
+                    flexWeight += CGFloat(saved[pane.id] ?? 1)
+                }
+            }
+            let flexSpace = available - widths.values.reduce(0, +)
+            for (_, pane) in visible where !isHeld(pane) {
+                let share = flexWeight > 0 ? CGFloat(saved[pane.id] ?? 1) / flexWeight : 0
+                widths[pane.id] = flexSpace * share
+            }
+            // 塞不下（視窗太窄）就交給 NSSplitView 自己依最小寬度處理
+            guard visible.allSatisfy({ widths[$0.element.id, default: 0] >= $0.element.minWidth })
+            else { return }
+
+            isApplying = true
+            defer { isApplying = false }
+            for (k, entry) in visible.dropLast().enumerated() {
+                let pane = entry.element
+                guard let view = hosts[pane.id]?.view, let target = widths[pane.id] else { continue }
+                guard abs(view.frame.width - target) > 1 else { continue }
+                // 分隔線＝下一個看得到的欄左邊那條
+                let nextIndex = visible[k + 1].offset
+                splitView.setPosition(view.frame.minX + target, ofDividerAt: nextIndex - 1)
+                splitView.layoutSubtreeIfNeeded()   // 下一欄的 minX 要是更新後的
+            }
+        }
+
+        /// 這次欄寬改變是不是使用者在拖分隔線。
+        /// 「NSSplitViewDividerIndex」不夠：NSSplitViewController 自己排版、縮放視窗也會帶，
+        /// 實測會存到全部最小寬度。實測只有使用者拖曳時才另外帶「NSSplitViewUserResizeKey」
+        /// （AppKit 沒寫進文件；萬一哪天拿掉了，結果只是拖了不記，不會存錯）。
+        private func isUserDraggingDivider(_ note: Notification) -> Bool {
+            guard !isApplying else { return false }
+            return (note.userInfo?["NSSplitViewUserResizeKey"] as? NSNumber)?.boolValue == true
+        }
+
+        /// 使用者拖完分隔線：記下每個看得到的欄的寬度（收起的欄保留上次的）
+        private func saveCurrentWidths() {
+            var saved = savedWidths
+            for pane in initialPanes {
+                guard let item = items[pane.id], !item.isCollapsed else { continue }
+                saved[pane.id] = Double(item.viewController.view.frame.width)
+            }
+            savedWidths = saved
         }
 
         func update(_ panes: [Pane]) {
@@ -181,6 +294,7 @@ struct PersistentSplitView: NSViewControllerRepresentable {
         }
 
         @objc private func splitResized(_ note: Notification) {
+            if isUserDraggingDivider(note) { saveCurrentWidths() }
             for (id, item) in items {
                 let visible = !item.isCollapsed
                 guard actualVisible[id] != visible else { continue }

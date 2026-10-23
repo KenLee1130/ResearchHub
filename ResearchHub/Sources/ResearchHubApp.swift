@@ -22,6 +22,9 @@ struct ResearchHubApp: App {
                 .environment(eventStore)
                 .environment(generalTodos)
                 .frame(minWidth: 700, minHeight: 560)
+                // researchhub:// 網址交給已經開著的主視窗處理。不設的話 SwiftUI 每收到一個網址
+                // 就開一個新視窗（捷徑、深連結、Claude 的連結每點一次多一個視窗）。
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
@@ -35,8 +38,14 @@ struct ResearchHubApp: App {
                 .keyboardShortcut("t", modifiers: .command)
             }
             CommandGroup(after: .textEditing) {
-                Button("快速搜尋…") {
-                    store.searchPresented = true
+                // ⌘F：只在目前這一頁／這個檔案裡找（見 PageFinder）
+                Button("在此頁尋找…") {
+                    PageFinder.shared.showFind()
+                }
+                .keyboardShortcut("f", modifiers: .command)
+                // ⌘K：全 app 搜尋（日記、筆記、LaTeX、論文、待辦），只有目前的視窗會跳出來（見 RootView）
+                Button("搜尋全部…") {
+                    NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
                 }
                 .keyboardShortcut("k", modifiers: .command)
             }
@@ -54,6 +63,7 @@ struct ResearchHubApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
+        .handlesExternalEvents(matching: [])   // 網址不會開出這種視窗
 
         // LaTeX 專案也可以彈到獨立視窗（跟筆記一樣，以專案資料夾 URL 為值）
         WindowGroup(id: "latex", for: URL.self) { $url in
@@ -66,6 +76,7 @@ struct ResearchHubApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
+        .handlesExternalEvents(matching: [])   // 網址不會開出這種視窗
 
         Settings {
             SettingsView()

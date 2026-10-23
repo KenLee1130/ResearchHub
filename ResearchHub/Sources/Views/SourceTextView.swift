@@ -31,6 +31,58 @@ final class PastingTextView: NSTextView {
     /// 它會跟一般 Return 一樣走 insertNewline:，所以改不了行為。
     var onShiftReturn: (() -> Void)?
 
+    // MARK: - 拖曳選取自己來：拖曳中按的鍵不能掉
+    //
+    // NSTextView 內建的滑鼠追蹤迴圈一收到按鍵就結束追蹤；用三指拖移時「放開」是系統延後合成的，
+    // 使用者常在那個空檔就按下 ⌘C／delete，結果那一下在交接處消失（2026-10-22 紀錄：
+    // WindowServer 有送到 app，app 的事件入口卻沒收到；第二下才正常）。
+    // 這裡只接手最單純的「單擊拖曳選取」：拖曳中收到的按鍵先存起來，選取完成後再送出去，
+    // 所以 ⌘C 會複製到完整的選取、delete 會刪掉完整的選取。雙擊／三擊、Shift 等修飾鍵、
+    // 點在既有選取上（可能要拖曳文字）、點到連結、輸入法組字中：維持交給系統。
+    override func mouseDown(with event: NSEvent) {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let point = convert(event.locationInWindow, from: nil)
+        let index = characterIndexForInsertion(at: point)
+        let sel = selectedRange()
+        let onLink = index < (string as NSString).length
+            && textStorage?.attribute(.link, at: index, effectiveRange: nil) != nil
+        guard event.clickCount == 1, mods.isEmpty, let window, isSelectable, !hasMarkedText(),
+              !(sel.length > 0 && NSLocationInRange(index, sel)), !onLink
+        else {
+            super.mouseDown(with: event)
+            return
+        }
+
+        if window.firstResponder !== self { window.makeFirstResponder(self) }
+        let anchor = index
+        setSelectedRange(NSRange(location: anchor, length: 0))
+        var dragged = false
+        var pendingKeys: [NSEvent] = []
+        func range(to i: Int) -> NSRange { NSRange(location: min(anchor, i), length: abs(i - anchor)) }
+        window.trackEvents(matching: [.leftMouseDragged, .leftMouseUp, .keyDown],
+                           timeout: NSEvent.foreverDuration, mode: .eventTracking) { ev, stop in
+            guard let ev else { stop.pointee = true; return }
+            switch ev.type {
+            case .leftMouseDragged:
+                dragged = true
+                autoscroll(with: ev)
+                let i = characterIndexForInsertion(at: convert(ev.locationInWindow, from: nil))
+                setSelectedRange(range(to: i), affinity: i < anchor ? .upstream : .downstream,
+                                 stillSelecting: true)
+            case .leftMouseUp:
+                let i = characterIndexForInsertion(at: convert(ev.locationInWindow, from: nil))
+                setSelectedRange(dragged ? range(to: i) : NSRange(location: anchor, length: 0),
+                                 affinity: i < anchor ? .upstream : .downstream, stillSelecting: false)
+                stop.pointee = true
+            case .keyDown:
+                pendingKeys.append(ev)   // 拖曳中按的：等選取完成再送
+            default:
+                break
+            }
+        }
+        for key in pendingKeys { NSApp.sendEvent(key) }
+    }
+
     override func keyDown(with event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if let onShiftReturn,
@@ -92,6 +144,13 @@ final class PastingTextView: NSTextView {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        // ⌘/：切換 % 註解。用實體鍵位（44＝/）判斷：注音輸入法下字元不是「/」
+        if mods == [.command], event.keyCode == 44 || event.charactersIgnoringModifiers == "/",
+           completionRoot != nil, window?.firstResponder === self, !hasMarkedText() {
+            // 按住稍久會送出重複按鍵：第二下又把註解拿掉，看起來像沒反應／閃一下
+            if !event.isARepeat { toggleLineComments() }
+            return true
+        }
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
         guard mods == [.command], ["c", "x", "v", "a"].contains(key),
               window?.firstResponder === self else {
@@ -516,9 +575,160 @@ final class PastingTextView: NSTextView {
                 return
             }
         }
+        if let typed, completionRoot != nil, !hasMarkedText(),
+           autoPair(typed, replacementRange: replacementRange) { return }
         super.insertText(string, replacementRange: replacementRange)
         // 打完 \end{name}（自己打 } 或從補全選 \end{} 再填名稱都算）→ 對齊對應的 \begin
         if typed != nil, completionRoot != nil, !hasMarkedText() { alignEndWithBegin() }
+    }
+
+    // MARK: - ⌘/ 批量註解（LaTeX 專案）
+
+    /// 選到的行（沒選就是游標那行）切換 % 註解，一步可復原。選取維持在這幾行上。
+    func toggleLineComments() {
+        let ns = string as NSString
+        let sel = selectedRange()
+        guard sel.location != NSNotFound else { return }
+        // 選取剛好停在下一行行首（整行選取的常見情形）→ 那一行不算
+        var end = NSMaxRange(sel)
+        if sel.length > 0, end > sel.location, ns.character(at: end - 1) == 0x0A { end -= 1 }
+        let block = ns.lineRange(for: NSRange(location: sel.location, length: end - sel.location))
+        let old = ns.substring(with: block)
+        let new = Self.toggledComments(old)
+        guard new != old, shouldChangeText(in: block, replacementString: new) else { return }
+        textStorage?.replaceCharacters(in: block, with: new)
+        didChangeText()
+        // 一般打字是停手 0.25 秒才重新上色；整批改完要馬上上色，不然會先看到沒變色的 %，像卡住
+        (delegate as? SourceTextView.Coordinator)?.applyHighlighting(visibleOnly: true)
+        let newLength = (new as NSString).length
+        if sel.length == 0 {
+            // 游標留在同一行、跟著前面多出／少掉的字移動
+            let caret = max(block.location, min(block.location + newLength, sel.location + newLength - block.length))
+            setSelectedRange(NSRange(location: caret, length: 0))
+        } else {
+            let trailing = new.hasSuffix("\n") ? 1 : 0
+            setSelectedRange(NSRange(location: block.location, length: newLength - trailing))
+        }
+    }
+
+    /// 一段完整的行：有一行沒註解 → 全部在最淺縮排處加「% 」；全都是註解 → 全部拿掉「%」（連同後面一個空白）。
+    /// 空行不動。
+    static func toggledComments(_ text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        let trailingNewline = text.hasSuffix("\n")
+        if trailingNewline { lines.removeLast() }
+        func isBlank(_ l: String) -> Bool { l.allSatisfy { $0 == " " || $0 == "\t" } }
+        func indent(_ l: String) -> Int { l.prefix { $0 == " " || $0 == "\t" }.count }
+        let content = lines.filter { !isBlank($0) }
+        guard !content.isEmpty else { return text }
+        let allCommented = content.allSatisfy { $0.dropFirst(indent($0)).hasPrefix("%") }
+        let out: [String]
+        if allCommented {
+            out = lines.map { line in
+                guard !isBlank(line) else { return line }
+                var rest = line.dropFirst(indent(line)).dropFirst()   // 拿掉 %
+                if rest.first == " " { rest = rest.dropFirst() }
+                return String(line.prefix(indent(line))) + String(rest)
+            }
+        } else {
+            let column = content.map(indent).min() ?? 0
+            out = lines.map { line in
+                isBlank(line) ? line : String(line.prefix(column)) + "% " + String(line.dropFirst(column))
+            }
+        }
+        return out.joined(separator: "\n") + (trailingNewline ? "\n" : "")
+    }
+
+    // MARK: - 自動補右括號（LaTeX 專案；Markdown 筆記不做，內文常打半個括號）
+    //
+    //   ( [ { $  → 補上 ) ] } $，游標停在中間
+    //   \( \[ \{ → 補 \) \] \}；\$ 是字面上的錢字號，不補
+    //   $|$ 裡再打 $ → $$|$$（行間公式）
+    //   右邊緊接著就是要打的那個右括號 → 直接跳過去，不會變成兩個
+    //   後面緊接著是字（例如在 word 前面打 (）→ 不補，免得多出一個要刪
+    //   空的一對裡按刪除 → 兩個一起刪
+
+    private static let closers: [Character: Character] = ["(": ")", "[": "]", "{": "}", "$": "$"]
+
+    private func character(at i: Int) -> Character? {
+        let ns = string as NSString
+        guard i >= 0, i < ns.length else { return nil }
+        return Character(ns.substring(with: NSRange(location: i, length: 1)))
+    }
+
+    /// 處理掉了回傳 true（呼叫端就不再插入原本的字）
+    private func autoPair(_ typed: String, replacementRange: NSRange) -> Bool {
+        guard typed.count == 1, let c = typed.first else { return false }
+        let target = replacementRange.location != NSNotFound ? replacementRange : selectedRange()
+        guard target.length == 0, target.location != NSNotFound else { return false }
+        let loc = target.location
+        let prev = character(at: loc - 1), next = character(at: loc)
+        let escaped = prev == "\\" && character(at: loc - 2) != "\\"   // \\ 是換行，不算跳脫
+
+        // 右邊就是要打的右括號 → 跳過去
+        if [")", "]", "}", "$"].contains(c), next == c, !escaped {
+            // 例外：$|$ 裡再打 $ 是要 $$|$$
+            if c == "$", prev == "$", character(at: loc - 2) != "$" {
+                insert("$$", at: loc, caretOffset: 1)
+                return true
+            }
+            setSelectedRange(NSRange(location: loc + 1, length: 0))
+            return true
+        }
+
+        guard let closer = Self.closers[c] else { return false }
+        // 這一行前面已經有奇數個 $（例如 $x 打到一半）→ 這個 $ 是收尾，不是開新的一對
+        if c == "$", !escaped, unescapedDollarCount(beforeLineOf: loc) % 2 == 1 { return false }
+        // 後面緊接著字母／數字 → 不補
+        if let next, next.isLetter || next.isNumber || next == "\\" { return false }
+        if escaped {
+            if c == "$" { return false }                      // \$ 字面錢字號
+            insert("\(c)\\\(closer)", at: loc, caretOffset: 1)   // \( → \(|\)
+            return true
+        }
+        insert("\(c)\(closer)", at: loc, caretOffset: 1)
+        return true
+    }
+
+    /// 同一行、loc 之前沒被 \ 跳脫的 $ 有幾個
+    private func unescapedDollarCount(beforeLineOf loc: Int) -> Int {
+        let ns = string as NSString
+        let lineStart = ns.lineRange(for: NSRange(location: loc, length: 0)).location
+        var count = 0, i = lineStart
+        while i < loc {
+            let ch = ns.character(at: i)
+            if ch == 0x5C { i += 2; continue }   // \ 後面那個字不算
+            if ch == 0x24 { count += 1 }         // $
+            i += 1
+        }
+        return count
+    }
+
+    /// 在 loc 插入 text（一步可復原），游標放在 loc + caretOffset
+    private func insert(_ text: String, at loc: Int, caretOffset: Int) {
+        let range = NSRange(location: loc, length: 0)
+        guard shouldChangeText(in: range, replacementString: text) else { return }
+        textStorage?.replaceCharacters(in: range, with: text)
+        didChangeText()
+        setSelectedRange(NSRange(location: loc + caretOffset, length: 0))
+    }
+
+    /// 游標在空的一對中間（(|)、\(|\)、$$|$$）→ 回傳要整個刪掉的範圍
+    private func emptyPairAroundCaret() -> NSRange? {
+        guard completionRoot != nil, !hasMarkedText() else { return nil }
+        let sel = selectedRange()
+        guard sel.length == 0, sel.location != NSNotFound else { return nil }
+        let ns = string as NSString
+        let loc = sel.location
+        for (open, close) in [("\\(", "\\)"), ("\\[", "\\]"), ("\\{", "\\}"), ("$$", "$$"),
+                              ("(", ")"), ("[", "]"), ("{", "}"), ("$", "$")] {
+            let o = (open as NSString).length, c = (close as NSString).length
+            guard loc - o >= 0, loc + c <= ns.length,
+                  ns.substring(with: NSRange(location: loc - o, length: o)) == open,
+                  ns.substring(with: NSRange(location: loc, length: c)) == close else { continue }
+            return NSRange(location: loc - o, length: o + c)
+        }
+        return nil
     }
 
     // MARK: - LaTeX 環境縮排（Overleaf 式）
@@ -890,6 +1100,13 @@ final class PastingTextView: NSTextView {
     }
 
     override func deleteBackward(_ sender: Any?) {
+        if let pair = emptyPairAroundCaret(),
+           shouldChangeText(in: pair, replacementString: "") {
+            textStorage?.replaceCharacters(in: pair, with: "")
+            didChangeText()
+            setSelectedRange(NSRange(location: pair.location, length: 0))
+            return
+        }
         let crossed = deletionCrossesLine(backward: true)
         super.deleteBackward(sender)
         if crossed { renumberAfterDeletion() }
@@ -1043,6 +1260,8 @@ final class PastingTextView: NSTextView {
 struct LineJumpRequest: Equatable {
     let id = UUID()
     let line: Int
+    /// 有的話：在那一行（或附近幾行）找這個字並選起來（PDF 雙擊的字）
+    var word: String? = nil
 }
 
 /// 右欄預覽雙擊段落 → 左欄源碼跳轉的一次性請求（id 變了才執行，避免重複觸發）。
@@ -1093,7 +1312,9 @@ struct SourceTextView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let textView = PastingTextView()
+        // 一開始就用 TextKit 1：編輯器處處用 layoutManager（上色可視區、跳行、反白閃爍），
+        // 預設的 TextKit 2 會在第一次碰 layoutManager 時才「中途」切換——不如一開始就定下來。
+        let textView = PastingTextView(usingTextLayoutManager: false)
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.documentView = textView
@@ -1116,12 +1337,24 @@ struct SourceTextView: NSViewRepresentable {
             Array(Set(textView.registeredDraggedTypes + [.fileURL, .png, .tiff])))
         textView.delegate = context.coordinator
         textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        // ⌘F 用 app 自己的尋找列（PageFind.swift）；不用內建的：在 SwiftUI 版面裡會跟編輯器斷開
         textView.isRichText = false
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
+        // 「智慧型剪下貼上」：貼上時自動在前後補空格、刪除時多吃掉空格——對原始碼就是改壞內容
+        // （2026-10-22 使用者回報：同一個 LaTeX 檔裡複製貼上，內容不對）
+        textView.smartInsertDeleteEnabled = false
+        // 原始碼編輯器用不到的系統文字功能一律關掉：書寫工具（改寫文章）、行內預測文字、數學補全。
+        // 反白時少跳東西出來，也少碰系統的 TextInputUI 游標介面。
+        if #available(macOS 15.0, *) { textView.writingToolsBehavior = .none }
+        if #available(macOS 14.0, *) { textView.inlinePredictionType = .no }
+        if #available(macOS 15.0, *) { textView.mathExpressionCompletionType = .no }
+        textView.isGrammarCheckingEnabled = false
+        textView.isAutomaticLinkDetectionEnabled = false
+        textView.isAutomaticDataDetectionEnabled = false
         // 關掉系統補全；改用自己的浮動清單（CompletionPopup，由 updateCompletion 驅動）。
         textView.isAutomaticTextCompletionEnabled = false
         textView.textContainerInset = NSSize(width: 14, height: 14)
@@ -1173,7 +1406,7 @@ struct SourceTextView: NSViewRepresentable {
         }
         if let lineJump, lineJump.id != context.coordinator.lastLineJumpID {
             context.coordinator.lastLineJumpID = lineJump.id
-            context.coordinator.jump(toLine: lineJump.line)
+            context.coordinator.jump(toLine: lineJump.line, word: lineJump.word)
         }
     }
 
@@ -1237,23 +1470,35 @@ struct SourceTextView: NSViewRepresentable {
         }
 
         /// 跳到第 line 行（1 起算）：選取整行、捲到中間、閃一下。
-        func jump(toLine line: Int) {
+        func jump(toLine line: Int, word: String? = nil) {
             guard let tv = textView, let sv = tv.enclosingScrollView,
                   let lm = tv.layoutManager, let tc = tv.textContainer else { return }
             let ns = tv.string as NSString
-            var index = 0, current = 1
-            var range = NSRange(location: 0, length: 0)
+            // 每一行的範圍（行號從 1 算）
+            var lines: [NSRange] = []
+            var index = 0
             while index < ns.length {
                 let r = ns.lineRange(for: NSRange(location: index, length: 0))
-                if current == line { range = r; break }
+                lines.append(r)
                 index = r.location + r.length
-                current += 1
             }
-            guard range.length > 0 || current == line else { return }
+            guard line >= 1, line <= max(lines.count, 1) else { return }
+            let range = lines.isEmpty ? NSRange(location: 0, length: 0) : lines[line - 1]
             let trimmed = NSRange(
                 location: range.location,
                 length: max(0, range.length - (ns.substring(with: range).hasSuffix("\n") ? 1 : 0)))
-            tv.setSelectedRange(trimmed)
+            // SyncTeX 的行號常落在段落的頭或尾，字不一定在那一行：由近到遠看前後幾行
+            var target = trimmed
+            if let word, word.count >= 2, !lines.isEmpty {
+                let order = [0] + (1...4).flatMap { [$0, -$0] }
+                for offset in order {
+                    let i = line - 1 + offset
+                    guard lines.indices.contains(i) else { continue }
+                    let found = ns.range(of: word, options: [], range: lines[i])
+                    if found.location != NSNotFound { target = found; break }
+                }
+            }
+            tv.setSelectedRange(target)
             tv.window?.makeFirstResponder(tv)
             flash(trimmed)
             let gr = lm.glyphRange(forCharacterRange: trimmed, actualCharacterRange: nil)
@@ -1467,10 +1712,17 @@ struct SourceTextView: NSViewRepresentable {
             }
         }()
 
-        /// begin/end 環境整塊（內容上紫色，之後指令/參數再覆蓋）。
-        /// enumerate/itemize 是文字清單環境（預覽端轉成 markdown 清單），不算數學。
+        /// 數學環境整塊（內容上數學色，之後指令/參數再覆蓋）。
+        /// 只列數學環境：以前是「除了清單、圖表…以外都算」，結果 \begin{document} 也中了，
+        /// 整份內文都變成數學色（2026-10-15 使用者：「顏色太多」）。
         private static let envBlockPattern = try! NSRegularExpression(
-            pattern: #"\\begin\{(?!enumerate\}|itemize\}|figure\}|table\}|tabular\}|center\}|quote\}|quotation\}|abstract\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
+            pattern: #"\\begin\{((?:equation|align|alignat|gather|multline|flalign|eqnarray|displaymath|math)\*?)\}[\s\S]*?\\end\{\1\}"#)
+
+        /// % 註解。LaTeX 專案：沒被 \ 跳脫的 % 到行尾；Markdown 筆記只算整行註解（內文常有「50%」）
+        private static let latexCommentPattern = try! NSRegularExpression(
+            pattern: #"(?<!\\)%[^\n]*"#)
+        private static let lineCommentPattern = try! NSRegularExpression(
+            pattern: #"^[ \t]*%[^\n]*"#, options: [.anchorsMatchLines])
 
         private static let commandPattern = try! NSRegularExpression(pattern: #"\\[a-zA-Z]+"#)
 
@@ -1494,15 +1746,27 @@ struct SourceTextView: NSViewRepresentable {
         private static let mathBlockRegex = try! NSRegularExpression(
             pattern: #"\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{(?!enumerate\}|itemize\}|figure\}|table\}|tabular\}|center\}|quote\}|quotation\}|abstract\})([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}"#)
 
-        // MARK: - Colors (Overleaf-ish, adapts to dark mode)
+        // MARK: - Colors（vim default 為底，深淺色模式各一組）
 
+        /// 配色以 vim 內建 default 為底，黃、青調低彩度（2026-10-15 使用者從預覽挑的）；
+        /// 內文一律是一般文字色（深色模式＝白）。light: 是淺色模式用的較深版本。
         private enum Palette {
-            static let delimiter = NSColor.systemOrange
-            static let mathBody = NSColor.systemPurple
-            static let command = NSColor.systemBlue
-            static let argument = NSColor.systemGreen
+            static let command = dynamic(dark: 0xD7D787, light: 0x7A7A1E)    // 卡其
+            static let argument = dynamic(dark: 0x87D7D7, light: 0x1F7A7A)   // 淡青
+            static let mathBody = dynamic(dark: 0xE59A85, light: 0xB5533F)   // 鮭魚粉（跟卡其拉開色相）
+            static let delimiter = mathBody
+            static let comment = dynamic(dark: 0x80A0FF, light: 0x3355CC)    // 藍
             static let task = NSColor.systemOrange
             static let wikiLink = NSColor.systemTeal
+
+            private static func dynamic(dark: UInt32, light: UInt32) -> NSColor {
+                NSColor(name: nil) { appearance in
+                    let v = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+                    return NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255,
+                                   green: CGFloat((v >> 8) & 0xFF) / 255,
+                                   blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+                }
+            }
         }
 
         // MARK: - Highlighting
@@ -1609,6 +1873,12 @@ struct SourceTextView: NSViewRepresentable {
                 if let c = clipped(m.range(at: 1)) {
                     storage.addAttribute(.foregroundColor, value: Palette.argument, range: c)
                 }
+            }
+
+            // 註解最後上，蓋過裡面的指令／數學色
+            let commentPattern = parent.projectRoot != nil ? Self.latexCommentPattern : Self.lineCommentPattern
+            apply(commentPattern, in: storage, range: full, clipTo: window) {
+                [.foregroundColor: Palette.comment]
             }
 
             storage.endEditing()

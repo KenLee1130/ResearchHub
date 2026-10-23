@@ -12,6 +12,7 @@
 #
 # 子指令（輸出最後幾行是 KEY=VALUE，給 app 解析）：
 #   compile <工作資料夾> <主檔.tex> <engine: xelatex|pdflatex|lualatex|auto>
+#   synctex <工作資料夾> <PDF 檔名> <頁碼（1 起算）> <x> <y>（PDF 點座標、原點左上；反向搜尋 PDF → 原始碼）
 #   zip     <來源資料夾> <目的 .zip>            （內容放在 zip 根目錄，跟 Overleaf 下載的格式一樣）
 #   unzip   <.zip> <放到哪個資料夾> <新資料夾名稱>
 #   ask     <claude|codex> <工作資料夾> <model 或 -> <session id 或 -> <effort 或 -> （論文問答，見 PaperChat.swift）
@@ -42,9 +43,16 @@ case "$cmd" in
     ;;
 
   compile)
-    work="$1"; main="$2"; engine="$3"
-    require_local "$work"
+    work="$1"; main="$2"; engine="$3"; root="${4:-$1}"
+    require_local "$work"; require_local "$root"
     cd "$work" || { echo "RC=2"; echo "ERR=找不到編譯工作資料夾"; exit 0; }
+    # 主檔在子資料夾時在那裡編譯（相對路徑跟 Overleaf 一樣從主檔算）；
+    # 專案根目錄加進搜尋路徑，從根目錄算的 \input、圖、.bib 也找得到。
+    # 結尾的冒號＝接著用 TeX 系統預設路徑。
+    if [ "$root" != "$work" ]; then
+      export TEXINPUTS=".:$root:${TEXINPUTS:-}"
+      export BIBINPUTS=".:$root:${BIBINPUTS:-}"
+    fi
     case "$engine" in
       xelatex)  flag="-xelatex" ;;
       lualatex) flag="-lualatex" ;;
@@ -53,7 +61,9 @@ case "$cmd" in
     esac
     base="${main%.tex}"
     # 就地編譯：中間檔跟來源放在一起，\include{chapters/x} 的 .aux 自然就有地方寫
-    latexmk $flag -interaction=nonstopmode -file-line-error -synctex=1 \
+    # -f：有錯也把 bibtex、重跑做完（跟 Overleaf 一樣）。不加的話一個小錯（例如全形標點）
+    #     latexmk 就停在第一輪，所有引用都變 [?]，看起來像整份壞掉
+    latexmk $flag -f -interaction=nonstopmode -file-line-error -synctex=1 \
       "$main" > ".rh-latexmk.out" 2>&1 &
     pid=$!
     # 看門狗：卡住（例如套件在等輸入）超過 120 秒就砍掉
@@ -69,6 +79,20 @@ case "$cmd" in
     rc=$?
     [ -f "$work/$base.pdf" ] && echo "PDF=$work/$base.pdf"
     echo "LOG=$work/$base.log"
+    echo "RC=$rc"
+    ;;
+
+  synctex)
+    work="$1"; pdf="$2"; page="$3"; x="$4"; y="$5"
+    require_local "$work"
+    cd "$work" || { echo "RC=2"; exit 0; }
+    out=$(synctex edit -o "$page:$x:$y:$pdf" 2>&1)
+    rc=$?
+    # 可能對到好幾筆，取第一筆
+    input=$(printf '%s\n' "$out" | sed -n 's/^Input://p' | head -1)
+    line=$(printf '%s\n' "$out" | sed -n 's/^Line://p' | head -1)
+    [ -n "$input" ] && echo "INPUT=$input"
+    [ -n "$line" ] && echo "LINE=$line"
     echo "RC=$rc"
     ;;
 

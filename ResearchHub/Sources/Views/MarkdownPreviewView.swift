@@ -29,6 +29,7 @@ struct MarkdownPreviewView {
         config.userContentController.add(coordinator, name: "jumpToSource")
         #if os(macOS)
         let webView = FirstMouseWebView(frame: .zero, configuration: config)
+        PageFinder.shared.register(webView)   // ⌘F 在預覽裡找
         #else
         let webView = WKWebView(frame: .zero, configuration: config)
         #endif

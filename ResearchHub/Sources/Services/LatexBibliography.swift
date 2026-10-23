@@ -18,7 +18,13 @@ nonisolated enum LatexBibliography {
             let first = (text as NSString).substring(with: m.range(at: 1))
                 .split(separator: ",").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
             if !first.isEmpty {
-                return root.appendingPathComponent(first.lowercased().hasSuffix(".bib") ? first : first + ".bib")
+                // 路徑相對於主檔所在資料夾（主檔可能在子資料夾）；那裡沒有才看根目錄
+                let name = first.lowercased().hasSuffix(".bib") ? first : first + ".bib"
+                let besideMain = main.deletingLastPathComponent().appendingPathComponent(name)
+                let atRoot = root.appendingPathComponent(name)
+                if !FileManager.default.fileExists(atPath: besideMain.path),
+                   FileManager.default.fileExists(atPath: atRoot.path) { return atRoot }
+                return besideMain
             }
         }
         // 專案裡現有的 .bib（直接列檔案，不靠補全索引——這裡可能在背景執行緒）

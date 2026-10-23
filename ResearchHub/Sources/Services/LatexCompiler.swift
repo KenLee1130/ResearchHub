@@ -103,6 +103,8 @@ final class LatexCompiler: ObservableObject {
                 LatexBibliography.reconcile(in: project)
                 LatexBibliography.ensureBibliographyCommand(in: project)
                 LatexProject.ensureColorPackage(in: project)
+                // 編輯歷史：每次編譯存一份（內容沒變就不存）
+                LatexHistory.snapshot(project, trigger: .compile)
                 do {
                     try LatexStaging.sync(project: project, to: build)
                 } catch {
@@ -119,12 +121,17 @@ final class LatexCompiler: ObservableObject {
                 self.isRunning = false
                 self.status = .unavailable("無法準備編譯暫存檔：\(message)")
             case .ready(let main, let engine):
-                let args = ["compile", build.path, main.lastPathComponent, engine]
+                // 主檔可以在子資料夾（例如 Overleaf 專案整包放在「First Draft/」）：
+                // 跟 Overleaf 一樣在主檔所在的資料夾編譯，相對路徑（圖、.bib、latexmkrc）才對；
+                // 專案根目錄另外交給小幫手加進搜尋路徑，從根目錄算的路徑也找得到。
+                let subdir = LatexProject.mainSubdirectory(of: main, in: project)
+                let work = subdir.isEmpty ? build : build.appendingPathComponent(subdir)
+                let args = ["compile", work.path, main.lastPathComponent, engine, build.path]
                 self.run(helper: helper, args: args) { [weak self] output in
                     guard let self else { return }
                     self.finish(output: output,
                                 mainName: main.deletingPathExtension().lastPathComponent,
-                                engine: engine)
+                                engine: engine, workDir: work, subdir: subdir)
                 }
             }
         }
@@ -184,20 +191,37 @@ final class LatexCompiler: ObservableObject {
     /// 解析小幫手輸出的 KEY=VALUE。
     static func parseFields(_ output: String) -> [String: String] { fields(in: output) }
 
-    private func finish(output: String, mainName: String, engine: String) {
+    private func finish(output: String, mainName: String, engine: String,
+                        workDir: URL, subdir: String) {
         isRunning = false
         let fields = Self.fields(in: output)
         let rc = Int(fields["RC"] ?? "") ?? -1
         let logURL = fields["LOG"].map { URL(fileURLWithPath: $0) }
-            ?? buildDir.appendingPathComponent("\(mainName).log")
-        let log = (try? String(contentsOf: logURL, encoding: .utf8))
-            ?? (try? String(contentsOf: logURL, encoding: .isoLatin1)) ?? ""
-        issues = Self.parseLog(log)
+            ?? workDir.appendingPathComponent("\(mainName).log")
+        // log 夾著字型的二進位片段，不是完整的 UTF-8；用寬鬆解碼保住中文／全形字
+        //（以前退回 Latin-1，錯誤訊息裡的「，」會變成亂碼）
+        let log = (try? Data(contentsOf: logURL)).map { String(decoding: $0, as: UTF8.self) } ?? ""
+        issues = Self.parseLog(log).map { issue in
+            var issue = issue
+            issue.file = issue.file.map { Self.projectRelative($0, subdir: subdir, buildRoot: buildDir) }
+            return issue
+        }
         lastLogTail = String(log.suffix(4000))
 
-        // pdflatex 不吃中文，會噴一整排看不懂的 Unicode 錯誤 → 直接講重點
+        // pdflatex 不吃中文，會噴一整排看不懂的 Unicode 錯誤 → 直接講重點。
+        // 只是混進幾個全形標點（英文論文裡的「，」）就指出是哪幾行，不要叫人整份換引擎。
+        let unicodeIssues = issues.filter { $0.message.contains("Unicode character") }
         if engine != "xelatex", engine != "lualatex",
-           issues.contains(where: { $0.message.contains("Unicode character") }) {
+           !unicodeIssues.isEmpty, unicodeIssues.allSatisfy({ Self.isFullWidthPunctuation(in: $0.message) }) {
+            let places = Set(unicodeIssues.compactMap { issue in
+                issue.line.map { "\(issue.file.map { ($0 as NSString).lastPathComponent } ?? "")第 \($0) 行" }
+            }).sorted()
+            issues.insert(LatexIssue(
+                file: nil, line: nil,
+                message: "有全形標點（例如「，」）混進文字裡，\(engine) 不支援："
+                    + places.joined(separator: "、") + "。改成半形標點就好。",
+                isError: true), at: 0)
+        } else if engine != "xelatex", engine != "lualatex", !unicodeIssues.isEmpty {
             issues.insert(LatexIssue(
                 file: nil, line: nil,
                 message: "這份專案目前用 \(engine) 編譯，不支援中文。"
@@ -253,6 +277,56 @@ final class LatexCompiler: ObservableObject {
                                      isError: true), at: 0)
             return false
         }
+    }
+
+    /// SyncTeX 反向搜尋：PDF 上的一點 → 原始碼的檔案（相對專案根目錄）與行號。
+    /// point 是 PDF 點座標、原點在頁面左上（SyncTeX 的慣例）；page 從 0 算。
+    /// 用的是暫存區裡最近一次編譯留下的 .synctex.gz（編譯本來就帶 -synctex=1）。
+    func inverseSearch(page: Int, point: CGPoint) async -> (file: String, line: Int)? {
+        let project = projectURL
+        let build = buildDir
+        let target = await Task.detached(priority: .userInitiated) { () -> (URL, String, String)? in
+            guard let main = LatexProject.mainFile(in: project) else { return nil }
+            let subdir = LatexProject.mainSubdirectory(of: main, in: project)
+            let work = subdir.isEmpty ? build : build.appendingPathComponent(subdir)
+            let name = main.deletingPathExtension().lastPathComponent
+            guard FileManager.default.fileExists(
+                atPath: work.appendingPathComponent("\(name).synctex.gz").path) else { return nil }
+            return (work, "\(name).pdf", subdir)
+        }.value
+        guard let (work, pdf, subdir) = target else { return nil }
+        let args = ["synctex", work.path, pdf, "\(page + 1)",
+                    String(format: "%.1f", point.x), String(format: "%.1f", point.y)]
+        let output: String = await withCheckedContinuation { continuation in
+            Self.runHelper(args) { out, _ in continuation.resume(returning: out) }
+        }
+        let fields = Self.fields(in: output)
+        guard let input = fields["INPUT"], let line = Int(fields["LINE"] ?? ""), line > 0
+        else { return nil }
+        return (Self.projectRelative(input, subdir: subdir, buildRoot: build), line)
+    }
+
+    /// log 裡的檔名換成「相對於專案根目錄」，點錯誤才跳得到正確的檔：
+    /// 相對路徑是從主檔所在資料夾算的（補上子資料夾）；暫存區的絕對路徑換回專案內的路徑；
+    /// 其他絕對路徑（TeX 系統的 .sty）不動。
+    static func projectRelative(_ file: String, subdir: String, buildRoot: URL) -> String {
+        if file.hasPrefix("/") {
+            let root = buildRoot.standardizedFileURL.path + "/"
+            let path = URL(fileURLWithPath: file).standardizedFileURL.path
+            return path.hasPrefix(root) ? String(path.dropFirst(root.count)) : file
+        }
+        let clean = file.hasPrefix("./") ? String(file.dropFirst(2)) : file
+        guard !subdir.isEmpty else { return clean }
+        // 用 standardized 消掉 "../"（主檔在子資料夾、\input{../x} 的情形）
+        let base = URL(fileURLWithPath: "/" + subdir, isDirectory: true)
+        return String(base.appendingPathComponent(clean).standardizedFileURL.path.dropFirst())
+    }
+
+    /// 「Unicode character ， (U+FF0C)」的字是不是全形標點（CJK 標點 U+3000–303F、全形 U+FF00–FF65）
+    static func isFullWidthPunctuation(in message: String) -> Bool {
+        guard let r = message.range(of: #"\(U\+([0-9A-F]{4,6})\)"#, options: .regularExpression),
+              let code = UInt32(message[r].dropFirst(3).dropLast(), radix: 16) else { return false }
+        return (0x3000...0x303F).contains(code) || (0xFF00...0xFF65).contains(code)
     }
 
     /// 小幫手輸出的 KEY=VALUE 行。
