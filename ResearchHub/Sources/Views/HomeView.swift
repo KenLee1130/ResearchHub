@@ -27,7 +27,7 @@ struct HomeView: View {
         byAdding: .day, value: -6, to: Calendar.current.startOfDay(for: .now)) ?? .now
     @State private var pomoLogTo = Calendar.current.startOfDay(for: .now)
     @State private var newGeneralTodo = ""
-    @State private var repeatedTodos: [FileSystemStore.RepeatedTodo] = []
+    @State private var repeatedTodos: [RepeatedTodo] = []
     @State private var showTrash = false
     @State private var scheduleFeedback: String?
     @State private var showPlanning = false
@@ -523,7 +523,7 @@ struct HomeView: View {
         return L("有 \(repeatedTodos.count) 件事在日記裡重複出現。太重要就拆小一點今天做一步；不重要就放心丟掉——丟掉也是一種完成。")
     }
 
-    private func repeatedTodoRow(_ item: FileSystemStore.RepeatedTodo) -> some View {
+    private func repeatedTodoRow(_ item: RepeatedTodo) -> some View {
         let overdue = item.count >= 3
         return HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: "arrow.trianglehead.2.clockwise")

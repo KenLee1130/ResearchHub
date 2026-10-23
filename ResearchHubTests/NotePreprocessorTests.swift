@@ -1,6 +1,7 @@
 // 守 NotePreprocessor（筆記渲染前處理）：[[筆記]] 連結解析、\cite 編號與參考文獻、\footnote。
 import XCTest
 @testable import ResearchHub
+@testable import HubStore
 @testable import HubCore
 
 final class NotePreprocessorTests: XCTestCase {

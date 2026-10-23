@@ -232,9 +232,13 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      UserNotifications 不進套件）、`FileItem`、`ZoteroStore`、`ReadingGateStore`，以及從
      `FileSystemStore` 切出的 `LibraryTreeNode`／`LibraryTodoItem`／`RepeatedTodo`（原處留 typealias）。
      OSLog：`CoreLog`（hub.core）、`StoreLog`（hub.store）已建，待各處從 NSLog 換過去。
-   - HubStore 待做：`FileSystemStore` 本身（混著根資料夾書籤、檔案操作與頁面導覽狀態
-     `requestedTab`／`openNote`，要先把導覽狀態切回 app）、`.hub/*.json` 的 `EventStore`／
-     `GeneralTodoStore`（用了 SwiftUI `Color`）、`PomodoroModel`（1174 行，含 AppKit 面板）。
+   - HubStore 第二批（已搬，2026-10-23）：`FileSystemStore`（`NoteLinkIndex`、`LibrarySync` 改建構子注入；
+     `AppTab` 本體搬到 HubCore，SwiftUI 的 `title` 留在 app 的 extension；`requestedTab`／`pendingOpenNote`
+     這些導覽「請求」留在 store 當純資料，由頁面消化）、`NoteLinkIndex`。
+     資料契約版本：`DataContract`（HubCore）＋ `.hub/contract-version`，開資料夾時沒有就寫、
+     比 app 新就警告照開（第 7 節的未決事項暫定如此）。`NSLog` 已全部換成 OSLog（`AppLog`，hub.app）。
+   - HubStore 待做：`.hub/*.json` 的 `EventStore`／`GeneralTodoStore`（用了 SwiftUI `Color`）、
+     `PomodoroModel`（1174 行，含 AppKit 面板）。
    - `AppContainer`（已落地，2026-10-23）：`Services/AppContainer.swift` 是唯一的 composition root，
      持有 `LibrarySync`、`ZoteroStore`、`ReadingGateStore`（建構子注入 `LibrarySync`）、
      `NoteLinkIndex`、`BlockEditorHost`、`NotificationDelegate`，mac 另有 `PageFinder`、
@@ -261,3 +265,4 @@ URL scheme `researchhub-dev://`、橘色 AccentColor），不碰、不關正式�
 - 記帳是否需要獨立分頁（暫定首頁卡片）。
 - 論文全文搜尋的文字來源：`Papers/<key>/` 現有抽取結果是否完整。
 - `.hub/contract-version` 的升級策略：舊版 app 遇到新契約是拒開還是唯讀。
+  （2026-10-23 暫定：警告但照開，`errorMessage` 顯示一次；真的要拒開時改 `FileSystemStore.checkContractVersion`。）

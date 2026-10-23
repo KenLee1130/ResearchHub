@@ -1,4 +1,5 @@
 import SwiftUI
+import HubStore
 import HubCore
 import WebKit
 #if canImport(AppKit)

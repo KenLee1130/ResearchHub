@@ -5,7 +5,8 @@ import HubCore
 
 @main
 struct ResearchHubApp: App {
-    @State private var store = FileSystemStore()
+    @State private var store = FileSystemStore(noteLinks: AppContainer.shared.noteLinks,
+                                               librarySync: AppContainer.shared.librarySync)
     @State private var pomodoro = PomodoroModel()
     @State private var eventStore = EventStore()
     @State private var generalTodos = GeneralTodoStore()

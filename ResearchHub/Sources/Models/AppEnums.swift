@@ -1,26 +1,13 @@
 import SwiftUI
+import HubStore
+import HubCore
 
 // 跨平台共用的 app 層 enum（macOS 側欄與 iOS 分頁都用得到）。
 
-enum AppTab: String, CaseIterable, Identifiable {
-    case home = "首頁"
-    case notes = "筆記"
-    case papers = "論文"
-    case journal = "日記"
-
-    var id: String { rawValue }
-
+// AppTab 本體在 HubCore（FileSystemStore 的導覽請求要用），這裡只補 SwiftUI 的顯示名稱
+extension AppTab {
     /// 顯示名稱（會走本地化；rawValue 仍是中文，作為字串目錄的 key）。
     var title: LocalizedStringKey { LocalizedStringKey(rawValue) }
-
-    var icon: String {
-        switch self {
-        case .home: return "house"
-        case .notes: return "folder"
-        case .papers: return "books.vertical"
-        case .journal: return "book"
-        }
-    }
 }
 
 enum AppAppearance: String, CaseIterable, Identifiable {

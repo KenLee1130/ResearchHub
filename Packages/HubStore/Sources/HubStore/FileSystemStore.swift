@@ -1,42 +1,43 @@
-import SwiftUI
-import HubStore
+import Foundation
+import OSLog
 import HubCore
 import Observation
 import Combine
-import UserNotifications
 
 /// 管理 Research Hub 的根資料夾與目前瀏覽位置。
 /// 筆記就是磁碟上的真實檔案：資料夾 = 目錄、筆記 = .md 檔。
 @MainActor
 @Observable
-final class FileSystemStore {
+public final class FileSystemStore {
     // 這三個值型別搬到 HubStore 成頂層型別；留 typealias 讓既有呼叫處不用改
-    typealias TreeNode = LibraryTreeNode
-    typealias TodoItem = LibraryTodoItem
-    typealias RepeatedTodo = HubStore.RepeatedTodo
+    public typealias TreeNode = LibraryTreeNode
+    public typealias TodoItem = LibraryTodoItem
 
-    private(set) var rootURL: URL?
+    public private(set) var rootURL: URL?
     /// 從 Notes/ 開始的導航堆疊，最後一個是目前所在目錄。
-    private(set) var stack: [URL] = []
-    private(set) var items: [FileItem] = []
-    var errorMessage: String?
+    public private(set) var stack: [URL] = []
+    public private(set) var items: [FileItem] = []
+    public var errorMessage: String?
 
     // 跨分頁導航與全域搜尋
-    var requestedTab: AppTab?
-    var pendingOpenNote: URL?
+    public var requestedTab: AppTab?
+    public var pendingOpenNote: URL?
     /// 全 app 搜尋點了某篇論文：論文頁出現時選它、然後清空
-    var requestedPaperKey: String?
+    public var requestedPaperKey: String?
     /// researchhub://journal?date=… 要求開啟的日記日（JournalView 消化後清空）
-    var pendingJournalDate: Date?
+    public var pendingJournalDate: Date?
 
     private static let bookmarkKey = "researchHub.rootBookmark"
     private let fm = FileManager.default
     private var libraryObserver: AnyCancellable?
+    /// [[筆記]] 引用索引：根資料夾換了要告訴它（由 composition root 注入）
+    private let noteLinks: NoteLinkIndex
 
-    init() {
+    public init(noteLinks: NoteLinkIndex, librarySync: LibrarySync) {
+        self.noteLinks = noteLinks
         restoreRoot()
         // 另一台裝置新增／改名／刪除筆記 → 目前資料夾的清單要跟著變
-        libraryObserver = AppContainer.shared.librarySync.changes
+        libraryObserver = librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self, change.affectsNoteListing(notes: self.notesURL) else { return }
@@ -46,18 +47,18 @@ final class FileSystemStore {
 
     // MARK: - Root folder
 
-    var notesURL: URL? {
+    public var notesURL: URL? {
         rootURL?.appendingPathComponent("Notes", isDirectory: true)
     }
 
-    var journalURL: URL? {
+    public var journalURL: URL? {
         rootURL?.appendingPathComponent("Journal", isDirectory: true)
     }
 
-    var currentURL: URL? { stack.last }
+    public var currentURL: URL? { stack.last }
 
     /// 麵包屑：相對於 root 的路徑名稱。
-    var breadcrumb: [(name: String, index: Int)] {
+    public var breadcrumb: [(name: String, index: Int)] {
         stack.enumerated().map { (i, url) in (url.lastPathComponent, i) }
     }
 
@@ -71,7 +72,7 @@ final class FileSystemStore {
     private static let bookmarkResolutionOptions: URL.BookmarkResolutionOptions = []
     #endif
 
-    func setRoot(_ url: URL) {
+    public func setRoot(_ url: URL) {
         _ = url.startAccessingSecurityScopedResource()
         do {
             let data = try url.bookmarkData(
@@ -87,7 +88,7 @@ final class FileSystemStore {
     }
 
     /// 單元測試跑在 app 裡（test host）：不要還原使用者的資料夾，測試只用自建的暫存 fixture。
-    nonisolated static let isRunningTests: Bool =
+    public nonisolated static let isRunningTests: Bool =
         NSClassFromString("XCTestCase") != nil
         || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 
@@ -105,11 +106,12 @@ final class FileSystemStore {
         adopt(root: url)
     }
 
-    private func adopt(root url: URL) {
+    /// 採用根資料夾但不存書籤（測試用；app 內請走 setRoot）
+    func adopt(root url: URL) {
         rootURL = url
         ensureLayout()
         // 讓 [[...]] 筆記引用知道要從哪裡掃描筆記
-        AppContainer.shared.noteLinks.notesRoot = notesURL
+        noteLinks.notesRoot = notesURL
         if let notes = notesURL {
             stack = [notes]
         }
@@ -118,7 +120,7 @@ final class FileSystemStore {
         refresh()
     }
 
-    /// 確保 Notes/ 與 Journal/ 存在，並讓 .hub/ 自帶資料契約文件。
+    /// 確保 Notes/ 與 Journal/ 存在，並讓 .hub/ 自帶資料契約文件與版本。
     private func ensureLayout() {
         for url in [notesURL, journalURL].compactMap({ $0 }) {
             if !fm.fileExists(atPath: url.path) {
@@ -126,6 +128,21 @@ final class FileSystemStore {
             }
         }
         writeHubContractIfNeeded()
+        checkContractVersion()
+    }
+
+    /// .hub/contract-version：沒有就寫這版的；比這版 app 新就警告（照開，見 DataContract）。
+    private func checkContractVersion() {
+        guard let root = rootURL else { return }
+        let file = root.appendingPathComponent(".hub/contract-version")
+        guard let text = try? String(contentsOf: file, encoding: .utf8) else {
+            try? "\(DataContract.current)\n".write(to: file, atomically: true, encoding: .utf8)
+            return
+        }
+        if let problem = DataContract.problem(with: text) {
+            StoreLog.sync.warning("contract-version: \(problem, privacy: .public)")
+            errorMessage = problem
+        }
     }
 
     /// .hub/README.md：機器可讀資料的接口說明。跟著資料夾走，
@@ -177,9 +194,9 @@ final class FileSystemStore {
 
     // MARK: - Listing & navigation
 
-    func refresh() {
+    public func refresh() {
         // 筆記檔可能有增刪改名 → 讓 [[...]] 引用索引下次取用時重掃。
-        AppContainer.shared.noteLinks.invalidate()
+        noteLinks.invalidate()
         guard let current = currentURL else {
             items = []
             return
@@ -215,13 +232,13 @@ final class FileSystemStore {
         }
     }
 
-    func open(_ folder: FileItem) {
+    public func open(_ folder: FileItem) {
         guard folder.isFolder else { return }
         stack.append(folder.url)
         refresh()
     }
 
-    func navigate(toBreadcrumbIndex index: Int) {
+    public func navigate(toBreadcrumbIndex index: Int) {
         guard index < stack.count else { return }
         stack = Array(stack.prefix(index + 1))
         refresh()
@@ -232,7 +249,7 @@ final class FileSystemStore {
     /// 建立後回傳路徑，讓瀏覽器馬上進入改名狀態。
     /// directory 沒給就建在目前瀏覽的資料夾（側欄右鍵選單會指定資料夾）
     @discardableResult
-    func createFolder(named name: String, in directory: URL? = nil) -> URL? {
+    public func createFolder(named name: String, in directory: URL? = nil) -> URL? {
         guard let current = directory ?? currentURL else { return nil }
         let url = uniqueURL(in: current, baseName: name.isEmpty ? "新資料夾" : name, ext: nil)
         do {
@@ -246,7 +263,7 @@ final class FileSystemStore {
     }
 
     @discardableResult
-    func createNote(named name: String, in directory: URL? = nil) -> URL? {
+    public func createNote(named name: String, in directory: URL? = nil) -> URL? {
         guard let current = directory ?? currentURL else { return nil }
         let base = name.isEmpty ? "未命名筆記" : name
         let url = uniqueURL(in: current, baseName: base, ext: "md")
@@ -263,7 +280,7 @@ final class FileSystemStore {
 
     /// 改名；回傳新路徑（沒改或失敗回 nil）。
     @discardableResult
-    func rename(_ item: FileItem, to newName: String) -> URL? {
+    public func rename(_ item: FileItem, to newName: String) -> URL? {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, trimmed != item.name else { return nil }
         let dir = item.url.deletingLastPathComponent()
@@ -286,7 +303,7 @@ final class FileSystemStore {
         }
     }
 
-    func trash(_ item: FileItem) {
+    public func trash(_ item: FileItem) {
         do {
             try fm.trashItem(at: item.url, resultingItemURL: nil)
             refresh()
@@ -297,7 +314,7 @@ final class FileSystemStore {
 
     /// 把外部檔案／資料夾複製進 directory（同名自動加編號）。回傳複製成功的新路徑。
     @discardableResult
-    func importItems(_ urls: [URL], into directory: URL) -> [URL] {
+    public func importItems(_ urls: [URL], into directory: URL) -> [URL] {
         var copied: [URL] = []
         for src in urls {
             let scoped = src.startAccessingSecurityScopedResource()
@@ -317,13 +334,13 @@ final class FileSystemStore {
     }
 
     /// 拖拉移動：把 sourceURL 移進 folder。
-    func move(_ sourceURL: URL, into folder: FileItem) {
+    public func move(_ sourceURL: URL, into folder: FileItem) {
         guard folder.isFolder else { return }
         move(sourceURL, intoDirectory: folder.url)
     }
 
     /// 拖拉移動：把 sourceURL 移進任意目錄（資料夾圖示或麵包屑）。
-    func move(_ sourceURL: URL, intoDirectory dir: URL) {
+    public func move(_ sourceURL: URL, intoDirectory dir: URL) {
         guard sourceURL != dir else { return }
         // 不允許把資料夾移進自己的子目錄，也不需要移到原地
         if dir.path.hasPrefix(sourceURL.path + "/") { return }
@@ -344,7 +361,7 @@ final class FileSystemStore {
     // MARK: - 跨分頁開啟筆記
 
     /// 切到筆記分頁並導航到指定目錄。
-    func reveal(directory: URL) {
+    public func reveal(directory: URL) {
         if let notes = notesURL {
             var chain: [URL] = [notes]
             if directory.path != notes.path, directory.path.hasPrefix(notes.path + "/") {
@@ -361,7 +378,7 @@ final class FileSystemStore {
     }
 
     /// 從任何分頁開啟筆記：切到筆記分頁、導航到所在資料夾、打開編輯器。
-    func openNote(_ url: URL) {
+    public func openNote(_ url: URL) {
         reveal(directory: url.deletingLastPathComponent())
         pendingOpenNote = url
     }
@@ -370,19 +387,19 @@ final class FileSystemStore {
 
 
     /// Notes/ 的完整樹狀結構（資料夾在前、排除 assets）
-    func noteTree() -> [TreeNode] {
+    public func noteTree() -> [TreeNode] {
         LibraryScan.noteTree(notes: notesURL)
     }
 
     // MARK: - 全域掃描（首頁 / 搜尋用）
 
     /// 所有筆記檔（排除 assets/）
-    func allNoteURLs() -> [URL] {
+    public func allNoteURLs() -> [URL] {
         LibraryScan.noteURLs(notes: notesURL)
     }
 
     /// 最近修改的筆記
-    func recentNotes(limit: Int = 5) -> [FileItem] {
+    public func recentNotes(limit: Int = 5) -> [FileItem] {
         LibraryScan.recentNotes(notes: notesURL, limit: limit)
     }
 
@@ -390,15 +407,15 @@ final class FileSystemStore {
     /// 安全讀檔：iCloud 佔位檔（尚未下載到本機）同步讀取會阻塞到下載完成，
     /// 在 iOS 主執行緒上會被 watchdog 砍掉（0x8BADF00D 黑畫面閃退）。
     /// 尚未下載的檔案改成觸發背景下載、本次視為讀不到，下次掃描自然補上。
-    nonisolated static func safeRead(_ url: URL) -> String? { ICloudFile.safeRead(url) }
+    public nonisolated static func safeRead(_ url: URL) -> String? { ICloudFile.safeRead(url) }
 
     /// 彙整所有筆記中的 - [ ] / - [x]，依優先級（高→低）、到期日（近→遠）排序。
-    func scanTodos(includeDone: Bool = false) -> [TodoItem] {
+    public func scanTodos(includeDone: Bool = false) -> [TodoItem] {
         LibraryScan.noteTodos(notes: notesURL, includeDone: includeDone)
     }
 
     /// 在原檔打勾 / 取消打勾
-    func toggleTodo(_ item: TodoItem) {
+    public func toggleTodo(_ item: TodoItem) {
         guard let content = Self.safeRead(item.noteURL) else { return }
         var lines = content.components(separatedBy: "\n")
         guard item.lineIndex < lines.count else { return }
@@ -425,7 +442,7 @@ final class FileSystemStore {
     /// 母本來源：所有日記行（含已勾）、筆記未完成待辦、一般待辦（generalTexts）。
     /// 內容比對冪等，可重複呼叫；今天的呼叫順便為 @remind 排程推播。
     /// ⚠️ 必須在該天的日記編輯器載入之前呼叫（切換日期的動作裡、或編輯器開啟前）。
-    func seedTodos(for date: Date, generalTexts: [String] = []) {
+    public func seedTodos(for date: Date, generalTexts: [String] = []) {
         LibraryScan.seedTodos(for: date, generalTexts: generalTexts,
                               notes: notesURL, journal: journalURL)
     }
@@ -438,20 +455,20 @@ final class FileSystemStore {
 
     /// 帶日期類標記（due/from/every/remind/est）的待辦（日記＋筆記），依到期日排序。
     /// includeDone = true 時連同已完成副本一起回傳（任務總覽用來顯示各天完成度）。
-    func markerTodos(includeDone: Bool = false) -> [TodoItem] {
+    public func markerTodos(includeDone: Bool = false) -> [TodoItem] {
         LibraryScan.markerTodos(notes: notesURL, journal: journalURL, includeDone: includeDone)
     }
 
     /// 關鍵字搜尋：全文掃描日記＋筆記的待辦行（含已完成、含無標記的）。
     /// 任務總覽用它回答「這個條目哪幾天做完了」。
-    func searchTodos(keyword: String) -> [TodoItem] {
+    public func searchTodos(keyword: String) -> [TodoItem] {
         LibraryScan.searchTodos(keyword: keyword, notes: notesURL, journal: journalURL)
     }
 
     /// 歸檔：把同一任務的所有每日副本（含各自的縮排子項目）彙整成
     /// Notes/Archive/<任務>.md。非破壞性——日記保持原樣，重複執行整份重新生成。
     @discardableResult
-    func archiveTask(named cleanText: String, copies: [TodoItem]) -> URL? {
+    public func archiveTask(named cleanText: String, copies: [TodoItem]) -> URL? {
         guard let notes = notesURL else { return nil }
         let dir = notes.appendingPathComponent("Archive", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -501,7 +518,7 @@ final class FileSystemStore {
     /// 任務總覽的列編輯：改寫（newText）或刪除（nil／空字串）一行待辦。
     /// 行內容已和掃描時不同就不動，避免蓋錯。呼叫端需確定該檔的編輯器沒開著。
     @discardableResult
-    func updateTodoLine(_ item: TodoItem, newText: String?) -> Bool {
+    public func updateTodoLine(_ item: TodoItem, newText: String?) -> Bool {
         guard let content = Self.safeRead(item.noteURL) else { return false }
         var lines = content.components(separatedBy: "\n")
         guard item.lineIndex < lines.count else { return false }
@@ -525,7 +542,7 @@ final class FileSystemStore {
     }
 
     /// 把一行待辦加到某天的日記（任務總覽「新增」用；呼叫端需確定該天編輯器沒開著）。
-    func appendTodoLine(_ text: String, on date: Date) {
+    public func appendTodoLine(_ text: String, on date: Date) {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty, let url = journalURL(for: date) else { return }
         let content = Self.safeRead(url) ?? ""
@@ -539,14 +556,14 @@ final class FileSystemStore {
     /// 掃描 Journal/ 中重複出現的未完成待辦：
     /// 同一句「- [ ] 文字」出現在 minCount 天以上的日記 → 回報次數。
     /// 比對時剝掉 !high / @due 標記，同一件事加不加標記都算同一件。
-    func scanRepeatedJournalTodos(minCount: Int = 2) -> [RepeatedTodo] {
+    public func scanRepeatedJournalTodos(minCount: Int = 2) -> [RepeatedTodo] {
         LibraryScan.repeatedJournalTodos(journal: journalURL, minCount: minCount)
     }
 
     /// 放棄一句日記待辦：把所有日記中相同文字的「- [ ]」改成「- [-]」（已放棄，
     /// 之後不再列入待辦與重複統計），回傳改動的檔案數。
     @discardableResult
-    func discardJournalTodos(matching text: String) -> Int {
+    public func discardJournalTodos(matching text: String) -> Int {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         var changed = 0
@@ -574,7 +591,7 @@ final class FileSystemStore {
     }
 
     /// 某天日記裡還沒完成的待辦（原始文字，含標記），給規劃儀式搬移用。
-    func unfinishedJournalTodos(on date: Date) -> [String] {
+    public func unfinishedJournalTodos(on date: Date) -> [String] {
         guard let url = journalURL(for: date),
               let content = Self.safeRead(url) else { return [] }
         var result: [String] = []
@@ -593,7 +610,7 @@ final class FileSystemStore {
     }
 
     /// 某日的日記檔路徑
-    func journalURL(for date: Date) -> URL? {
+    public func journalURL(for date: Date) -> URL? {
         LibraryScan.journalURL(for: date, journal: journalURL)
     }
 
