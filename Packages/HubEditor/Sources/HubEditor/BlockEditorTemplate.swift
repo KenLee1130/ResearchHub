@@ -8,7 +8,7 @@ import HubCore
 /// 本地化：HTML 裡用 `{{L:原文}}` 佔位，載入時換成 `L("原文")`；
 /// 用 computed property 是因為語言切換重載編輯器時要重新求值。
 extension BlockEditorView {
-    static var template: String {
+    public static var template: String {
         guard let base = WebResources.baseURL,
               let raw = try? String(contentsOf: base.appendingPathComponent("editor.html"), encoding: .utf8)
         else { return "" }
@@ -16,7 +16,7 @@ extension BlockEditorView {
     }
 
     /// `{{L:原文}}` → 本地化字串（沒有佔位符就原樣回傳）
-    static func localize(_ html: String) -> String {
+    public static func localize(_ html: String) -> String {
         guard html.contains("{{L:") else { return html }
         var out = ""
         var rest = Substring(html)
@@ -25,7 +25,7 @@ extension BlockEditorView {
             let after = rest[open.upperBound...]
             guard let close = after.range(of: "}}") else { out += rest[open.lowerBound...]; return out }
             let key = String(after[..<close.lowerBound])
-            out += L(String.LocalizationValue(stringLiteral: key))
+            out += EditorLocalization.L(String.LocalizationValue(stringLiteral: key))
             rest = after[close.upperBound...]
         }
         out += rest
@@ -33,7 +33,7 @@ extension BlockEditorView {
     }
 
     /// version.json 不相容時的說明（相容回 nil）
-    static var bundleProblem: String? {
+    public static var bundleProblem: String? {
         let data = WebResources.baseURL.flatMap { try? Data(contentsOf: $0.appendingPathComponent("version.json")) }
         return EditorWebVersion.problem(with: data)
     }

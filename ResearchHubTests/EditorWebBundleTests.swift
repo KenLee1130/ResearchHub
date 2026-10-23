@@ -1,6 +1,7 @@
 // 守 EditorWeb bundle（editor.html＋version.json）的契約：佔位符全部換掉、版本在支援區間內。
 import XCTest
 @testable import ResearchHub
+@testable import HubEditor
 @testable import HubCore
 
 final class EditorWebBundleTests: XCTestCase {

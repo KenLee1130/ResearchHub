@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubEditor
 import HubStore
 import HubCore
 
@@ -97,7 +98,8 @@ struct MobileNotePreview: View {
         MarkdownPreviewView(
             text: content,
             baseDir: noteURL.deletingLastPathComponent(),
-            onOpenNote: { pushedNote = $0 })
+            onOpenNote: { pushedNote = $0 },
+            noteLinks: AppContainer.shared.noteLinks)
             .navigationTitle(noteURL.deletingPathExtension().lastPathComponent)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { loadContent(retriesLeft: 5) }
@@ -320,6 +322,7 @@ struct MobilePlanningSheet: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         BlockEditorView(
+                            host: AppContainer.shared.blockEditor,
                             text: $doc.text,
                             baseDir: tomorrowURL?.deletingLastPathComponent(),
                             documentID: tomorrowURL)

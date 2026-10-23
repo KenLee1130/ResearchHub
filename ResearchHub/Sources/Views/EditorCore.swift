@@ -104,6 +104,8 @@ struct EditorCore: View {
     /// 預覽版面：flow = 連續、a4 = A4 分頁（註腳在當頁底部）。
     @AppStorage("settings.previewLayout") private var previewLayout = "flow"
     private var zotero = AppContainer.shared.zotero
+    /// 主題切換時重建編輯器並把新配色傳給 SourceTextView
+    @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
     /// 檔案的讀寫、自動存檔、外部改動重讀（mac 與 iPhone 共用，見 EditorDocument）
     @State private var doc = EditorDocument()
     /// 右欄預覽雙擊段落 → 左欄源碼跳轉（兩欄捲動各自獨立，只有雙擊會觸發跳轉）。
@@ -165,7 +167,8 @@ struct EditorCore: View {
         switch mode {
         case .blocks:
             ZStack {
-                BlockEditorView(text: $doc.text, baseDir: fileDir, documentID: fileURL,
+                BlockEditorView(host: AppContainer.shared.blockEditor,
+                                text: $doc.text, baseDir: fileDir, documentID: fileURL,
                                 onCommand: blockCommand)
                 BlockEditorStatusOverlay()
             }
@@ -181,7 +184,11 @@ struct EditorCore: View {
                         onPasteImage: saveImage,
                         onShiftReturn: compileAction,
                         projectRoot: latexRoot,
-                        onTextViewReady: { handle?.textView = $0 }
+                        onTextViewReady: { handle?.textView = $0 },
+                        palette: editorPalette,
+                        zotero: AppContainer.shared.zotero,
+                        noteLinks: AppContainer.shared.noteLinks,
+                        activeEditor: AppContainer.shared.activeEditor
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .environment(store))),
@@ -191,7 +198,8 @@ struct EditorCore: View {
                         citationItems: zotero.items, onOpenNote: { store.openNote($0) },
                         onJumpToSource: { jumpRequest = SourceJumpRequest(sync: $0) },
                         layout: previewLayout,
-                        onWebViewReady: { handle?.previewWebView = $0 })
+                        onWebViewReady: { handle?.previewWebView = $0 },
+                        noteLinks: AppContainer.shared.noteLinks)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .environment(store))),
             ])
@@ -203,15 +211,28 @@ struct EditorCore: View {
                 onPasteImage: saveImage,
                 onShiftReturn: compileAction,
                 projectRoot: latexRoot,
-                onTextViewReady: { handle?.textView = $0 }
+                onTextViewReady: { handle?.textView = $0 },
+                palette: editorPalette,
+                zotero: AppContainer.shared.zotero,
+                noteLinks: AppContainer.shared.noteLinks,
+                activeEditor: AppContainer.shared.activeEditor
             )
         case .preview:
             MarkdownPreviewView(
                 text: doc.text, baseDir: fileDir,
                 citationItems: zotero.items, onOpenNote: { store.openNote($0) },
                 layout: previewLayout,
-                onWebViewReady: { handle?.previewWebView = $0 })
+                onWebViewReady: { handle?.previewWebView = $0 },
+                noteLinks: AppContainer.shared.noteLinks)
         }
+    }
+
+    /// 原始碼編輯器的配色：墨黑主題用最深的那一層當底、文字降一點亮度；其他主題用系統色
+    private var editorPalette: EditorPalette {
+        AppTheme(rawValue: themeRaw) == .ink
+            ? EditorPalette(background: NSColor(InkPalette.editor), text: NSColor(InkPalette.textPrimary),
+                            insertionPoint: NSColor(InkPalette.textPrimary))
+            : .system
     }
 
     /// 把存檔／附加的入口掛到頁面的把手上

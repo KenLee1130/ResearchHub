@@ -2,68 +2,86 @@
 import SwiftUI
 import HubEditor
 import HubCore
+import HubStore
 import AppKit
 
 // （ScrollSync 移到 Services/WebResources.swift，iOS 版共用）
 
 /// 跳到某一行的一次性請求（編譯錯誤清單點過來）。
-struct LineJumpRequest: Equatable {
-    let id = UUID()
-    let line: Int
+public struct LineJumpRequest: Equatable {
+    public let id = UUID()
+    public let line: Int
     /// 有的話：在那一行（或附近幾行）找這個字並選起來（PDF 雙擊的字）
-    var word: String? = nil
+    public var word: String? = nil
+
+    public init(line: Int, word: String? = nil) { self.line = line; self.word = word }
 }
 
 /// 右欄預覽雙擊段落 → 左欄源碼跳轉的一次性請求（id 變了才執行，避免重複觸發）。
-struct SourceJumpRequest: Equatable {
-    let id = UUID()
-    let sync: ScrollSync
+public struct SourceJumpRequest: Equatable {
+    public let id = UUID()
+    public let sync: ScrollSync
+
+    public init(sync: ScrollSync) { self.sync = sync }
 }
 
-struct SourceTextView: NSViewRepresentable {
-    /// 只是為了讓主題切換時 SwiftUI 會重跑 updateNSView（底色在那裡套用）
-    @AppStorage(AppTheme.storageKey) private var themeRaw = AppTheme.ambient.rawValue
-
-    @Binding var text: String
-    var fontSize: CGFloat = 14
-    var jump: SourceJumpRequest?
-    var lineJump: LineJumpRequest?
-    var onPasteImage: ((NSImage) -> String?)?
+@MainActor
+public struct SourceTextView: NSViewRepresentable {
+    @Binding public var text: String
+    public var fontSize: CGFloat = 14
+    public var jump: SourceJumpRequest?
+    public var lineJump: LineJumpRequest?
+    public var onPasteImage: ((NSImage) -> String?)?
     /// Shift+Return 要做的事（LaTeX 專案＝編譯）。沒給就是原本的插入軟換行。
-    var onShiftReturn: (() -> Void)?
+    public var onShiftReturn: (() -> Void)?
     /// LaTeX 專案根目錄（補全會多出專案才有的指令與檔案）；Markdown 筆記是 nil
-    var projectRoot: URL?
+    public var projectRoot: URL?
     /// 建好 NSTextView 時回報（頁面的 EditorHandle 靠它決定 ⌘F 找哪裡）
-    var onTextViewReady: ((NSTextView) -> Void)? = nil
+    public var onTextViewReady: ((NSTextView) -> Void)? = nil
+    /// 底色與文字色（app 依主題算好傳進來；主題切換時 app 重新建構這個 view，updateNSView 會套用）
+    public var palette: EditorPalette = .system
+    /// 補全與「插入引用」用的相依（app 從 composition root 傳進來）
+    public var zotero: ZoteroStore? = nil
+    public var noteLinks: NoteLinkIndex? = nil
+    public var activeEditor: ActiveEditorRegistry? = nil
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    /// 編輯器底色。這是全 app 唯一自己畫底色的 view：
-    /// 系統預設的 textBackgroundColor 在深色模式是 #1E1E1E，跟墨黑主題的面板亮度太接近，
-    /// 兩塊會糊在一起，所以墨黑主題改用最深的那一層（#08080A），周圍的面板自然浮起來。
-    /// 內文顏色。純白（labelColor）壓在近黑底上會有光暈，墨黑主題降一點亮度。
-    static var bodyTextColor: NSColor {
-        AppTheme.current == .ink ? NSColor(InkPalette.textPrimary) : .labelColor
+    public init(text: Binding<String>, fontSize: CGFloat = 14, jump: SourceJumpRequest? = nil,
+                lineJump: LineJumpRequest? = nil, onPasteImage: ((NSImage) -> String?)? = nil,
+                onShiftReturn: (() -> Void)? = nil, projectRoot: URL? = nil,
+                onTextViewReady: ((NSTextView) -> Void)? = nil, palette: EditorPalette = .system,
+                zotero: ZoteroStore? = nil, noteLinks: NoteLinkIndex? = nil,
+                activeEditor: ActiveEditorRegistry? = nil) {
+        self._text = text; self.fontSize = fontSize; self.jump = jump; self.lineJump = lineJump
+        self.onPasteImage = onPasteImage; self.onShiftReturn = onShiftReturn; self.projectRoot = projectRoot
+        self.onTextViewReady = onTextViewReady; self.palette = palette
+        self.zotero = zotero; self.noteLinks = noteLinks; self.activeEditor = activeEditor
     }
 
-    static func applyTheme(to textView: NSTextView, scrollView: NSScrollView) {
-        let ink = AppTheme.current == .ink
-        let background: NSColor = ink ? NSColor(InkPalette.editor) : .textBackgroundColor
+    public func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    /// 目前套用的配色（高亮時要拿內文色；static 是因為上色的程式在 Coordinator 裡）。
+    /// 這是全 app 唯一自己畫底色的 view：系統預設的 textBackgroundColor 在深色模式是 #1E1E1E，
+    /// 跟墨黑主題的面板亮度太接近，所以墨黑主題由 app 傳最深的那一層進來，周圍的面板自然浮起來。
+    public nonisolated(unsafe) static var currentPalette: EditorPalette = .system
+    public static var bodyTextColor: NSColor { currentPalette.text }
+
+    public static func applyTheme(to textView: NSTextView, scrollView: NSScrollView, palette: EditorPalette) {
+        currentPalette = palette
         textView.drawsBackground = true
-        textView.backgroundColor = background
+        textView.backgroundColor = palette.background
         scrollView.drawsBackground = true
-        scrollView.backgroundColor = background
+        scrollView.backgroundColor = palette.background
         // 游標在近黑底上要亮一點才看得到
-        textView.insertionPointColor = ink ? NSColor(InkPalette.textPrimary) : .textColor
+        textView.insertionPointColor = palette.insertionPoint
     }
 
     /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView,
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView,
                       context: Context) -> CGSize? {
         proposal.adaptive
     }
 
-    func makeNSView(context: Context) -> NSScrollView {
+    public func makeNSView(context: Context) -> NSScrollView {
         // 一開始就用 TextKit 1：編輯器處處用 layoutManager（上色可視區、跳行、反白閃爍），
         // 預設的 TextKit 2 會在第一次碰 layoutManager 時才「中途」切換——不如一開始就定下來。
         let textView = PastingTextView(usingTextLayoutManager: false)
@@ -88,6 +106,9 @@ struct SourceTextView: NSViewRepresentable {
         textView.registerForDraggedTypes(
             Array(Set(textView.registeredDraggedTypes + [.fileURL, .png, .tiff])))
         textView.delegate = context.coordinator
+        textView.zotero = zotero
+        textView.noteLinks = noteLinks
+        textView.activeEditor = activeEditor
         onTextViewReady?(textView)
         textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
         // ⌘F 用 app 自己的尋找列（PageFind.swift）；不用內建的：在 SwiftUI 版面裡會跟編輯器斷開
@@ -112,7 +133,7 @@ struct SourceTextView: NSViewRepresentable {
         textView.isAutomaticTextCompletionEnabled = false
         textView.textContainerInset = NSSize(width: 14, height: 14)
         textView.string = text
-        Self.applyTheme(to: textView, scrollView: scrollView)
+        Self.applyTheme(to: textView, scrollView: scrollView, palette: palette)
 
         context.coordinator.textView = textView
         context.coordinator.applyHighlighting()
@@ -128,13 +149,13 @@ struct SourceTextView: NSViewRepresentable {
         return scrollView
     }
 
-    func updateNSView(_ nsView: NSScrollView, context: Context) {
+    public func updateNSView(_ nsView: NSScrollView, context: Context) {
         context.coordinator.parent = self
         guard let tv = nsView.documentView as? PastingTextView else { return }
         tv.onPasteImage = onPasteImage
         tv.onShiftReturn = onShiftReturn
         tv.completionRoot = projectRoot
-        Self.applyTheme(to: tv, scrollView: nsView)
+        Self.applyTheme(to: tv, scrollView: nsView, palette: palette)
         var needsHighlight = false
         // hasMarkedText = 輸入法（注音/拼音等）正在組字：此時 tv.string 含組字暫存、
         // binding 還是舊值，若在這裡回寫會把組字狀態整個抹掉（中文打到一半跳掉）。
@@ -166,9 +187,9 @@ struct SourceTextView: NSViewRepresentable {
     // MARK: - Coordinator
 
     @MainActor
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        var parent: SourceTextView
-        weak var textView: NSTextView?
+    public final class Coordinator: NSObject, NSTextViewDelegate {
+        public var parent: SourceTextView
+        public weak var textView: NSTextView?
 
         /// 這個編輯器自己的 undo 堆疊。
         ///
@@ -176,13 +197,13 @@ struct SourceTextView: NSViewRepresentable {
         /// 編輯器被換掉（換檔案類型、切版面、關專案）之後，堆疊裡還留著指向舊編輯器的動作，
         /// 一按 ⌘Z 就去呼叫已釋放的物件 → 閃退（2026-09-25 EXC_BAD_ACCESS in popAndInvoke）。
         /// 自己擁有一份，壽命就跟著編輯器走；編輯器不在了，⌘Z 也碰不到它的動作。
-        let editorUndo = UndoManager()
+        public let editorUndo = UndoManager()
 
-        func undoManager(for view: NSTextView) -> UndoManager? { editorUndo }
-        var isEditing = false
-        var lastFontSize: CGFloat
-        var lastJumpID: UUID?
-        var lastLineJumpID: UUID?
+        public func undoManager(for view: NSTextView) -> UndoManager? { editorUndo }
+        public var isEditing = false
+        public var lastFontSize: CGFloat
+        public var lastJumpID: UUID?
+        public var lastLineJumpID: UUID?
         /// 各「標題」行的字元起點（供跳轉對位；隨文字變動由 applyHighlighting 重算）。
         private var anchorCharIndices: [Int] = []
         /// 各 \footnote{...} 的內容範圍（跳轉對位用，順序 = 預覽端的註腳編號）。
@@ -190,14 +211,14 @@ struct SourceTextView: NSViewRepresentable {
         /// 反白閃爍的世代計數（新的跳轉會取消上一次的移除排程）。
         private var flashGeneration = 0
 
-        init(_ parent: SourceTextView) {
+        public init(_ parent: SourceTextView) {
             self.parent = parent
             self.lastFontSize = parent.fontSize
         }
 
         private var highlightWork: DispatchWorkItem?
 
-        func textDidChange(_ notification: Notification) {
+        public func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
             isEditing = true
             parent.text = tv.string
@@ -217,13 +238,13 @@ struct SourceTextView: NSViewRepresentable {
         }
 
         /// 選取/輸入變動時更新浮動補全清單（涵蓋打字時游標移動）。
-        func textViewDidChangeSelection(_ notification: Notification) {
+        public func textViewDidChangeSelection(_ notification: Notification) {
             guard let pv = textView as? PastingTextView else { return }
             DispatchQueue.main.async { [weak pv] in pv?.updateCompletion() }
         }
 
         /// 跳到第 line 行（1 起算）：選取整行、捲到中間、閃一下。
-        func jump(toLine line: Int, word: String? = nil) {
+        public func jump(toLine line: Int, word: String? = nil) {
             guard let tv = textView, let sv = tv.enclosingScrollView,
                   let lm = tv.layoutManager, let tc = tv.textContainer else { return }
             let ns = tv.string as NSString
@@ -265,7 +286,7 @@ struct SourceTextView: NSViewRepresentable {
         /// 右欄預覽雙擊 → 優先在對應的源碼區段（錨點段或第 n 個 \footnote{...}）
         /// 選到同一個字（選取 + 聚焦 + 置中），並反白對應的區域；
         /// 找不到字（如雙擊到公式）時退回位置跳轉 + 反白整段。
-        func jump(to sync: ScrollSync) {
+        public func jump(to sync: ScrollSync) {
             guard let tv = textView, let sv = tv.enclosingScrollView,
                   let lm = tv.layoutManager else { return }
             let inset = tv.textContainerInset.height
@@ -544,7 +565,7 @@ struct SourceTextView: NSViewRepresentable {
         /// 但屬性只套在可視區 ± 一個視窗高：長筆記整份 setAttributes 會讓 layout
         /// 全域失效、文件高度暫時用估計值，捲動位置被夾走——在文件底部打字時
         /// 就是上下亂跳的根因。侷限套用範圍後，可視區以上的版面完全不動。
-        func applyHighlighting(visibleOnly: Bool = false) {
+        public func applyHighlighting(visibleOnly: Bool = false) {
             guard let tv = textView, let storage = tv.textStorage else { return }
             let size = parent.fontSize
             let ns = tv.string as NSString
@@ -679,7 +700,7 @@ struct SourceTextView: NSViewRepresentable {
         /// app 回到前景：焦點「完全沒落在任何東西上」時，才還給編輯器。
         /// 以前的條件是「不是 NSTextView 就搶」，但右欄預覽是 WKWebView：
         /// 從別的 app 切回來在預覽裡選字，焦點會被搶回左欄，⌘C 就複製不到。
-        @objc func appBecameActive() {
+        @objc public func appBecameActive() {
             DispatchQueue.main.async { [weak self] in
                 guard let tv = self?.textView, let win = tv.window, win.isKeyWindow,
                       nothingFocused(in: win) else { return }
@@ -687,7 +708,7 @@ struct SourceTextView: NSViewRepresentable {
             }
         }
 
-        @objc func viewDidScroll(_ note: Notification) {
+        @objc public func viewDidScroll(_ note: Notification) {
             scrollWork?.cancel()
             let w = DispatchWorkItem { [weak self] in self?.rehighlightIfNeeded() }
             scrollWork = w

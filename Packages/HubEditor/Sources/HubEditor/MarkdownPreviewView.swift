@@ -11,23 +11,35 @@ import UIKit
 
 /// 右欄即時預覽：WKWebView + marked（Markdown）+ KaTeX（LaTeX 數學與環境）。
 /// 數學段落先以 placeholder 保護再交給 marked，避免 $、反斜線被當成 Markdown 處理。
-struct MarkdownPreviewView {
-    var text: String
-    var baseDir: URL?
+@MainActor
+public struct MarkdownPreviewView {
+    public var text: String
+    public var baseDir: URL?
     /// 供 \cite 解析用的 Zotero 文獻（載入後變動時會觸發重新渲染）。
-    var citationItems: [ZoteroItem] = []
+    public var citationItems: [ZoteroItem] = []
     /// 點擊 [[筆記]] 引用時開啟對應筆記。
-    var onOpenNote: ((URL) -> Void)?
+    public var onOpenNote: ((URL) -> Void)?
     /// 雙擊預覽的某個段落 → 回報該段落在錨點座標系的位置，讓左欄源碼跳到對應處。
-    var onJumpToSource: ((ScrollSync) -> Void)?
+    public var onJumpToSource: ((ScrollSync) -> Void)?
     /// 版面："flow" = 連續（預設）、"a4" = A4 分頁（註腳放當頁底部）。
-    var layout: String = "flow"
+    public var layout: String = "flow"
     /// 自訂連結處理（例如論文問答的引文 researchhub://cite?…）；回傳 true 表示已處理。
-    var onLink: ((URL) -> Bool)? = nil
+    public var onLink: ((URL) -> Bool)? = nil
     /// 建好 WKWebView 時回報（Mac 頁面的 EditorHandle 靠它決定 ⌘F 找哪裡）
-    var onWebViewReady: ((WKWebView) -> Void)? = nil
+    public var onWebViewReady: ((WKWebView) -> Void)? = nil
+    /// [[筆記]] 解析與點擊開啟用的索引（app 從 composition root 傳進來；沒給就不解析）
+    public var noteLinks: NoteLinkIndex? = nil
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    public init(text: String, baseDir: URL? = nil, citationItems: [ZoteroItem] = [],
+                onOpenNote: ((URL) -> Void)? = nil, onJumpToSource: ((ScrollSync) -> Void)? = nil,
+                layout: String = "flow", onLink: ((URL) -> Bool)? = nil,
+                onWebViewReady: ((WKWebView) -> Void)? = nil, noteLinks: NoteLinkIndex? = nil) {
+        self.text = text; self.baseDir = baseDir; self.citationItems = citationItems
+        self.onOpenNote = onOpenNote; self.onJumpToSource = onJumpToSource; self.layout = layout
+        self.onLink = onLink; self.onWebViewReady = onWebViewReady; self.noteLinks = noteLinks
+    }
+
+    public func makeCoordinator() -> Coordinator { Coordinator() }
 
     private func makeWebView(coordinator: Coordinator) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -47,6 +59,7 @@ struct MarkdownPreviewView {
         #endif
         webView.underPageBackgroundColor = .clear
         coordinator.webView = webView
+        coordinator.noteLinks = noteLinks
         onWebViewReady?(webView)
         coordinator.citationItems = citationItems
         coordinator.pendingText = text
@@ -58,6 +71,7 @@ struct MarkdownPreviewView {
 
     private func refresh(coordinator: Coordinator) {
         coordinator.baseDir = baseDir
+        coordinator.noteLinks = noteLinks
         coordinator.onOpenNote = onOpenNote
         coordinator.onLink = onLink
         coordinator.onJumpToSource = onJumpToSource
@@ -68,15 +82,16 @@ struct MarkdownPreviewView {
     // MARK: - Coordinator
 
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        weak var webView: WKWebView?
-        var pendingText: String?
-        var baseDir: URL?
-        var citationItems: [ZoteroItem] = []
-        var onOpenNote: ((URL) -> Void)?
-        var onLink: ((URL) -> Bool)?
-        var onJumpToSource: ((ScrollSync) -> Void)?
-        var pendingLayout: String?
+    public final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        public var noteLinks: NoteLinkIndex?
+        public weak var webView: WKWebView?
+        public var pendingText: String?
+        public var baseDir: URL?
+        public var citationItems: [ZoteroItem] = []
+        public var onOpenNote: ((URL) -> Void)?
+        public var onLink: ((URL) -> Bool)?
+        public var onJumpToSource: ((ScrollSync) -> Void)?
+        public var pendingLayout: String?
         private var isLoaded = false
         private var lastText: String?
         private var lastCiteSig = -1
@@ -84,7 +99,7 @@ struct MarkdownPreviewView {
         /// 圖片 base64 快取（path → data URI），避免每次按鍵重讀檔案
         private var imageCache: [String: String] = [:]
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             isLoaded = true
             if let layout = pendingLayout {
                 pendingLayout = nil
@@ -97,7 +112,7 @@ struct MarkdownPreviewView {
         }
 
         /// 切換版面（flow / a4）。值來自我們自己的 AppStorage，安全可直接插入 JS。
-        func apply(layout: String) {
+        public func apply(layout: String) {
             guard isLoaded else { pendingLayout = layout; return }
             guard layout != lastLayout else { return }
             lastLayout = layout
@@ -108,7 +123,7 @@ struct MarkdownPreviewView {
         ///   • researchhub://note?path=… → 開啟對應筆記（[[筆記]] 引用）。
         ///   • 文件內錨點（\eqref/\ref/目錄）→ 放行，讓網頁自行捲動。
         ///   • 其餘外部連結（http/https/zotero/mailto…）→ 用系統預設程式開啟，不取代預覽。
-        func webView(
+        public func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
@@ -125,7 +140,7 @@ struct MarkdownPreviewView {
             if url.scheme == "researchhub", url.host == "note" {
                 if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
                    let rel = comps.queryItems?.first(where: { $0.name == "path" })?.value,
-                   let fileURL = AppContainer.shared.noteLinks.url(forRelativePath: rel) {
+                   let fileURL = noteLinks?.url(forRelativePath: rel) {
                     onOpenNote?(fileURL)
                 }
                 decisionHandler(.cancel)
@@ -148,7 +163,7 @@ struct MarkdownPreviewView {
 
         private var pushWork: DispatchWorkItem?
 
-        func update(text: String, items: [ZoteroItem]) {
+        public func update(text: String, items: [ZoteroItem]) {
             citationItems = items
             // 文字或文獻數量任一改變就重繪（文獻載入後 \cite 才解析得出來）。
             guard text != lastText || items.count != lastCiteSig else { return }
@@ -172,7 +187,7 @@ struct MarkdownPreviewView {
         }
 
         /// 預覽端雙擊段落 → 收到錨點座標，轉交給左欄源碼跳轉。
-        func userContentController(
+        public func userContentController(
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
@@ -192,7 +207,7 @@ struct MarkdownPreviewView {
         private func push(_ text: String) {
             // 先處理 [[筆記]] / \cite / \footnote / \eqref / \label，再把本地圖片轉成 data URI。
             let pre = NotePreprocessor.process(
-                text, zoteroItems: citationItems, noteLinks: AppContainer.shared.noteLinks.entries())
+                text, zoteroItems: citationItems, noteLinks: noteLinks?.entries() ?? [])
             let resolved = resolveLocalImages(in: pre)
             guard
                 let data = try? JSONEncoder().encode([resolved]),
@@ -247,7 +262,7 @@ struct MarkdownPreviewView {
 
     // MARK: - HTML template
 
-    static let template = """
+    public static let template = """
     <!DOCTYPE html>
     <html>
     <head>
@@ -670,19 +685,19 @@ struct MarkdownPreviewView {
 
 #if os(macOS)
 extension MarkdownPreviewView: NSViewRepresentable {
-    func makeNSView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
-    func updateNSView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
+    public func makeNSView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
+    public func updateNSView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
     /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: WKWebView, context: Context) -> CGSize? {
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView: WKWebView, context: Context) -> CGSize? {
         proposal.adaptive
     }
 }
 #else
 extension MarkdownPreviewView: UIViewRepresentable {
-    func makeUIView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
-    func updateUIView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
+    public func makeUIView(context: Context) -> WKWebView { makeWebView(coordinator: context.coordinator) }
+    public func updateUIView(_ webView: WKWebView, context: Context) { refresh(coordinator: context.coordinator) }
     /// 欄寬規則見 AdaptiveSizing.swift：給多少就用多少，不用內容的寬度撐大欄位
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WKWebView, context: Context) -> CGSize? {
+    public func sizeThatFits(_ proposal: ProposedViewSize, uiView: WKWebView, context: Context) -> CGSize? {
         proposal.adaptive
     }
 }

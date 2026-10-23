@@ -36,5 +36,10 @@ final class AppContainer {
 
     private init() {
         readingGate = ReadingGateStore(librarySync: librarySync)
+        // @est 進度條一格 = 一顆蕃茄的分鐘數（蕃茄鐘設定）
+        blockEditor.pomoMinutesProvider = {
+            let v = UserDefaults.standard.integer(forKey: PomodoroModel.SettingsKey.workMinutes)
+            return v > 0 ? v : 25
+        }
     }
 }
