@@ -114,12 +114,11 @@ final class ReadingGateStore {
 
     private init() {
         // Mac 端 Claude 更新了題庫、或另一台裝置記了通過紀錄 → 重讀
-        libraryObserver = NotificationCenter.default
-            .publisher(for: .rhLibraryDidChange)
+        libraryObserver = LibrarySync.shared.changes
             .receive(on: RunLoop.main)
-            .sink { [weak self] note in
+            .sink { [weak self] change in
                 guard let self else { return }
-                if LibrarySync.affects(note, self.bankURL) || LibrarySync.affects(note, self.logURL) {
+                if change.affects(self.bankURL) || change.affects(self.logURL) {
                     self.reload()
                 }
             }

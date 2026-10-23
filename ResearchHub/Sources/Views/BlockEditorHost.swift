@@ -12,6 +12,8 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     var baseDir: URL?
     var textBinding: Binding<String>?
     var documentID: URL?
+    /// 命令列送出的命令（"list"、"go:…"），由目前擁有 webView 的 BlockEditorView 設定
+    var onCommand: ((String) -> Void)?
 
     @Published private(set) var isReady = false
     @Published private(set) var loadError: String?
@@ -25,7 +27,6 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     private override init() {
         #if os(macOS)
         webView = FirstMouseWebView(frame: .zero, configuration: WKWebViewConfiguration())
-        PageFinder.shared.register(webView)   // ⌘F 在日記裡找
         #else
         webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
         #endif
@@ -132,9 +133,8 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
             case "foldChanged":
                 self.recordFold(json: body)
             case "command":
-                // 命令列送出的命令（如 /list）→ 由當前畫面決定怎麼呈現
-                NotificationCenter.default.post(
-                    name: .rhEditorCommand, object: nil, userInfo: ["command": body])
+                // 命令列送出的命令（如 "list"、"go:明天"）→ 由目前擁有 webView 的畫面決定怎麼呈現
+                self.onCommand?(body)
             case "jsError":
                 NSLog("BlockEditor JS error: %@", body)
                 if !self.isReady {
@@ -298,10 +298,4 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
         webView.evaluateJavaScript(
             "window.insertPastedImage(\(pathJSON)[0], \(uriJSON)[0])")
     }
-}
-
-
-extension Notification.Name {
-    /// 編輯器命令列送出的命令（userInfo["command"]，如 "list"）。
-    static let rhEditorCommand = Notification.Name("ResearchHub.editorCommand")
 }

@@ -98,11 +98,10 @@ final class EventStore {
         editedWhileNotReady = false
         load()
         // 另一台裝置改了 events.json（或切回 app）→ 重讀
-        libraryObserver = NotificationCenter.default
-            .publisher(for: .rhLibraryDidChange)
+        libraryObserver = LibrarySync.shared.changes
             .receive(on: RunLoop.main)
-            .sink { [weak self] note in
-                guard let self, LibrarySync.affects(note, self.fileURL) else { return }
+            .sink { [weak self] change in
+                guard let self, change.affects(self.fileURL) else { return }
                 self.load()
             }
     }

@@ -33,6 +33,9 @@ struct LatexProjectView: View {
     @AppStorage("latexPaneLayout") private var layoutRaw = Layout.split.rawValue
     @AppStorage("latexShowFileTree") private var showTree = true
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.collapseSidebar) private var collapseSidebar
+    @State private var editor = EditorHandle()
+    @State private var commands = ClosureCommandHandler()
 
     /// 這個畫面是不是已經在自己的視窗裡（獨立視窗就不再顯示「彈出視窗」按鈕）
     var isStandaloneWindow = false
@@ -51,6 +54,15 @@ struct LatexProjectView: View {
     private var pdfURL: URL { LatexProject.outputPDF(of: projectURL) }
 
     var body: some View {
+        content
+            .pageCommands(commands) { cmd in
+                guard cmd == .find, let target = editor.findTarget() else { return false }
+                PageFinder.shared.show(in: target)
+                return true
+            }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             header
             Divider()
@@ -150,8 +162,7 @@ struct LatexProjectView: View {
             if !isStandaloneWindow {
                 Button {
                     openWindow(id: "latex", value: projectURL)
-                    NotificationCenter.default.post(
-                        name: RootView.collapseSidebarNotification, object: nil)
+                    collapseSidebar?()
                     onClose()   // 已彈到新視窗，關掉內嵌這份，避免同專案兩開
                 } label: {
                     Image(systemName: "macwindow.on.rectangle")
@@ -168,7 +179,7 @@ struct LatexProjectView: View {
             }
             .help("編輯歷史：每次編譯、編輯中每 10 分鐘自動存一份")
             .sheet(isPresented: $showHistory) {
-                LatexHistoryView(projectURL: projectURL) { path, line in
+                LatexHistoryView(projectURL: projectURL, beforeRestore: { editor.saveNow?() }) { path, line in
                     let url = projectURL.appendingPathComponent(path)
                     let switching = !same(selected, url)
                     selected = url
@@ -390,7 +401,8 @@ struct LatexProjectView: View {
                     imageInsertion: .latex(projectRoot: projectURL),
                     onSaved: nil,
                     lineJump: lineJump,
-                    onShiftReturn: { compiler.compileNow() })
+                    onShiftReturn: { compiler.compileNow() },
+                    handle: editor)
             } else if LatexProject.isImageFile(selected) {
                 imagePreview(selected)
             } else {
@@ -437,7 +449,8 @@ struct LatexProjectView: View {
                 LatexPDFView(url: pdfURL, version: compiler.pdfVersion, continuous: continuous,
                              onDoubleClick: { page, point, word in
                                  Task { await jumpToSource(page: page, point: point, word: word) }
-                             })
+                             },
+                             onPDFViewReady: { editor.pdfView = $0 })
             } else {
                 placeholder(compiler.status == .running ? "編譯中…" : "還沒有編譯結果，按「編譯」試試")
             }
@@ -522,7 +535,7 @@ struct LatexProjectView: View {
 
     /// 編譯前先叫編輯器存檔：編譯讀的是磁碟上的檔案，沒存會編到舊內容。
     private func compile() {
-        NotificationCenter.default.post(name: EditorCore.saveNowNotification, object: nil)
+        editor.saveNow?()
         DispatchQueue.main.async { compiler.compileNow() }
     }
 
@@ -785,6 +798,8 @@ struct LatexProjectView: View {
 struct LatexProjectWindowView: View {
     let projectURL: URL?
     @Environment(\.dismiss) private var dismiss
+    @State private var router = CommandRouter()
+    @State private var searchPresented = false
 
     var body: some View {
         ZStack {
@@ -800,6 +815,7 @@ struct LatexProjectWindowView: View {
             }
         }
         .background(EarlyWindowHook { RootView.adoptAsPendingTab($0) })   // 「在新分頁開啟」
+        .windowCommands(router, searchPresented: $searchPresented)
     }
 }
 

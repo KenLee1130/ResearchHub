@@ -47,8 +47,8 @@ struct MobileNotesView: View {
                 await reloadTree()
             }
             // Mac 新增／改名的筆記同步進來 → 清單跟著變
-            .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
-                if LibrarySync.affectsNoteListing(note, notes: store.notesURL) {
+            .onReceive(LibrarySync.shared.changes) { change in
+                if change.affectsNoteListing(notes: store.notesURL) {
                     Task { await reloadTree() }
                 }
             }

@@ -15,6 +15,8 @@ struct JournalView: View {
     @State private var displayedMonth: Date = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: .now)
     @State private var mode: EditorMode = .blocks
+    @State private var editor = EditorHandle()
+    @State private var commands = ClosureCommandHandler()
     /// 本月有日記的日（day number）
     @State private var journalDays: Set<Int> = []
     /// 本月有筆記更新的日 → 筆記名稱列表
@@ -90,22 +92,18 @@ struct JournalView: View {
         .onChange(of: selectedDay) { refreshMonthData() }
         .onChange(of: eventStore.events) { refreshMonthData() }
         // 手機寫的日記同步進來 → 月曆上的「有日記」標記跟著更新
-        .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
-            if LibrarySync.affects(note, store.journalURL) || LibrarySync.affects(note, store.notesURL) {
+        .onReceive(LibrarySync.shared.changes) { change in
+            if change.affects(store.journalURL) || change.affects(store.notesURL) {
                 refreshMonthData()
             }
         }
         .sheet(item: $eventSheet) { config in
             EventEditorSheet(draft: config.draft, isNew: config.isNew)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .rhEditorCommand)) { note in
-            guard let cmd = note.userInfo?["command"] as? String else { return }
-            if cmd == "list" {
-                showTaskManager = true
-            } else if cmd.hasPrefix("go:") {
-                // 編輯器內命令行的 /go：跳到那一天（同底部命令列）
-                _ = handleQuickAction(.go(String(cmd.dropFirst(3))))
-            }
+        .pageCommands(commands) { cmd in
+            guard cmd == .find, let target = editor.findTarget() else { return false }
+            PageFinder.shared.show(in: target)
+            return true
         }
         .sheet(isPresented: $showTaskManager, onDismiss: refreshMonthData) {
             TaskManagerSheet()
@@ -330,7 +328,8 @@ struct JournalView: View {
                 EditorCore(
                     fileURL: url, mode: $mode,
                     quickCmdBar: true,
-                    onJournalCommand: handleQuickAction)
+                    onJournalCommand: handleQuickAction,
+                    handle: editor)
                     .id(url)
             }
         }

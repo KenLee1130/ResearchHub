@@ -235,7 +235,12 @@ struct MobileTodayView: View {
                         BlockEditorView(
                             text: $journalText,
                             baseDir: journalURL?.deletingLastPathComponent(),
-                            documentID: journalURL)
+                            documentID: journalURL,
+                            onCommand: { cmd in
+                                guard cmd == "list" else { return }
+                                saveNow()   // 讓總覽能安全改今天的檔
+                                showTaskManager = true
+                            })
                             .frame(minHeight: 420)
                             .overlay {
                                 if let error = editorHost.loadError {
@@ -294,12 +299,6 @@ struct MobileTodayView: View {
                     .datePickerStyle(.graphical)
                     .padding()
                     .presentationDetents([.medium])
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .rhEditorCommand)) { note in
-                if note.userInfo?["command"] as? String == "list" {
-                    saveNow()   // 讓總覽能安全改今天的檔
-                    showTaskManager = true
-                }
             }
             .sheet(isPresented: $showTaskManager, onDismiss: load) {
                 TaskManagerSheet()

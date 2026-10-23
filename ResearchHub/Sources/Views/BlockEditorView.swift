@@ -10,6 +10,8 @@ struct BlockEditorView {
     var baseDir: URL?
     /// 文件身分（換日記/換檔案時用來重置宿主狀態）
     var documentID: URL?
+    /// 編輯器命令列送出的命令（"list"、"go:…"）；沒給＝這個畫面不理命令列
+    var onCommand: ((String) -> Void)? = nil
 
     /// 共用 webView 永遠掛在「最新的」容器上；舊容器被 SwiftUI 回收時不會帶走它。
     private func attachWebView(to container: WebViewContainer) {
@@ -33,6 +35,7 @@ struct BlockEditorView {
         let host = BlockEditorHost.shared
         host.textBinding = $text
         host.baseDir = baseDir
+        host.onCommand = onCommand
         if host.documentID != documentID {
             // 換了文件：清掉上一份的推送/回傳記錄，確保一定重新渲染
             host.documentID = documentID

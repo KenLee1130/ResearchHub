@@ -22,6 +22,8 @@ struct MarkdownPreviewView {
     var layout: String = "flow"
     /// 自訂連結處理（例如論文問答的引文 researchhub://cite?…）；回傳 true 表示已處理。
     var onLink: ((URL) -> Bool)? = nil
+    /// 建好 WKWebView 時回報（Mac 頁面的 EditorHandle 靠它決定 ⌘F 找哪裡）
+    var onWebViewReady: ((WKWebView) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -30,7 +32,6 @@ struct MarkdownPreviewView {
         config.userContentController.add(coordinator, name: "jumpToSource")
         #if os(macOS)
         let webView = FirstMouseWebView(frame: .zero, configuration: config)
-        PageFinder.shared.register(webView)   // ⌘F 在預覽裡找
         #else
         let webView = WKWebView(frame: .zero, configuration: config)
         #endif
@@ -44,6 +45,7 @@ struct MarkdownPreviewView {
         #endif
         webView.underPageBackgroundColor = .clear
         coordinator.webView = webView
+        onWebViewReady?(webView)
         coordinator.citationItems = citationItems
         coordinator.pendingText = text
         coordinator.pendingLayout = layout

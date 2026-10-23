@@ -32,6 +32,8 @@ struct SourceTextView: NSViewRepresentable {
     var onShiftReturn: (() -> Void)?
     /// LaTeX 專案根目錄（補全會多出專案才有的指令與檔案）；Markdown 筆記是 nil
     var projectRoot: URL?
+    /// 建好 NSTextView 時回報（頁面的 EditorHandle 靠它決定 ⌘F 找哪裡）
+    var onTextViewReady: ((NSTextView) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -85,6 +87,7 @@ struct SourceTextView: NSViewRepresentable {
         textView.registerForDraggedTypes(
             Array(Set(textView.registeredDraggedTypes + [.fileURL, .png, .tiff])))
         textView.delegate = context.coordinator
+        onTextViewReady?(textView)
         textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
         // ⌘F 用 app 自己的尋找列（PageFind.swift）；不用內建的：在 SwiftUI 版面裡會跟編輯器斷開
         textView.isRichText = false

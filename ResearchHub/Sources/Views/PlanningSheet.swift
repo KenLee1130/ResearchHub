@@ -11,6 +11,8 @@ struct PlanningSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var mode: EditorMode = .blocks
+    @State private var editor = EditorHandle()
+    @State private var commands = ClosureCommandHandler()
     /// 今天還沒完成的日記待辦（原始文字）
     @State private var leftovers: [String] = []
     /// 已搬到明天的項目（避免重複搬）
@@ -87,8 +89,13 @@ struct PlanningSheet: View {
     @ViewBuilder
     private var editorPane: some View {
         if let url = store.journalURL(for: tomorrow) {
-            EditorCore(fileURL: url, mode: $mode)
+            EditorCore(fileURL: url, mode: $mode, handle: editor)
                 .id(url)
+                .pageCommands(commands) { cmd in
+                    guard cmd == .find, let target = editor.findTarget() else { return false }
+                    PageFinder.shared.show(in: target)
+                    return true
+                }
         } else {
             Text("請先在「筆記」分頁選擇根資料夾")
                 .foregroundStyle(.secondary)
@@ -201,8 +208,8 @@ struct PlanningSheet: View {
     }
 
     private func moveToTomorrow(_ item: String) {
-        guard let url = store.journalURL(for: tomorrow), !moved.contains(item) else { return }
-        EditorCore.requestAppend(to: url, text: "- [ ] \(item)\n")
+        guard store.journalURL(for: tomorrow) != nil, !moved.contains(item) else { return }
+        editor.append?("- [ ] \(item)\n")   // 左邊就是明天日記的編輯器
         moved.insert(item)
     }
 

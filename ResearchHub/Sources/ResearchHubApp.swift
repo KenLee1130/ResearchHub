@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 
 @main
 struct ResearchHubApp: App {
@@ -30,26 +31,8 @@ struct ResearchHubApp: App {
         .windowToolbarStyle(.unified(showsTitle: false))
         // 視窗最小尺寸改由 RootView 裡的 WindowMinSizeSetter 直接設 NSWindow.contentMinSize
         // 處理 —— 比 .windowResizability(.contentMinSize) 在 .hiddenTitleBar 下可靠。
-        .commands {
-            CommandGroup(after: .newItem) {
-                Button("新分頁") {
-                    NotificationCenter.default.post(name: RootView.newTabNotification, object: nil)
-                }
-                .keyboardShortcut("t", modifiers: .command)
-            }
-            CommandGroup(after: .textEditing) {
-                // ⌘F：只在目前這一頁／這個檔案裡找（見 PageFinder）
-                Button("在此頁尋找…") {
-                    PageFinder.shared.showFind()
-                }
-                .keyboardShortcut("f", modifiers: .command)
-                // ⌘K：全 app 搜尋（日記、筆記、LaTeX、論文、待辦），只有目前的視窗會跳出來（見 RootView）
-                Button("搜尋全部…") {
-                    NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
-                }
-                .keyboardShortcut("k", modifiers: .command)
-            }
-        }
+        // 選單與快捷鍵：讀 key window 的路由，頁面決定接不接（見 CommandRouting.swift）
+        .commands { AppCommands() }
 
         // 把單一筆記彈到獨立視窗：方便同時編輯兩份筆記。
         // 以筆記 URL 為值，重複開同一份會聚焦既有視窗、不會重複開。

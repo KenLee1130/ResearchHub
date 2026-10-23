@@ -19,6 +19,7 @@ struct PapersView: View {
     @StateObject private var viewer = PDFViewerController()
     /// 中文版（沈浸式翻譯輸出的 PDF）的檢視器
     @StateObject private var transViewer = PDFViewerController()
+    @State private var commands = ClosureCommandHandler()
     @State private var translationData: Data?
     @State private var viewMode: ViewMode = .original
     @State private var importingTranslation = false
@@ -57,6 +58,17 @@ struct PapersView: View {
             .init(id: "detail", minWidth: 320, content: hosted(detailPane)),
         ])
         .navigationTitle("論文")
+        .pageCommands(commands) { cmd in
+            // ⌘F：焦點所在的那份 PDF；都沒焦點就看得到的那份（原文優先）
+            guard cmd == .find else { return false }
+            let visible = [viewer.pdfView, transViewer.pdfView].compactMap { $0 }.filter(EditorHandle.isShowing)
+            let target = visible.first { v in
+                (v.window?.firstResponder as? NSView)?.isDescendant(of: v) ?? false
+            } ?? visible.first
+            guard let target else { return false }
+            PageFinder.shared.show(in: target)
+            return true
+        }
         .fileImporter(isPresented: $importingTranslation, allowedContentTypes: [.pdf]) { result in
             if case .success(let url) = result { importTranslation(from: url) }
         }

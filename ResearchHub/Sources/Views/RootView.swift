@@ -1,6 +1,7 @@
 #if os(macOS)
 import SwiftUI
 import AppKit
+import HubCore
 
 struct RootView: View {
     @Environment(FileSystemStore.self) private var store
@@ -37,16 +38,11 @@ struct RootView: View {
     @State private var renamingNode: URL?
     @State private var renameText = ""
 
-    /// 把筆記／LaTeX 專案彈到小視窗時，主視窗的導覽欄就用不到了 → 順手收起來
-    static let collapseSidebarNotification = Notification.Name("RootView.collapseSidebar")
-    /// 「檔案 → 新分頁」（⌘T）
-    static let newTabNotification = Notification.Name("RootView.newTab")
+    /// 這個視窗的命令路由：選單／快捷鍵經 focusedSceneValue 找到 key window 的這一個，
+    /// 頁面進場時把自己 push 進去（見 CommandRouting.swift）
+    @State private var router = CommandRouter()
     /// 按「＋」時記下要併進哪個視窗；新視窗的 EarlyWindowHook 一拿到自己就直接掛上去
     static weak var pendingTabHost: NSWindow?
-    /// 「編輯 → 搜尋…」（⌘F／⌘K）
-    static let searchNotification = Notification.Name("RootView.search")
-    /// 所有主視窗（分頁）。⌘F 在 LaTeX／筆記獨立視窗按時，交給最前面的主視窗處理
-    static let rootWindows = NSHashTable<NSWindow>.weakObjects()
     /// 側欄寬度，只由右緣的自訂把手改變（見 SidebarSplitControl）。
     /// 最窄可以縮到只剩圖示。
     @AppStorage("sidebarWidth") private var sidebarWidth: Double = 200
@@ -387,16 +383,19 @@ struct RootView: View {
                     .environment(pomodoro)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(
-            for: Self.collapseSidebarNotification)) { _ in
-            collapseSidebar()
+        .windowCommands(router, searchPresented: $searchPresented) { cmd in
+            switch cmd {
+            case .newTab: openNewTab(); return true
+            case .toggleSidebar: collapseSidebar(); return true
+            default: return false
+            }
         }
+        .environment(\.collapseSidebar, { collapseSidebar() })
         // 側欄平常鎖住「拖太窄就收起」（見 SidebarSplitControl）；
         // 收起中不鎖，否則按鈕收起後會被鎖回展開狀態
         .background(EarlyWindowHook { Self.adoptAsPendingTab($0) })
         .background(WindowReader { window in
             hostWindow = window
-            if let window { Self.rootWindows.add(window) }
             if columnVisibility != .detailOnly {
                 SidebarSplitControl.lock(in: window, width: sidebarWidth,
                                          min: Self.sidebarMin, max: Self.sidebarMax)
@@ -439,10 +438,6 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)) { note in
             if (note.object as? NSWindow) === hostWindow { hideSystemNewTabButton() }
         }
-        // 「檔案 → 新分頁」（⌘T）：只有目前的主視窗處理
-        .onReceive(NotificationCenter.default.publisher(for: RootView.newTabNotification)) { _ in
-            if hostWindow?.isMainWindow == true { openNewTab() }
-        }
         .onChange(of: store.rootURL) {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
@@ -455,8 +450,8 @@ struct RootView: View {
             for: NSApplication.didBecomeActiveNotification)) { _ in
             LibrarySync.shared.syncNow()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .rhLibraryDidChange)) { note in
-            if LibrarySync.affectsNoteListing(note, notes: store.notesURL) {
+        .onReceive(LibrarySync.shared.changes) { change in
+            if change.affectsNoteListing(notes: store.notesURL) {
                 reloadNoteTreeInBackground()
             }
         }
@@ -465,25 +460,6 @@ struct RootView: View {
             if let requested = store.requestedTab {
                 tab = requested
                 store.requestedTab = nil
-            }
-        }
-        .sheet(isPresented: $searchPresented) {
-            SearchPaletteView()
-                .environment(store)
-                .environment(generalTodos)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: RootView.searchNotification)) { _ in
-            guard let w = hostWindow else { return }
-            if w.isKeyWindow { searchPresented = true; return }
-            // 目前的視窗不是主視窗（例如 LaTeX 獨立視窗）→ 由最前面那個主視窗跳出來
-            let keyIsRoot = Self.rootWindows.allObjects.contains { $0 === NSApp.keyWindow }
-            guard !keyIsRoot else { return }
-            let front = NSApp.orderedWindows.first { win in
-                Self.rootWindows.allObjects.contains { $0 === win }
-            }
-            if front === w {
-                w.makeKeyAndOrderFront(nil)
-                searchPresented = true
             }
         }
         // 系統 URL scheme（researchhub://…）：外部工具的入口。
