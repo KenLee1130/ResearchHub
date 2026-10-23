@@ -6,12 +6,12 @@ import HubCore
 /// 編輯器的自動存檔是協調寫入，掛在根資料夾上的 presenter（LibrarySync）也會收到通知；
 /// 不擋掉的話，每打幾個字存一次檔，整個 app 就以為「另一台裝置改了東西」而全部重讀——
 /// 首頁重掃所有筆記，主執行緒卡一百多毫秒，打字就一頓一頓的。
-nonisolated enum OwnWrites {
+public nonisolated enum OwnWrites {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var stamps: [String: Date] = [:]
     private static let window: TimeInterval = 3
 
-    static func note(_ url: URL) {
+    public static func note(_ url: URL) {
         let key = url.standardizedFileURL.path
         lock.lock(); defer { lock.unlock() }
         stamps[key] = Date()
@@ -22,7 +22,7 @@ nonisolated enum OwnWrites {
     }
 
     /// 這個檔案是不是 app 自己剛剛寫的
-    static func isRecent(_ url: URL) -> Bool {
+    public static func isRecent(_ url: URL) -> Bool {
         let key = url.standardizedFileURL.path
         lock.lock(); defer { lock.unlock() }
         guard let t = stamps[key] else { return false }
@@ -39,14 +39,14 @@ nonisolated enum OwnWrites {
 /// 自己的寫入一律走 `write(_:)`（協調寫入並帶上 filePresenter: self），
 /// 這樣不會通知回自己。讀寫都在背景序列佇列上做——協調讀取在檔案還沒從
 /// iCloud 下載完時會等下載，放主執行緒會卡死（iPhone 之前的 watchdog 閃退就是這樣）。
-nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
-    let presentedItemURL: URL?
-    let presentedItemOperationQueue: OperationQueue
+public nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
+    public let presentedItemURL: URL?
+    public let presentedItemOperationQueue: OperationQueue
     private let io = DispatchQueue(label: "ResearchHub.FileWatcher.io")
     private let onChange: @MainActor @Sendable () -> Void
     private var registered = false
 
-    init(url: URL, onChange: @escaping @MainActor @Sendable () -> Void) {
+    public init(url: URL, onChange: @escaping @MainActor @Sendable () -> Void) {
         presentedItemURL = url
         let q = OperationQueue()
         q.maxConcurrentOperationCount = 1
@@ -57,7 +57,7 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
         registered = true
     }
 
-    func stop() {
+    public func stop() {
         guard registered else { return }
         NSFileCoordinator.removeFilePresenter(self)
         registered = false
@@ -67,20 +67,20 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
 
     // MARK: NSFilePresenter
 
-    func presentedItemDidChange() {
+    public func presentedItemDidChange() {
         let cb = onChange
         Task { @MainActor in cb() }
     }
 
     /// iCloud 用「新版本」取代檔案時走這條（例如另一台裝置存檔後同步下來）
-    func presentedItemDidGain(_ version: NSFileVersion) {
+    public func presentedItemDidGain(_ version: NSFileVersion) {
         presentedItemDidChange()
     }
 
     // MARK: iCloud
 
     /// 本機這份不是最新的（或還沒下載）→ 請 iCloud 去抓。抓完會觸發 presentedItemDidChange。
-    func requestLatest() {
+    public func requestLatest() {
         guard let url = presentedItemURL else { return }
         io.async {
             let status = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
@@ -94,7 +94,7 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
     // MARK: 協調讀寫
 
     /// 背景協調讀取，結果回主執行緒。檔案不存在回 nil。
-    func read(_ completion: @escaping @MainActor @Sendable (String?) -> Void) {
+    public func read(_ completion: @escaping @MainActor @Sendable (String?) -> Void) {
         guard let url = presentedItemURL else {
             Task { @MainActor in completion(nil) }
             return
@@ -113,7 +113,7 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
     }
 
     /// 背景協調寫入（不會通知回自己）。完成後在主執行緒回報成功與否。
-    func write(_ text: String,
+    public func write(_ text: String,
                completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
         guard let url = presentedItemURL else {
             if let completion { Task { @MainActor in completion(false) } }
@@ -139,13 +139,13 @@ nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Senda
 
 /// 監看一整個資料夾：裡面任何檔案被改動（包含另一台裝置經 iCloud 同步進來）都會回報。
 /// LaTeX 專案用它來更新檔案樹、並在來源檔變動時重新編譯。
-nonisolated final class DirectoryWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
-    let presentedItemURL: URL?
-    let presentedItemOperationQueue: OperationQueue
+public nonisolated final class DirectoryWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
+    public let presentedItemURL: URL?
+    public let presentedItemOperationQueue: OperationQueue
     private let onChange: @MainActor @Sendable (URL?) -> Void
     private var registered = false
 
-    init(url: URL, onChange: @escaping @MainActor @Sendable (URL?) -> Void) {
+    public init(url: URL, onChange: @escaping @MainActor @Sendable (URL?) -> Void) {
         presentedItemURL = url
         let q = OperationQueue()
         q.maxConcurrentOperationCount = 1
@@ -156,7 +156,7 @@ nonisolated final class DirectoryWatcher: NSObject, NSFilePresenter, @unchecked 
         registered = true
     }
 
-    func stop() {
+    public func stop() {
         guard registered else { return }
         NSFileCoordinator.removeFilePresenter(self)
         registered = false
@@ -164,12 +164,12 @@ nonisolated final class DirectoryWatcher: NSObject, NSFilePresenter, @unchecked 
 
     deinit { stop() }
 
-    func presentedItemDidChange() {
+    public func presentedItemDidChange() {
         let cb = onChange
         Task { @MainActor in cb(nil) }
     }
 
-    func presentedSubitemDidChange(at url: URL) {
+    public func presentedSubitemDidChange(at url: URL) {
         // app 自己的狀態資料夾（output.pdf 等）不算使用者的改動，否則會編譯到無窮迴圈
         guard !url.path.contains("/\(LatexProject.stateDirName)/"),
               !url.lastPathComponent.hasPrefix(".") else { return }

@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubStore
 import UIKit
 
 /// 閱讀關卡設定：專注模式開關、黑名單（偵測已安裝的 app）、捷徑自動化設定指引。

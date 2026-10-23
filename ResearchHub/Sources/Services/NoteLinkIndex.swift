@@ -1,4 +1,5 @@
 import Foundation
+import HubStore
 import HubCore
 
 /// 「筆記互相引用」的索引：列出 Notes/ 下所有筆記，供 `[[...]]` 自動補全與點擊解析。

@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import UniformTypeIdentifiers
 
 /// 設定視窗（Cmd+, 或側欄齒輪開啟）。

@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 // MARK: - 筆記瀏覽（唯讀：手機上翻筆記、看公式；編輯在 Mac 版）

@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 /// 從 Zotero 文獻庫挑一篇，插入 \cite{key} 到目前作用中的編輯器游標處。
