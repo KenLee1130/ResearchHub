@@ -155,17 +155,14 @@ struct MobileTodayView: View {
     @Environment(GeneralTodoStore.self) private var generalTodos
     @ObservedObject private var editorHost = BlockEditorHost.shared
 
-    @State private var journalText = ""
-    @State private var loadedText = ""
-    @State private var saveTask: Task<Void, Never>?
+    /// 當天日記的讀寫（與 Mac 版 EditorCore 共用 EditorDocument）
+    @State private var doc = EditorDocument()
     @State private var showPlanning = false
     @State private var showTaskManager = false
     @State private var selectedDate = Calendar.current.startOfDay(for: .now)
     @State private var showDatePicker = false
     /// 監看當天日記被 Mac（經 iCloud）改動
-    @State private var watcher: FileWatcher?
     /// 檔案在 iCloud 上但還沒下載：這時不能存檔，否則會用空內容蓋掉雲端那份
-    @State private var awaitingDownload = false
     @Environment(\.scenePhase) private var scenePhase
 
     private let calendar = Calendar.current
@@ -233,12 +230,12 @@ struct MobileTodayView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         BlockEditorView(
-                            text: $journalText,
+                            text: $doc.text,
                             baseDir: journalURL?.deletingLastPathComponent(),
                             documentID: journalURL,
                             onCommand: { cmd in
                                 guard cmd == "list" else { return }
-                                saveNow()   // 讓總覽能安全改今天的檔
+                                doc.saveNow()   // 讓總覽能安全改今天的檔
                                 showTaskManager = true
                             })
                             .frame(minHeight: 420)
@@ -254,7 +251,7 @@ struct MobileTodayView: View {
                                     .padding(16)
                                 } else if !editorHost.isReady {
                                     ProgressView()
-                                } else if awaitingDownload {
+                                } else if doc.awaitingDownload {
                                     VStack(spacing: 8) {
                                         ProgressView()
                                         Text("正在從 iCloud 下載…")
@@ -276,7 +273,7 @@ struct MobileTodayView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        saveNow() // 先存今天的，編輯器要讓給明天的日記
+                        doc.saveNow() // 先存今天的，編輯器要讓給明天的日記
                         showPlanning = true
                     } label: {
                         Label("規劃明天", systemImage: "moon.stars")
@@ -304,18 +301,14 @@ struct MobileTodayView: View {
                 TaskManagerSheet()
             }
             .onAppear(perform: load)
-            .onDisappear {
-                saveNow()
-                watcher?.stop()
-            }
-            .onChange(of: journalText) { scheduleSave() }
+            .onDisappear { doc.close() }
+            .onChange(of: doc.text) { doc.scheduleAutosave() }
             .onChange(of: scenePhase) { _, phase in
                 // 從背景回來：Mac 可能改過今天的日記 → 請 iCloud 抓最新版，沒有未存修改就重讀
                 if phase == .active {
-                    watcher?.requestLatest()
-                    reloadIfClean()
+                    doc.refreshFromDisk()
                 } else if phase == .background {
-                    saveNow()
+                    doc.saveNow()
                 }
             }
             .refreshable {
@@ -360,7 +353,7 @@ struct MobileTodayView: View {
 
     /// 換日：先把目前這天存好，再切日期重載（編輯器由 documentID 換檔）。
     private func switchTo(_ date: Date) {
-        saveNow()
+        doc.saveNow()
         selectedDate = calendar.startOfDay(for: date)
         load()
     }
@@ -371,66 +364,7 @@ struct MobileTodayView: View {
         store.seedTodos(
             for: selectedDate,
             generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
-
-        watcher?.stop()
-        guard let url = journalURL else {
-            watcher = nil
-            journalText = ""
-            loadedText = ""
-            awaitingDownload = false
-            return
-        }
-        let w = FileWatcher(url: url) { reloadIfClean() }
-        watcher = w
-        if let content = FileSystemStore.safeRead(url) {
-            journalText = content
-            loadedText = content
-            awaitingDownload = false
-            w.requestLatest()           // 本機這份可能是舊的：背景跟 iCloud 要最新版
-        } else if (try? url.checkResourceIsReachable()) == true {
-            // 在 iCloud 上但還沒下載：顯示下載中，下載完 watcher 會通知 → reloadIfClean。
-            // 以前這裡重試 5 次後就當成空檔，使用者一打字就把雲端那份蓋掉了。
-            awaitingDownload = true
-            w.requestLatest()
-        } else {
-            journalText = ""
-            loadedText = ""
-            awaitingDownload = false
-        }
-    }
-
-    /// 檔案被外部改動（Mac 經 iCloud 同步進來）時重讀；本機有未存修改就以本機為準。
-    private func reloadIfClean() {
-        guard journalText == loadedText, let w = watcher else { return }
-        w.read { content in
-            guard let content, w === watcher else { return }  // 讀檔期間換了日期
-            guard journalText == loadedText else { return }   // 讀檔期間又打字了
-            awaitingDownload = false
-            if content != journalText {
-                journalText = content
-                loadedText = content
-            }
-        }
-    }
-
-    private func scheduleSave() {
-        saveTask?.cancel()
-        saveTask = Task {
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            guard !Task.isCancelled else { return }
-            saveNow()
-        }
-    }
-
-    private func saveNow() {
-        guard !awaitingDownload, journalText != loadedText,
-              !journalText.isEmpty || !loadedText.isEmpty else { return }
-        let snapshot = journalText
-        let w = watcher
-        w?.write(snapshot) { ok in
-            // 換日時同一個畫面會換檔：回呼晚到就別把前一天的狀態套到新的一天
-            if ok, w === watcher { loadedText = snapshot }
-        }
+        doc.open(journalURL)
     }
 }
 

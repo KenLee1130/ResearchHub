@@ -102,16 +102,10 @@ struct EditorCore: View {
     /// 預覽版面：flow = 連續、a4 = A4 分頁（註腳在當頁底部）。
     @AppStorage("settings.previewLayout") private var previewLayout = "flow"
     private var zotero = ZoteroStore.shared
-    @State private var text = ""
-    @State private var initialText = ""
-    @State private var fileExisted = false
+    /// 檔案的讀寫、自動存檔、外部改動重讀（mac 與 iPhone 共用，見 EditorDocument）
+    @State private var doc = EditorDocument()
     /// 右欄預覽雙擊段落 → 左欄源碼跳轉（兩欄捲動各自獨立，只有雙擊會觸發跳轉）。
     @State private var jumpRequest: SourceJumpRequest?
-    @State private var saveTask: Task<Void, Never>?
-    /// 監看這個檔案被另一台裝置（iCloud）或其他程式改動
-    @State private var watcher: FileWatcher?
-    /// 檔案在 iCloud 上但還沒下載到本機：這時絕不能存檔，否則會用空內容蓋掉雲端那份
-    @State private var awaitingDownload = false
 
     private var fileDir: URL { fileURL.deletingLastPathComponent() }
 
@@ -119,24 +113,23 @@ struct EditorCore: View {
         VStack(spacing: 0) {
             content
             if quickCmdBar {
-                QuickCommandBar(text: $text, onJournal: onJournalCommand)
+                QuickCommandBar(text: $doc.text, onJournal: onJournalCommand)
             }
         }
             // 編輯區墊一層厚材質，避免環境色彩場干擾閱讀
             .surface(.editor, ambient: .thickMaterial)
-            .onAppear(perform: load)
-            .onDisappear {
-                saveNow()
-                watcher?.stop()
+            .onAppear {
+                doc.onSaved = onSaved
+                doc.open(fileURL)
             }
+            .onDisappear { doc.close() }
             .onReceive(NotificationCenter.default.publisher(
                 for: NSApplication.didBecomeActiveNotification)) { _ in
                 // 切回 app：另一台裝置可能改過 → 請 iCloud 抓最新版，沒有未存修改就重讀
-                watcher?.requestLatest()
-                reloadIfClean()
+                doc.refreshFromDisk()
             }
             .overlay {
-                if awaitingDownload {
+                if doc.awaitingDownload {
                     VStack(spacing: 10) {
                         ProgressView()
                         Text("正在從 iCloud 下載…")
@@ -147,11 +140,11 @@ struct EditorCore: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
                 }
             }
-            .onChange(of: text) { scheduleAutosave() }
+            .onChange(of: doc.text) { doc.scheduleAutosave() }
             // 換檔案時只換內容、不重建整個 view。
             // （以前 LaTeX 專案是靠 .id(fileURL) 換檔，但那會連帶重建 HSplitView 的子畫面，
             //   把使用者拖好的欄寬重置回預設值。）
-            .onChange(of: fileURL) { _, _ in switchFile() }
+            .onChange(of: fileURL) { _, new in doc.switchFile(to: new) }
             .onAppear(perform: claimHandle)
             .onChange(of: mode) { handle?.usesBlockEditor = (mode == .blocks) }
             .onDisappear {
@@ -170,7 +163,7 @@ struct EditorCore: View {
         switch mode {
         case .blocks:
             ZStack {
-                BlockEditorView(text: $text, baseDir: fileDir, documentID: fileURL,
+                BlockEditorView(text: $doc.text, baseDir: fileDir, documentID: fileURL,
                                 onCommand: blockCommand)
                 BlockEditorStatusOverlay()
             }
@@ -179,7 +172,7 @@ struct EditorCore: View {
             PersistentSplitView(autosaveName: "NoteEditorPanes", panes: [
                 .init(id: "source", minWidth: 150, content: AnyView(
                     SourceTextView(
-                        text: $text,
+                        text: $doc.text,
                         fontSize: CGFloat(editorFontSize),
                         jump: jumpRequest,
                         lineJump: lineJump,
@@ -192,7 +185,7 @@ struct EditorCore: View {
                     .environment(store))),
                 .init(id: "preview", minWidth: 150, content: AnyView(
                     MarkdownPreviewView(
-                        text: text, baseDir: fileDir,
+                        text: doc.text, baseDir: fileDir,
                         citationItems: zotero.items, onOpenNote: { store.openNote($0) },
                         onJumpToSource: { jumpRequest = SourceJumpRequest(sync: $0) },
                         layout: previewLayout,
@@ -202,7 +195,7 @@ struct EditorCore: View {
             ])
         case .source:
             SourceTextView(
-                text: $text,
+                text: $doc.text,
                 fontSize: CGFloat(editorFontSize),
                 lineJump: lineJump,
                 onPasteImage: saveImage,
@@ -212,7 +205,7 @@ struct EditorCore: View {
             )
         case .preview:
             MarkdownPreviewView(
-                text: text, baseDir: fileDir,
+                text: doc.text, baseDir: fileDir,
                 citationItems: zotero.items, onOpenNote: { store.openNote($0) },
                 layout: previewLayout,
                 onWebViewReady: { handle?.previewWebView = $0 })
@@ -224,11 +217,8 @@ struct EditorCore: View {
         guard let handle else { return }
         handle.owner = handleToken
         handle.usesBlockEditor = (mode == .blocks)
-        handle.saveNow = { saveNow() }
-        handle.append = { appended in
-            if !text.isEmpty && !text.hasSuffix("\n") { text += "\n" }
-            text += appended
-        }
+        handle.saveNow = { doc.saveNow() }
+        handle.append = { doc.append($0) }
     }
 
     /// 區塊編輯器命令列（/list、/go）→ 日記層級的動作
@@ -243,55 +233,6 @@ struct EditorCore: View {
         }
     }
 
-    // MARK: - Load & save
-
-    private func load() {
-        watcher?.stop()
-        let w = FileWatcher(url: fileURL) { reloadIfClean() }
-        watcher = w
-        if let content = FileSystemStore.safeRead(fileURL) {
-            text = content
-            initialText = content
-            fileExisted = true
-            awaitingDownload = false
-            w.requestLatest()           // 本機這份可能不是最新的：背景跟 iCloud 要
-        } else if (try? fileURL.checkResourceIsReachable()) == true {
-            // 檔案在 iCloud 還沒下載：先顯示下載中，下載完 watcher 會通知 → reloadIfClean
-            awaitingDownload = true
-            w.requestLatest()
-        } else {
-            text = ""
-            initialText = ""
-            fileExisted = false
-            awaitingDownload = false
-        }
-    }
-
-    /// 檔案被外部改動（另一台裝置同步進來）時重讀。
-    /// 本機有還沒存的修改就以本機為準（autosave 0.8 秒內就會寫出去）。
-    private func reloadIfClean() {
-        guard text == initialText, let w = watcher else { return }
-        w.read { content in
-            guard let content else { return }
-            guard text == initialText else { return }     // 讀檔期間使用者又打字了
-            awaitingDownload = false
-            fileExisted = true
-            if content != text {
-                text = content
-                initialText = content
-            }
-        }
-    }
-
-    private func scheduleAutosave() {
-        saveTask?.cancel()
-        saveTask = Task {
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            guard !Task.isCancelled else { return }
-            saveNow()
-        }
-    }
-
     /// 在 LaTeX 專案裡的話，補全要知道專案在哪（列檔案、自訂指令、跨檔 label）
     private var latexRoot: URL? {
         if case .latex(let root) = imageInsertion { return root }
@@ -302,32 +243,8 @@ struct EditorCore: View {
     private var compileAction: (() -> Void)? {
         guard let onShiftReturn else { return nil }
         return {
-            saveNow()
+            doc.saveNow()
             onShiftReturn()
-        }
-    }
-
-    /// 切到另一個檔案：先把目前這份寫出去，再載入新的。
-    /// 不走 saveNow()，因為它的完成回呼會改 initialText——那時候已經是新檔案了。
-    private func switchFile() {
-        if !awaitingDownload, text != initialText, fileExisted || !text.isEmpty {
-            watcher?.write(text) { _ in }
-        }
-        load()
-    }
-
-    private func saveNow() {
-        guard !awaitingDownload else { return }   // 還沒拿到雲端那份，寫出去就是蓋掉它
-        // 檔案原本不存在且內容仍是空的 → 不落地，避免製造空檔案
-        guard fileExisted || !text.isEmpty else { return }
-        guard text != initialText || !fileExisted else { return }
-        let snapshot = text
-        // 協調寫入：iCloud 會正確接手上傳，也不會通知回自己的 watcher
-        watcher?.write(snapshot) { ok in
-            guard ok else { return }             // 寫入失敗保持靜默，下次 autosave 再試
-            initialText = snapshot
-            fileExisted = true
-            onSaved?()
         }
     }
 
