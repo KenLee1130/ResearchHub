@@ -219,8 +219,11 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
    同時落地第 3 節的命令路由，刪除 7 個 `Notification.Name`。
    - 已做（2026-10-23）：三個巨檔依型別分割、`PastingTextView` 依功能拆成 extension 檔、
      第 3 節的命令路由落地、7 個 `Notification.Name` 刪光。
-   - 待做：三個編輯器的尋找／undo 去重（`FindEngine` 已是共用介面，undo 尚未）；
-     `Mobile/` 與 mac 重複邏輯合併；`BlockEditorTemplate` 搬成 EditorWeb bundle。
+   - 已做（續）：mac／iPhone 的讀檔、自動存檔、外部改動重讀合併成 `EditorDocument`；
+     編輯器 HTML＋JS 搬成 `Resources/EditorWeb/editor.html`＋`version.json`
+     （`EditorWebVersion` 比對支援區間，不相容就在編輯器位置報錯）。
+     undo 不需要合併：af8c472 已讓每個 `SourceTextView` 自己擁有 UndoManager。
+   - `Mobile/` 剩下的重複是畫面層（筆記清單、番茄鐘、設定）各寫一份，第 4 步再看要不要合。
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；
    三個產物的版本契約。
 

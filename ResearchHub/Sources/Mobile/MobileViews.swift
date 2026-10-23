@@ -265,11 +265,9 @@ struct MobilePlanningSheet: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
 
-    @State private var journalText = ""
-    @State private var loadedText = ""
+    /// 明天日記的讀寫（與 Mac 版 EditorCore 共用 EditorDocument）
+    @State private var doc = EditorDocument()
     /// 明天的日記在 iCloud 上但一直沒下載完：不能存檔，否則會蓋掉雲端那份
-    @State private var blockSave = false
-    @State private var saveTask: Task<Void, Never>?
     @State private var leftovers: [String] = []
     @State private var moved: Set<String> = []
 
@@ -321,7 +319,7 @@ struct MobilePlanningSheet: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         BlockEditorView(
-                            text: $journalText,
+                            text: $doc.text,
                             baseDir: tomorrowURL?.deletingLastPathComponent(),
                             documentID: tomorrowURL)
                             .frame(minHeight: 340)
@@ -336,7 +334,7 @@ struct MobilePlanningSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") {
-                        saveNow()
+                        doc.saveNow()
                         dismiss()
                     }
                 }
@@ -345,8 +343,8 @@ struct MobilePlanningSheet: View {
                 load()
                 leftovers = store.unfinishedJournalTodos(on: .now)
             }
-            .onDisappear(perform: saveNow)
-            .onChange(of: journalText) { scheduleSave() }
+            .onDisappear { doc.close() }
+            .onChange(of: doc.text) { doc.scheduleAutosave() }
         }
     }
 
@@ -428,64 +426,19 @@ struct MobilePlanningSheet: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(.gray.opacity(0.08)))
     }
 
-    /// 手機版直接改編輯器的 binding（編輯器內容就是唯一狀態，不會打架）。
+    /// 手機版直接改編輯器的內容（編輯器內容就是唯一狀態，不會打架）。
     private func moveToTomorrow(_ item: String) {
         guard !moved.contains(item) else { return }
-        if !journalText.isEmpty && !journalText.hasSuffix("\n") { journalText += "\n" }
-        journalText += "- [ ] \(item)\n"
+        doc.append("- [ ] \(item)\n")
         moved.insert(item)
     }
 
-    private func load() { load(retriesLeft: 5) }
-
-    private func load(retriesLeft: Int) {
+    private func load() {
         // 先把明天該出現的副本播好（在讀檔之前）
         store.seedTodos(
             for: tomorrow,
             generalTexts: generalTodos.todos.filter { !$0.done }.map(\.text))
-        guard let url = tomorrowURL else {
-            journalText = ""
-            loadedText = ""
-            return
-        }
-        if let content = FileSystemStore.safeRead(url) {
-            journalText = content
-            loadedText = content
-            blockSave = false
-        } else if (try? url.checkResourceIsReachable()) == true {
-            // iCloud 還沒下載完（safeRead 已觸發下載）：稍後重試，別當成空檔。
-            // 重試用完也一樣——以前這裡會清成空白，一打字就把雲端那份蓋掉。
-            blockSave = true
-            if retriesLeft > 0 {
-                Task {
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    if journalText == loadedText { load(retriesLeft: retriesLeft - 1) }
-                }
-            }
-        } else {
-            blockSave = false
-            journalText = ""
-            loadedText = ""
-        }
-    }
-
-    private func scheduleSave() {
-        saveTask?.cancel()
-        saveTask = Task {
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            guard !Task.isCancelled else { return }
-            saveNow()
-        }
-    }
-
-    private func saveNow() {
-        guard !blockSave, let url = tomorrowURL, journalText != loadedText,
-              !journalText.isEmpty || !loadedText.isEmpty else { return }
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if (try? journalText.write(to: url, atomically: true, encoding: .utf8)) != nil {
-            loadedText = journalText
-        }
+        doc.open(tomorrowURL)
     }
 }
 #endif
