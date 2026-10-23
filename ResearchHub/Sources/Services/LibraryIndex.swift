@@ -1,4 +1,5 @@
 import Foundation
+import HubCore
 import UserNotifications
 
 /// 一行待辦（`- [ ]` 或 `- [x]`）解析後的結果。
@@ -146,22 +147,7 @@ nonisolated enum LibraryScan {
     }
 
     /// 所有日記檔與其日期（檔名 yyyy-MM-dd.md）。
-    static func journalFiles(journal: URL?) -> [(URL, Date)] {
-        guard let journal,
-              let enumerator = FileManager.default.enumerator(
-                at: journal, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
-        else { return [] }
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        var result: [(URL, Date)] = []
-        for case let url as URL in enumerator {
-            guard url.pathExtension.lowercased() == "md" else { continue }
-            guard let day = df.date(from: url.deletingPathExtension().lastPathComponent)
-            else { continue }
-            result.append((url, day))
-        }
-        return result
-    }
+    static func journalFiles(journal: URL?) -> [(URL, Date)] { JournalLayout.journalFiles(journal: journal) }
 
     /// 某日的日記檔路徑
     static func journalURL(for date: Date, journal: URL?) -> URL? {

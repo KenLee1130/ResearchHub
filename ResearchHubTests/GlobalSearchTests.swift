@@ -1,6 +1,7 @@
 // 守 GlobalSearch.match 的比對規則：不分大小寫、空白分開的多個關鍵字要全部出現（AND）。
 import XCTest
 @testable import ResearchHub
+@testable import HubCore
 
 final class GlobalSearchTests: XCTestCase {
     func testMatchIsCaseInsensitive() throws {

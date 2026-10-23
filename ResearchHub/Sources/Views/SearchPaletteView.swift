@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 
 /// 全 app 搜尋面板（⌘F／⌘K）：日記、筆記、LaTeX 專案、論文、一般待辦一起搜，點結果跳過去。
 /// 搜尋在背景跑（GlobalSearch），打字停 0.15 秒才搜、新的一輪會取消舊的。

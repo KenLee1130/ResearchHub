@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 
 /// 版面設定面板。真相在專案裡的 format.tex（標準 LaTeX，Overleaf 也吃得懂）；
 /// 這裡只是它的圖形介面，兩邊改都可以，打開面板時會重新讀檔。

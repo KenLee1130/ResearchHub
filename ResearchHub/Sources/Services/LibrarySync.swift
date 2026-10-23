@@ -1,4 +1,5 @@
 import SwiftUI
+import HubCore
 import Observation
 import Combine
 

@@ -1,4 +1,5 @@
 import Foundation
+import HubCore
 
 /// LaTeX 專案的參考文獻檔：在 \cite{ 補全選了 Zotero 的文獻時，
 /// 把那筆的 BibTeX 寫進專案的 .bib，並回傳要填進 \cite{} 的 key。

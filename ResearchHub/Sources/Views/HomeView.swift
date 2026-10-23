@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 
 /// 首頁 v2：今天的工作台。
 /// Hero 大字日期 + 玻璃統計 chips；材質卡片：最近筆記、今日日記、今日事件、待辦彙整、週統計。

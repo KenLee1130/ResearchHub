@@ -1,6 +1,7 @@
 // 守 commit a753548：LaTeX 專案主檔在子資料夾時無法編譯（Overleaf 專案整包放進來的情形）。
 import XCTest
 @testable import ResearchHub
+@testable import HubCore
 
 final class LatexProjectMainFileTests: XCTestCase {
     private var root: URL!

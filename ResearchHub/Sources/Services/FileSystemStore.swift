@@ -1,4 +1,5 @@
 import SwiftUI
+import HubCore
 import Observation
 import Combine
 import UserNotifications
@@ -411,20 +412,7 @@ final class FileSystemStore {
     /// 安全讀檔：iCloud 佔位檔（尚未下載到本機）同步讀取會阻塞到下載完成，
     /// 在 iOS 主執行緒上會被 watchdog 砍掉（0x8BADF00D 黑畫面閃退）。
     /// 尚未下載的檔案改成觸發背景下載、本次視為讀不到，下次掃描自然補上。
-    nonisolated static func safeRead(_ url: URL) -> String? {
-        if let v = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
-           let status = v.ubiquitousItemDownloadingStatus {
-            if status == .notDownloaded {
-                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-                return nil
-            }
-            if status == .downloaded {
-                // 本機有一份但不是最新的（另一台裝置改過）：背景請 iCloud 抓，先回本機這份
-                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-            }
-        }
-        return try? String(contentsOf: url, encoding: .utf8)
-    }
+    nonisolated static func safeRead(_ url: URL) -> String? { ICloudFile.safeRead(url) }
 
     /// 彙整所有筆記中的 - [ ] / - [x]，依優先級（高→低）、到期日（近→遠）排序。
     func scanTodos(includeDone: Bool = false) -> [TodoItem] {

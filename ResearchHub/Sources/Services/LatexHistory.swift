@@ -1,4 +1,5 @@
 import Foundation
+import HubCore
 import CryptoKit
 
 /// LaTeX 專案的編輯歷史：整個專案的文字檔快照。

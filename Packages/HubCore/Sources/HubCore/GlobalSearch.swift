@@ -5,12 +5,12 @@ import Foundation
 /// 全部在背景執行緒跑（`search` 是 nonisolated），畫面只拿結果。
 /// 檔案內容依「路徑＋修改時間」快取，打字時每次重搜不必重讀沒變的檔。
 /// 比對：不分大小寫；空白分開的多個關鍵字要全部出現（AND）。
-nonisolated enum GlobalSearch {
+public nonisolated enum GlobalSearch {
 
-    enum Kind: Int, Sendable, CaseIterable {
+    public enum Kind: Int, Sendable, CaseIterable {
         case journal, note, latex, paper, todo
 
-        var title: String {
+        public var title: String {
             switch self {
             case .journal: return "日記"
             case .note: return "筆記"
@@ -20,7 +20,7 @@ nonisolated enum GlobalSearch {
             }
         }
 
-        var icon: String {
+        public var icon: String {
             switch self {
             case .journal: return "book.closed"
             case .note: return "doc.text"
@@ -32,7 +32,7 @@ nonisolated enum GlobalSearch {
     }
 
     /// 要點過去的地方
-    enum Target: Sendable, Hashable {
+    public enum Target: Sendable, Hashable {
         case journal(Date)
         case note(URL)
         case latex(project: URL)
@@ -40,30 +40,36 @@ nonisolated enum GlobalSearch {
         case home
     }
 
-    struct Hit: Identifiable, Sendable, Hashable {
-        let id: String
-        let kind: Kind
-        let title: String
+    public struct Hit: Identifiable, Sendable, Hashable {
+        public let id: String
+        public let kind: Kind
+        public let title: String
         /// 符合處前後的一段文字（標題就符合時可能是 nil）
-        let snippet: String?
-        let target: Target
+        public let snippet: String?
+        public let target: Target
     }
 
     /// 論文的可搜尋欄位（在主執行緒從 ZoteroItem 抽出來再丟到背景）
-    struct PaperEntry: Sendable {
-        let key: String
-        let title: String
-        let authors: String
-        let year: String
-        let venue: String
-        let abstract: String
-        let tags: [String]
+    public struct PaperEntry: Sendable {
+        public let key: String
+        public let title: String
+        public let authors: String
+        public let year: String
+        public let venue: String
+        public let abstract: String
+        public let tags: [String]
+
+        public init(key: String, title: String, authors: String, year: String,
+                    venue: String, abstract: String, tags: [String]) {
+            self.key = key; self.title = title; self.authors = authors; self.year = year
+            self.venue = venue; self.abstract = abstract; self.tags = tags
+        }
     }
 
     /// 每一類最多列幾筆（太多也看不完，而且列表會卡）
-    static let perKindLimit = 30
+    public static let perKindLimit = 30
 
-    static func search(_ rawQuery: String, root: URL?,
+    public static func search(_ rawQuery: String, root: URL?,
                        papers: [PaperEntry], todos: [String]) -> [Hit] {
         let terms = rawQuery.lowercased()
             .split(whereSeparator: \.isWhitespace).map(String.init)
@@ -76,7 +82,7 @@ nonisolated enum GlobalSearch {
         titleFormat.dateFormat = "yyyy/M/d（EEE）"
         titleFormat.locale = Locale(identifier: "zh_TW")
         var n = 0
-        for (url, date) in LibraryScan.journalFiles(journal: journalDir).sorted(by: { $0.1 > $1.1 }) {
+        for (url, date) in JournalLayout.journalFiles(journal: journalDir).sorted(by: { $0.1 > $1.1 }) {
             if Task.isCancelled { return [] }
             guard n < perKindLimit, let text = cachedText(url),
                   let snippet = match(terms, in: text) else { continue }
@@ -153,7 +159,7 @@ nonisolated enum GlobalSearch {
     // MARK: - 比對與片段
 
     /// 全部關鍵字都出現 → 回傳第一個關鍵字附近的一段文字（前後約 40 字、換行壓成空白）
-    static func match(_ terms: [String], in text: String) -> String? {
+    public static func match(_ terms: [String], in text: String) -> String? {
         let lower = text.lowercased()
         guard terms.allSatisfy({ lower.contains($0) }),
               let first = terms.first, let r = lower.range(of: first) else { return nil }
@@ -206,7 +212,7 @@ nonisolated enum GlobalSearch {
             }
             lock.unlock()
             // iCloud 還沒下載的檔：safeRead 會請系統去下載、這次先略過
-            guard let text = FileSystemStore.safeRead(url) else { return nil }
+            guard let text = ICloudFile.safeRead(url) else { return nil }
             lock.lock()
             entries[url.path] = (mtime, text)
             lock.unlock()

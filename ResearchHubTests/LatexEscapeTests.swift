@@ -1,6 +1,7 @@
 // 守 commit a79f34a：專案名稱有底線等特殊字元時，新建的 LaTeX 專案一建好就編不過。
 import XCTest
 @testable import ResearchHub
+@testable import HubCore
 
 final class LatexEscapeTests: XCTestCase {
     private var parent: URL!
