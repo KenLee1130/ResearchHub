@@ -499,7 +499,8 @@ struct RootView: View {
         //   project?path=<相對 Notes/ 的資料夾> → 開啟 LaTeX 專案
         //   journal?date=YYYY-MM-DD → 開啟該日日記（省略 = 今天）
         .onOpenURL { url in
-            guard url.scheme == "researchhub" else { return }
+            // dev 版（scripts/install-dev.sh）註冊的是 researchhub-dev://，不搶正式版的 scheme
+            guard url.scheme == "researchhub" || url.scheme == "researchhub-dev" else { return }
             let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
             switch url.host {
             case "note":

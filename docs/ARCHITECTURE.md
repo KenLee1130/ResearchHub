@@ -191,6 +191,19 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；
    三個產物的版本契約。
 
+### dev 版（重構期間與正式版並存）
+
+重構期間**一律跑 `scripts/install-dev.sh`，不跑 `install-mac.sh`**。它用 `Dev` build
+configuration 產出 `/Applications/ResearchHub Dev.app`（bundle id `com.ken.ResearchHub.dev`、
+URL scheme `researchhub-dev://`、橘色 AccentColor），不碰、不關正式版。
+資料也分開：第一次執行會把 iCloud 資料夾複製到 `~/ResearchHubLibrary-dev/`，dev 版第一次啟動
+選這個資料夾；之後執行不再覆蓋。dev 版的 LaTeX 小幫手裝在
+`~/Library/Application Scripts/com.ken.ResearchHub.dev/`。
+
+全部完成後收尾：跑一次 `scripts/install-mac.sh` 替換正式版；
+`rm -rf "/Applications/ResearchHub Dev.app"` 並用 `lsregister -u` 反註冊
+（路徑見 `install-dev.sh` 的 `LSREG`）；`~/ResearchHubLibrary-dev` 由使用者決定是否刪。
+
 ## 7. 未決事項
 
 - 日記時間軸預設方向（暫定最新在上）。
