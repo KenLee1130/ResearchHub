@@ -68,6 +68,11 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     private func startLoad() {
         loadError = nil
         isReady = false
+        // JS ↔ Swift 的版本契約：bundle 的 version.json 不在支援區間就明確報錯，不渲染成一片空白
+        if let problem = BlockEditorView.bundleProblem {
+            loadError = problem
+            return
+        }
         webView.loadHTMLString(BlockEditorView.template, baseURL: WebResources.baseURL)
         // CDN 載入失敗（網路慢/斷線）時自動重試，最多 3 次
         Task { @MainActor [weak self] in
