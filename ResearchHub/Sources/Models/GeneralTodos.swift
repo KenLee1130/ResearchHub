@@ -166,14 +166,13 @@ final class GeneralTodoStore {
         editedWhileNotReady = false
         reload()
         // 另一台裝置改了 .hub 的檔案（或切回 app）→ 重讀
-        libraryObserver = NotificationCenter.default
-            .publisher(for: .rhLibraryDidChange)
+        libraryObserver = LibrarySync.shared.changes
             .receive(on: RunLoop.main)
-            .sink { [weak self] note in
+            .sink { [weak self] change in
                 guard let self else { return }
-                if LibrarySync.affects(note, self.fileURL)
-                    || LibrarySync.affects(note, self.insightsURL)
-                    || LibrarySync.affects(note, self.weeklyURL) {
+                if change.affects(self.fileURL)
+                    || change.affects(self.insightsURL)
+                    || change.affects(self.weeklyURL) {
                     self.reload()
                 }
             }

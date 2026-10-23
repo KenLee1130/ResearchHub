@@ -31,12 +31,10 @@ final class FileSystemStore {
     init() {
         restoreRoot()
         // 另一台裝置新增／改名／刪除筆記 → 目前資料夾的清單要跟著變
-        libraryObserver = NotificationCenter.default
-            .publisher(for: .rhLibraryDidChange)
+        libraryObserver = LibrarySync.shared.changes
             .receive(on: RunLoop.main)
-            .sink { [weak self] note in
-                guard let self,
-                      LibrarySync.affectsNoteListing(note, notes: self.notesURL) else { return }
+            .sink { [weak self] change in
+                guard let self, change.affectsNoteListing(notes: self.notesURL) else { return }
                 self.refresh()
             }
     }

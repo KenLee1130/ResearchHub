@@ -4,6 +4,8 @@ import SwiftUI
 /// LaTeX 專案的歷史紀錄面板：左＝快照時間軸、中＝這一版改了哪些檔、右＝差異＋還原。
 struct LatexHistoryView: View {
     let projectURL: URL
+    /// 還原前先叫編輯器把還沒存的寫出去（還原前的快照才會包含它，編輯器也才會接受外部改動）
+    var beforeRestore: (() -> Void)? = nil
     /// 在編輯器打開某個檔（相對路徑、行號）
     var onOpen: (String, Int?) -> Void
     /// 還原寫回檔案之後（重新編譯、更新檔案樹）
@@ -287,8 +289,7 @@ struct LatexHistoryView: View {
     private func restoreFile() {
         guard let selected, let path = selectedFile else { return }
         let project = projectURL
-        // 編輯器裡還沒存的先存，還原前的快照才會包含它，編輯器也才會接受外部改動
-        NotificationCenter.default.post(name: EditorCore.saveNowNotification, object: nil)
+        beforeRestore?()
         Task {
             try? await Task.sleep(nanoseconds: 300_000_000)
             let ok = await Task.detached { LatexHistory.restore(file: path, from: selected.snap, in: project) }.value
@@ -302,7 +303,7 @@ struct LatexHistoryView: View {
     private func restoreAll() {
         guard let selected else { return }
         let project = projectURL
-        NotificationCenter.default.post(name: EditorCore.saveNowNotification, object: nil)
+        beforeRestore?()
         Task {
             try? await Task.sleep(nanoseconds: 300_000_000)
             let n = await Task.detached { LatexHistory.restoreAll(from: selected.snap, in: project) }.value

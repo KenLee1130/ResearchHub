@@ -11,6 +11,8 @@ struct LatexPDFView: NSViewRepresentable {
     let continuous: Bool
     /// 雙擊 PDF：(頁碼從 0 算, 點座標〔原點在頁面左上，SyncTeX 的慣例〕, 雙擊選到的字)
     var onDoubleClick: ((Int, CGPoint, String?) -> Void)? = nil
+    /// 建好 PDFView 時回報（頁面的 EditorHandle 靠它決定 ⌘F 找哪裡）
+    var onPDFViewReady: ((PDFView) -> Void)? = nil
 
     /// 欄寬規則見 AdaptiveSizing.swift。PDFView 不寫這個的話會回報 A4 頁面的寬度，
     /// 那一欄就縮不下去，把整排三欄撐得比視窗還寬。
@@ -21,7 +23,7 @@ struct LatexPDFView: NSViewRepresentable {
     func makeNSView(context: Context) -> PDFView {
         let view = InverseSearchPDFView()
         view.onDoubleClick = onDoubleClick
-        PageFinder.shared.register(view)   // ⌘F 在 PDF 裡找
+        onPDFViewReady?(view)
         view.autoScales = true
         view.displaysPageBreaks = true
         view.pageShadowsEnabled = true

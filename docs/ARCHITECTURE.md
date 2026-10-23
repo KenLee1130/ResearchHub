@@ -116,6 +116,19 @@ public enum AppCommand: Sendable {
   不再攔 app 層級快捷鍵。
 - 可測性：給定 `focusedPane == .pdf`，斷言 `handle(.find)` 送到 PDF finder。
 
+落地（2026-10-23）與上面的差異：
+- 一個視窗一個 `CommandRouter`（HubCore），根畫面用 `.focusedSceneValue(\.commandRouter)` 登記；
+  頁面與 sheet 進場 `push` 自己、退場 `pop`（`pageCommands`），最上面的先接，不接走
+  `windowFallback`（新分頁、收側欄、⌘K），⌘F 沒人接退成 ⌘K。選單在 `AppCommands`，只讀路由。
+- 焦點不用 `@FocusState`，用 `EditorHandle`：頁面持有，各 representable 建好 NSView 時回報
+  （`onTextViewReady`／`onWebViewReady`／`onPDFViewReady`），`findTarget()` 挑「firstResponder
+  所在的那塊，否則看得到的第一塊（原始碼 > PDF > 預覽 > 區塊編輯器）」——只看頁面自己的 view，
+  不再掃整個視窗。`PageFinder` 只剩呈現尋找列。
+- 7 個 `Notification.Name` 歸零：`newTab`／`search` → 路由；`collapseSidebar` → 環境值閉包；
+  `EditorCore.saveNow`／`append` → `EditorHandle`；`rhEditorCommand` → `BlockEditorView.onCommand`；
+  `rhLibraryDidChange` → `LibrarySync.shared.changes`（型別化 `PassthroughSubject<LibraryChange>`）。
+- 尋找列是 NSPanel（非 SwiftUI scene），它是 key 時路由為 nil，⌘F 只把焦點放回尋找列。
+
 ## 4. 搜尋
 
 ⌘F 的語意是**以頁面為範圍的跨文件搜尋**，不是「在目前這一頁找字」。⌘K 是範圍＝全部。
@@ -204,6 +217,10 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      （檔案、小幫手、UserDefaults）留在 app。至此第 2 步列的項目都已進 HubCore。
 3. **拆三個巨檔並去重。** 三個編輯器各自的尋找／undo 處理合併；`Mobile/` 與 mac 重複邏輯合併。
    同時落地第 3 節的命令路由，刪除 7 個 `Notification.Name`。
+   - 已做（2026-10-23）：三個巨檔依型別分割、`PastingTextView` 依功能拆成 extension 檔、
+     第 3 節的命令路由落地、7 個 `Notification.Name` 刪光。
+   - 待做：三個編輯器的尋找／undo 去重（`FindEngine` 已是共用介面，undo 尚未）；
+     `Mobile/` 與 mac 重複邏輯合併；`BlockEditorTemplate` 搬成 EditorWeb bundle。
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；
    三個產物的版本契約。
 

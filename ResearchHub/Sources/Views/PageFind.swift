@@ -4,84 +4,29 @@ import AppKit
 import WebKit
 import PDFKit
 
-/// ⌘F：只在「目前這一頁／這個檔案」裡找（全 app 搜尋在 ⌘K）。
-///
-/// 決定找哪裡：
-///   1. 游標在原始碼編輯器、網頁（日記、筆記預覽）或 PDF 裡 → 就找它
-///   2. （同一個尋找列：輸入框、第幾個／共幾個、上一個／下一個、Esc 關閉）
-///   3. 都不是 → 目前視窗裡看得到、面積最大的那塊網頁／PDF（例如論文頁的 PDF）
-///   4. 什麼都沒有（首頁）→ 開全 app 搜尋
+/// ⌘F 的尋找列：在哪裡找由頁面決定（EditorHandle.findTarget），這裡只管呈現。
+/// （以前自己從 NSApp.keyWindow 的 firstResponder 往上找、找不到就挑畫面上面積最大的那塊——
+///   用幾何猜焦點是橋接 bug 的根源，見 docs/ARCHITECTURE.md 第 3 節。）
 /// 尋找列貼在內容右上角（子視窗，跟著視窗移動）。
 @MainActor
 final class PageFinder {
     static let shared = PageFinder()
 
-    /// 可以被找的網頁／PDF（建立時登記；弱參照，找的時候才看在不在畫面上）
-    private let targets = NSHashTable<NSView>.weakObjects()
     private var panel: FindBarPanel?
 
-    func register(_ view: NSView) { targets.add(view) }
-
-    func showFind() {
-        guard let window = NSApp.keyWindow ?? NSApp.mainWindow
-                ?? NSApp.orderedWindows.first(where: { $0.isVisible && !($0 is NSPanel) })
-        else { return openGlobalSearch() }
-
-        // 尋找列自己的輸入框有焦點時再按 ⌘F：就是要回到它
-        if let panel, panel.isVisible {
-            panel.makeKeyAndOrderFront(nil)
-            panel.focusField()
-            return
-        }
-        if let responder = window.firstResponder as? NSView {
-            if let tv = responder as? NSTextView, isDocumentEditor(tv) {
-                return present(for: tv)
-            }
-            if let target = enclosingTarget(of: responder) {
-                return present(for: target)
-            }
-        }
-        // 游標不在可找的東西裡：挑這個視窗裡看得到、最大的那一塊（原始碼編輯器也算）
-        var candidates: [NSView] = targets.allObjects.filter { isShowing($0, in: window) }
-        if let root = window.contentView {
-            candidates += documentEditors(in: root).filter { isShowing($0, in: window) }
-        }
-        guard let best = candidates.max(by: { area($0) < area($1) }) else {
-            return openGlobalSearch()
-        }
-        present(for: best)
+    /// 在 target（原始碼 NSTextView、網頁、PDF）裡找。尋找列已開著就只把焦點放回去。
+    func show(in target: NSView) {
+        if refocusIfVisible() { return }
+        present(for: target)
     }
 
-    private func openGlobalSearch() {
-        NotificationCenter.default.post(name: RootView.searchNotification, object: nil)
-    }
-
-    /// 文件編輯器（筆記／LaTeX 原始碼），不是輸入框背後的 field editor
-    private func isDocumentEditor(_ tv: NSTextView) -> Bool {
-        tv is PastingTextView && !tv.isFieldEditor
-    }
-
-    private func documentEditors(in view: NSView) -> [NSTextView] {
-        if let tv = view as? NSTextView { return isDocumentEditor(tv) ? [tv] : [] }
-        return view.subviews.flatMap(documentEditors)
-    }
-
-    private func enclosingTarget(of view: NSView) -> NSView? {
-        var v: NSView? = view
-        while let cur = v {
-            if cur is WKWebView || cur is PDFView { return cur }
-            v = cur.superview
-        }
-        return nil
-    }
-
-    private func isShowing(_ view: NSView, in window: NSWindow) -> Bool {
-        view.window === window && !view.isHiddenOrHasHiddenAncestor && area(view) > 100
-    }
-
-    private func area(_ view: NSView) -> CGFloat {
-        let r = view.visibleRect
-        return r.width * r.height
+    /// 尋找列開著（例如它自己的輸入框是 key）時再按 ⌘F：回到它。
+    @discardableResult
+    func refocusIfVisible() -> Bool {
+        guard let panel, panel.isVisible else { return false }
+        panel.makeKeyAndOrderFront(nil)
+        panel.focusField()
+        return true
     }
 
     private func present(for target: NSView) {
@@ -94,7 +39,7 @@ final class PageFinder {
         } else if let pdf = target as? PDFView {
             engine = PDFFindEngine(pdfView: pdf)
         } else {
-            return openGlobalSearch()
+            return
         }
         let panel = FindBarPanel(target: target, engine: engine) { [weak self] in self?.panel = nil }
         self.panel = panel

@@ -92,17 +92,10 @@ struct EditorCore: View {
     var quickCmdBar: Bool = false
     var onJournalCommand: ((JournalQuickAction) -> Bool)? = nil
 
-    /// 外部（如規劃儀式）要求把文字附加到某檔案的編輯器尾端。
-    /// 走通知而不是直接改檔案：檔案正被編輯器持有，直接寫檔會被 autosave 蓋掉。
-    static let appendNotification = Notification.Name("EditorCore.append")
-    /// 外部要求立刻存檔（LaTeX 專案編譯前會發，免得編到還沒寫進磁碟的舊內容）
-    static let saveNowNotification = Notification.Name("EditorCore.saveNow")
-
-    static func requestAppend(to url: URL, text: String) {
-        NotificationCenter.default.post(
-            name: appendNotification, object: nil,
-            userInfo: ["url": url, "text": text])
-    }
+    /// 頁面握的把手：⌘F 找哪裡、立刻存檔（LaTeX 編譯前）、附加文字（規劃儀式搬待辦）。
+    /// 附加要經過編輯器而不是直接改檔案：檔案正被編輯器持有，直接寫檔會被 autosave 蓋掉。
+    var handle: EditorHandle? = nil
+    @State private var handleToken = UUID()
 
     @Environment(FileSystemStore.self) private var store
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
@@ -159,14 +152,14 @@ struct EditorCore: View {
             // （以前 LaTeX 專案是靠 .id(fileURL) 換檔，但那會連帶重建 HSplitView 的子畫面，
             //   把使用者拖好的欄寬重置回預設值。）
             .onChange(of: fileURL) { _, _ in switchFile() }
-            .onReceive(NotificationCenter.default.publisher(for: Self.saveNowNotification)) { _ in
-                saveNow()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: Self.appendNotification)) { note in
-                guard let url = note.userInfo?["url"] as? URL, url == fileURL,
-                      let appended = note.userInfo?["text"] as? String else { return }
-                if !text.isEmpty && !text.hasSuffix("\n") { text += "\n" }
-                text += appended
+            .onAppear(perform: claimHandle)
+            .onChange(of: mode) { handle?.usesBlockEditor = (mode == .blocks) }
+            .onDisappear {
+                // 只放掉自己掛的；換檔重建時新的那份可能已經先掛上去了
+                guard let handle, handle.owner == handleToken else { return }
+                handle.owner = nil
+                handle.saveNow = nil
+                handle.append = nil
             }
             // 載入 Zotero 文獻供 \cite 解析（已有快取就不重抓）。
             .task { if zotero.items.isEmpty { await zotero.refresh() } }
@@ -177,7 +170,8 @@ struct EditorCore: View {
         switch mode {
         case .blocks:
             ZStack {
-                BlockEditorView(text: $text, baseDir: fileDir, documentID: fileURL)
+                BlockEditorView(text: $text, baseDir: fileDir, documentID: fileURL,
+                                onCommand: blockCommand)
                 BlockEditorStatusOverlay()
             }
         case .split:
@@ -191,7 +185,8 @@ struct EditorCore: View {
                         lineJump: lineJump,
                         onPasteImage: saveImage,
                         onShiftReturn: compileAction,
-                        projectRoot: latexRoot
+                        projectRoot: latexRoot,
+                        onTextViewReady: { handle?.textView = $0 }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .environment(store))),
@@ -200,7 +195,8 @@ struct EditorCore: View {
                         text: text, baseDir: fileDir,
                         citationItems: zotero.items, onOpenNote: { store.openNote($0) },
                         onJumpToSource: { jumpRequest = SourceJumpRequest(sync: $0) },
-                        layout: previewLayout)
+                        layout: previewLayout,
+                        onWebViewReady: { handle?.previewWebView = $0 })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .environment(store))),
             ])
@@ -211,13 +207,39 @@ struct EditorCore: View {
                 lineJump: lineJump,
                 onPasteImage: saveImage,
                 onShiftReturn: compileAction,
-                projectRoot: latexRoot
+                projectRoot: latexRoot,
+                onTextViewReady: { handle?.textView = $0 }
             )
         case .preview:
             MarkdownPreviewView(
                 text: text, baseDir: fileDir,
                 citationItems: zotero.items, onOpenNote: { store.openNote($0) },
-                layout: previewLayout)
+                layout: previewLayout,
+                onWebViewReady: { handle?.previewWebView = $0 })
+        }
+    }
+
+    /// 把存檔／附加的入口掛到頁面的把手上
+    private func claimHandle() {
+        guard let handle else { return }
+        handle.owner = handleToken
+        handle.usesBlockEditor = (mode == .blocks)
+        handle.saveNow = { saveNow() }
+        handle.append = { appended in
+            if !text.isEmpty && !text.hasSuffix("\n") { text += "\n" }
+            text += appended
+        }
+    }
+
+    /// 區塊編輯器命令列（/list、/go）→ 日記層級的動作
+    private var blockCommand: ((String) -> Void)? {
+        guard let onJournalCommand else { return nil }
+        return { cmd in
+            if cmd == "list" {
+                _ = onJournalCommand(.list)
+            } else if cmd.hasPrefix("go:") {
+                _ = onJournalCommand(.go(String(cmd.dropFirst(3))))
+            }
         }
     }
 

@@ -255,11 +255,10 @@ final class PomodoroModel {
         loadSessions()
         ReadingGateStore.shared.configure(rootURL: rootURL)
         // 另一台裝置記了蕃茄鐘（或切回 app）→ 重讀
-        libraryObserver = NotificationCenter.default
-            .publisher(for: .rhLibraryDidChange)
+        libraryObserver = LibrarySync.shared.changes
             .receive(on: RunLoop.main)
-            .sink { [weak self] note in
-                guard let self, LibrarySync.affects(note, self.sessionsFileURL) else { return }
+            .sink { [weak self] change in
+                guard let self, change.affects(self.sessionsFileURL) else { return }
                 self.loadSessions()
             }
         #if os(macOS)

@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 
 /// 筆記編輯器：標題列（返回、檔名、模式切換）+ 共用編輯器核心。
 struct NoteEditorView: View {
@@ -9,7 +10,10 @@ struct NoteEditorView: View {
     var onClose: () -> Void
 
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.collapseSidebar) private var collapseSidebar
     @State private var mode: EditorMode = .split
+    @State private var editor = EditorHandle()
+    @State private var commands = ClosureCommandHandler()
     @State private var showCitePicker = false
     @State private var showNoteLinkPicker = false
 
@@ -36,8 +40,7 @@ struct NoteEditorView: View {
                 if !isStandaloneWindow {
                     Button {
                         openWindow(id: "note", value: noteURL)
-                        NotificationCenter.default.post(
-                            name: RootView.collapseSidebarNotification, object: nil)
+                        collapseSidebar?()
                         onClose()   // 已彈出到新視窗，關掉這裡的內嵌編輯器避免同檔兩開
                     } label: {
                         Image(systemName: "macwindow.on.rectangle")
@@ -96,7 +99,12 @@ struct NoteEditorView: View {
 
             Divider()
 
-            EditorCore(fileURL: noteURL, mode: $mode)
+            EditorCore(fileURL: noteURL, mode: $mode, handle: editor)
+        }
+        .pageCommands(commands) { cmd in
+            guard cmd == .find, let target = editor.findTarget() else { return false }
+            PageFinder.shared.show(in: target)
+            return true
         }
         .sheet(isPresented: $showCitePicker) {
             CitationPickerView()
@@ -112,6 +120,8 @@ struct NoteEditorView: View {
 struct NoteWindowView: View {
     let noteURL: URL?
     @Environment(\.dismiss) private var dismiss
+    @State private var router = CommandRouter()
+    @State private var searchPresented = false
 
     var body: some View {
         ZStack {
@@ -133,6 +143,7 @@ struct NoteWindowView: View {
         }
         .background(WindowMinSizeSetter(minWidth: 460, minHeight: 380))
         .background(EarlyWindowHook { RootView.adoptAsPendingTab($0) })   // 「在新分頁開啟」
+        .windowCommands(router, searchPresented: $searchPresented)
     }
 }
 #endif

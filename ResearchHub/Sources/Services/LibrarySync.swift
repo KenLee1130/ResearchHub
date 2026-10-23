@@ -3,10 +3,36 @@ import HubCore
 import Observation
 import Combine
 
-extension Notification.Name {
-    /// 資料夾裡有檔案被另一台裝置（經 iCloud）或外部工具改動、或剛從 iCloud 下載完成。
-    /// userInfo["urls"]: [URL]；空陣列＝不確定是哪些（例如切回 app），全部重讀。
-    static let rhLibraryDidChange = Notification.Name("ResearchHub.libraryDidChange")
+/// 資料夾裡有檔案被另一台裝置（經 iCloud）或外部工具改動、或剛從 iCloud 下載完成。
+/// `urls` 空陣列＝不確定是哪些（例如切回 app），全部重讀。
+/// 訂閱 `LibrarySync.shared.changes`（以前是 Notification.Name 廣播，誰在收看不出來）。
+nonisolated struct LibraryChange: Sendable {
+    let urls: [URL]
+
+    /// 跟 `item`（檔案或資料夾）有關嗎？
+    /// 沒列檔案＝全部都算；改動的是它本身、它所在的資料夾、或它底下的東西都算。
+    func affects(_ item: URL?) -> Bool {
+        guard let item else { return false }
+        if urls.isEmpty { return true }
+        let target = item.standardizedFileURL.path
+        return urls.contains { changed in
+            let p = changed.standardizedFileURL.path
+            return p == target || target.hasPrefix(p + "/") || p.hasPrefix(target + "/")
+        }
+    }
+
+    /// 會不會改變「筆記清單」的長相（有筆記／資料夾增刪改名）？
+    /// LaTeX 專案裡的 .tex、.bib、圖檔內容變了不算——專案在清單上只是一個項目。
+    func affectsNoteListing(notes: URL?) -> Bool {
+        guard affects(notes) else { return false }
+        return urls.isEmpty || urls.contains {
+            if $0.pathExtension.lowercased() == "md" { return true }
+            // 資料夾（或已經不在了的東西＝被刪／被改名）才算；latexmkrc 這種沒副檔名的檔案不算
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: $0.path, isDirectory: &isDir)
+            return !exists || isDir.boolValue
+        }
+    }
 }
 
 /// 整個資料夾的 iCloud 同步：打開／切回 app 時先跟 iCloud 要另一台裝置的更新。
@@ -18,8 +44,8 @@ extension Notification.Name {
 ///
 /// 做法：
 /// 1. `syncNow()`：掃整個資料夾（含 .hub），不是最新版的檔案都請 iCloud 下載，
-///    每秒檢查一次，下載好的就廣播 `.rhLibraryDidChange`，各 store 自己重讀。
-/// 2. 對根資料夾掛一個 NSFilePresenter：app 開著時另一台裝置同步進來的改動也會廣播。
+///    每秒檢查一次，下載好的就送進 `changes`，各 store 自己重讀。
+/// 2. 對根資料夾掛一個 NSFilePresenter：app 開著時另一台裝置同步進來的改動也會送進 `changes`。
 @MainActor
 @Observable
 final class LibrarySync {
@@ -27,6 +53,9 @@ final class LibrarySync {
 
     /// 還在從 iCloud 下載的檔案數（>0 時畫面顯示「正在同步」）
     private(set) var pendingCount = 0
+
+    /// 資料夾裡的檔案變了（另一台裝置、外部工具、iCloud 下載完成）。各 store／畫面自己訂閱、自己重讀。
+    @ObservationIgnored let changes = PassthroughSubject<LibraryChange, Never>()
 
     private var rootURL: URL?
     private var watcher: DirectoryWatcher?
@@ -174,35 +203,7 @@ final class LibrarySync {
     }
 
     private func broadcast(_ urls: [URL]) {
-        NotificationCenter.default.post(
-            name: .rhLibraryDidChange, object: nil, userInfo: ["urls": urls])
-    }
-
-    /// 這則通知會不會改變「筆記清單」的長相（有筆記／資料夾增刪改名）？
-    /// LaTeX 專案裡的 .tex、.bib、圖檔內容變了不算——專案在清單上只是一個項目。
-    nonisolated static func affectsNoteListing(_ note: Notification, notes: URL?) -> Bool {
-        guard affects(note, notes) else { return false }
-        let urls = note.userInfo?["urls"] as? [URL] ?? []
-        return urls.isEmpty || urls.contains {
-            if $0.pathExtension.lowercased() == "md" { return true }
-            // 資料夾（或已經不在了的東西＝被刪／被改名）才算；latexmkrc 這種沒副檔名的檔案不算
-            var isDir: ObjCBool = false
-            let exists = FileManager.default.fileExists(atPath: $0.path, isDirectory: &isDir)
-            return !exists || isDir.boolValue
-        }
-    }
-
-    /// 這則通知跟 `item`（檔案或資料夾）有關嗎？
-    /// 沒列檔案＝全部都算；改動的是它本身、它所在的資料夾、或它底下的東西都算。
-    nonisolated static func affects(_ note: Notification, _ item: URL?) -> Bool {
-        guard let item else { return false }
-        let urls = note.userInfo?["urls"] as? [URL] ?? []
-        if urls.isEmpty { return true }
-        let target = item.standardizedFileURL.path
-        return urls.contains { changed in
-            let p = changed.standardizedFileURL.path
-            return p == target || target.hasPrefix(p + "/") || p.hasPrefix(target + "/")
-        }
+        changes.send(LibraryChange(urls: urls))
     }
 }
 
