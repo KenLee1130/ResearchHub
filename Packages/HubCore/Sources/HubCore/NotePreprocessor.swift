@@ -8,9 +8,9 @@ import Foundation
 ///
 /// 全部在 Swift 端做，渲染模板（MarkdownPreviewView.template）不需改動，
 /// 因此預覽與「輸出 PDF」都會自動套用。
-enum NotePreprocessor {
+public nonisolated enum NotePreprocessor {
 
-    static func process(
+    public static func process(
         _ markdown: String,
         zoteroItems: [ZoteroItem],
         noteLinks: [NoteLink] = []
@@ -27,7 +27,7 @@ enum NotePreprocessor {
                 ? target
                 : g[2].trimmingCharacters(in: .whitespaces)
             guard !target.isEmpty else { return g[0] }
-            if let link = NoteLinkIndex.resolve(target, in: noteLinks) {
+            if let link = NoteLinkResolver.resolve(target, in: noteLinks) {
                 let allowed = CharacterSet.urlQueryAllowed
                     .subtracting(CharacterSet(charactersIn: "&=+?#"))
                 let encoded = link.relativePath

@@ -1,17 +1,16 @@
 import Foundation
-import HubCore
 
 /// LaTeX 專案的參考文獻檔：在 \cite{ 補全選了 Zotero 的文獻時，
 /// 把那筆的 BibTeX 寫進專案的 .bib，並回傳要填進 \cite{} 的 key。
 ///
 /// 以前補全插入的是 Zotero 的內部 key（像 I4UT4SMS），專案的 .bib 裡沒有這個 key，
 /// 編出來永遠是 [?]；要自己去 Zotero 匯出、貼進 .bib、再手打 key。
-nonisolated enum LatexBibliography {
+public nonisolated enum LatexBibliography {
     /// 這個專案的文獻要寫進哪個 .bib：
     /// 主檔 \bibliography{}／\addbibresource{} 指到的那個 > 專案裡現有的第一個 > references.bib
-    static func targetBib(in root: URL) -> URL {
+    public static func targetBib(in root: URL) -> URL {
         if let main = LatexProject.mainFile(in: root),
-           let text = FileSystemStore.safeRead(main),
+           let text = ICloudFile.safeRead(main),
            let re = try? NSRegularExpression(
                pattern: #"^[^%\n]*\\(?:bibliography|addbibresource)\{([^}]+)\}"#,
                options: [.anchorsMatchLines]),
@@ -41,15 +40,15 @@ nonisolated enum LatexBibliography {
     }
 
     /// 確保 `item` 在專案的 .bib 裡，回傳它的 cite key。
+    /// `exportedBibtex` 是 Zotero 匯出的 BibTeX（由呼叫端先向 ZoteroStore 要）；
     /// Zotero 沒開（拿不到匯出）時用手上的欄位自己組一筆。
-    @MainActor
-    static func cite(_ item: ZoteroItem, in root: URL) async -> String {
-        let exported = await ZoteroStore.shared.bibtex(for: item).flatMap(parse)
+    public static func cite(_ item: ZoteroItem, in root: URL, exportedBibtex: String?) -> String {
+        let exported = exportedBibtex.flatMap(parse)
         let (key, entry) = exported ?? fallbackEntry(for: item)
 
         let bib = targetBib(in: root)
         let fm = FileManager.default
-        let existing = FileSystemStore.safeRead(bib) ?? ""
+        let existing = ICloudFile.safeRead(bib) ?? ""
         // 檔案在 iCloud 上還沒下載到：不能當成空的寫回去（會蓋掉雲端那份），這次先只回 key
         if existing.isEmpty, fm.fileExists(atPath: bib.path),
            ((try? bib.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) > 0 {
@@ -88,7 +87,7 @@ nonisolated enum LatexBibliography {
 
     /// 編譯前呼叫：app 自動加的條目若整個專案都沒有 \cite 它了，就從 .bib 拿掉；
     /// 反過來，被拿掉的條目又被引用時放回去。你自己寫進 .bib 的條目不會被動到。
-    static func reconcile(in root: URL) {
+    public static func reconcile(in root: URL) {
         var settings = LatexProject.settings(of: root)
         var tracked = settings.autoBibKeys ?? [:]
         let stashFile = stashURL(of: root)
@@ -101,13 +100,13 @@ nonisolated enum LatexBibliography {
                                          options: [.skipsHiddenFiles]) else { return }
         var source = ""
         for case let url as URL in walker where url.pathExtension.lowercased() == "tex" {
-            guard let text = FileSystemStore.safeRead(url) else { return }
+            guard let text = ICloudFile.safeRead(url) else { return }
             source += text + "\n"
         }
         let cited = citedKeys(in: source)
 
         let bib = targetBib(in: root)
-        guard let original = FileSystemStore.safeRead(bib) else { return }
+        guard let original = ICloudFile.safeRead(bib) else { return }
         var text = original
         let now = Date().timeIntervalSince1970
 
@@ -145,9 +144,9 @@ nonisolated enum LatexBibliography {
     /// 在 \end{document} 前補上。不補的話 bibtex 根本不會跑，所有引用都是 [?]
     /// （範本建的專案一開始沒有這行，補全把文獻寫進 references.bib 也沒用）。
     /// 已經有 \bibliography／\addbibresource／\printbibliography／thebibliography 就不動。
-    static func ensureBibliographyCommand(in root: URL) {
+    public static func ensureBibliographyCommand(in root: URL) {
         guard let main = LatexProject.mainFile(in: root),
-              let text = FileSystemStore.safeRead(main),
+              let text = ICloudFile.safeRead(main),
               let re = try? NSRegularExpression(
                   pattern: #"^[^%\n]*\\(?:(?:bibliography|addbibresource|printbibliography)\b|begin\{thebibliography\})"#,
                   options: [.anchorsMatchLines]),
@@ -159,7 +158,7 @@ nonisolated enum LatexBibliography {
             at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return }
         var source = ""
         for case let url as URL in walker where url.pathExtension.lowercased() == "tex" {
-            guard let t = FileSystemStore.safeRead(url) else { return }
+            guard let t = ICloudFile.safeRead(url) else { return }
             source += t + "\n"
         }
         guard !citedKeys(in: source).isEmpty else { return }
@@ -184,7 +183,7 @@ nonisolated enum LatexBibliography {
 
     /// 所有 \cite{a,b}、\citep[..]{c}、\nocite{*} 裡的 key。
     /// 註解掉的 \cite 也算（寧可多留，不要誤刪）。
-    static func citedKeys(in source: String) -> Set<String> {
+    public static func citedKeys(in source: String) -> Set<String> {
         guard let re = try? NSRegularExpression(
             pattern: #"\\[a-zA-Z]*cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}"#) else { return [] }
         let ns = source as NSString
@@ -199,7 +198,7 @@ nonisolated enum LatexBibliography {
     }
 
     /// 把 key 那一筆（@type{key, … } 整段，用大括號配對找結尾）從 bibText 拿出來。
-    static func extract(key: String, from bibText: inout String) -> String? {
+    public static func extract(key: String, from bibText: inout String) -> String? {
         let pattern = #"@\w+\s*\{\s*"# + NSRegularExpression.escapedPattern(for: key) + #"\s*,"#
         guard let head = bibText.range(of: pattern, options: .regularExpression),
               let open = bibText[head].firstIndex(of: "{") else { return nil }
@@ -222,7 +221,7 @@ nonisolated enum LatexBibliography {
         return entry
     }
 
-    static func contains(key: String, in bibText: String) -> Bool {
+    public static func contains(key: String, in bibText: String) -> Bool {
         let pattern = #"@\w+\s*\{\s*"# + NSRegularExpression.escapedPattern(for: key) + #"\s*,"#
         return bibText.range(of: pattern, options: .regularExpression) != nil
     }
@@ -231,7 +230,7 @@ nonisolated enum LatexBibliography {
     private static let droppedFields: Set<String> = ["abstract", "file", "annote", "keywords", "urldate"]
 
     /// 從 Zotero 匯出的 BibTeX 拿出 key，並拿掉用不到的欄位。
-    static func parse(_ bibtex: String) -> (key: String, entry: String)? {
+    public static func parse(_ bibtex: String) -> (key: String, entry: String)? {
         let trimmed = bibtex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let m = trimmed.range(of: #"^@\w+\s*\{\s*([^,\s]+)\s*,"#, options: .regularExpression)
         else { return nil }
@@ -257,7 +256,7 @@ nonisolated enum LatexBibliography {
     }
 
     /// Zotero 匯出失敗時的備援：用快取裡的欄位組一筆夠用的條目。
-    static func fallbackEntry(for item: ZoteroItem) -> (key: String, entry: String) {
+    public static func fallbackEntry(for item: ZoteroItem) -> (key: String, entry: String) {
         let creators = item.data.creators ?? []
         let last = creators.first.map { $0.lastName ?? $0.name ?? "" } ?? ""
         let firstWord = item.title.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
