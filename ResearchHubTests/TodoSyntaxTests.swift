@@ -2,6 +2,7 @@
 // !high、@due、@from、@every、@on、@remind、@est、@pomo、@line，以及 - [-] 已放棄不列入。
 import XCTest
 @testable import ResearchHub
+@testable import HubStore
 @testable import HubCore
 
 final class TodoSyntaxTests: XCTestCase {

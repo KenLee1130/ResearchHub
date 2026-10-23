@@ -2,6 +2,7 @@
 // 空檔不落地、存檔後 dirty 歸零、換檔先寫出舊檔、附加文字、沒有檔案時清空。
 import XCTest
 @testable import ResearchHub
+@testable import HubStore
 
 final class EditorDocumentTests: XCTestCase {
     private var dir: URL!

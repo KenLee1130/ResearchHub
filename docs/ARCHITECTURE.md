@@ -226,6 +226,21 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
    - `Mobile/` 剩下的重複是畫面層（筆記清單、番茄鐘、設定）各寫一份，第 4 步再看要不要合。
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；
    三個產物的版本契約。
+   - HubStore 第一批（已搬，2026-10-23）：`FileWatcher`／`DirectoryWatcher`、`LatexHistory`、
+     `LatexStaging`、`EditorDocument`、`LibrarySync`（SwiftUI 的狀態列 `LibrarySyncBanner` 留在 app）、
+     `LibraryIndex`／`LibraryScan`（@remind 推播改成 app 注入的 `LibraryScan.reminderScheduler`，
+     UserNotifications 不進套件）、`FileItem`、`ZoteroStore`、`ReadingGateStore`，以及從
+     `FileSystemStore` 切出的 `LibraryTreeNode`／`LibraryTodoItem`／`RepeatedTodo`（原處留 typealias）。
+     OSLog：`CoreLog`（hub.core）、`StoreLog`（hub.store）已建，待各處從 NSLog 換過去。
+   - HubStore 待做：`FileSystemStore` 本身（混著根資料夾書籤、檔案操作與頁面導覽狀態
+     `requestedTab`／`openNote`，要先把導覽狀態切回 app）、`.hub/*.json` 的 `EventStore`／
+     `GeneralTodoStore`（用了 SwiftUI `Color`）、`PomodoroModel`（1174 行，含 AppKit 面板）。
+   - `AppContainer`（已落地，2026-10-23）：`Services/AppContainer.swift` 是唯一的 composition root，
+     持有 `LibrarySync`、`ZoteroStore`、`ReadingGateStore`（建構子注入 `LibrarySync`）、
+     `NoteLinkIndex`、`BlockEditorHost`、`NotificationDelegate`，mac 另有 `PageFinder`、
+     `ActiveEditorRegistry`、`PDFExporter`、`PaperModelCatalog`、`PomodoroPanelController`。
+     12 個 `static let shared` 全部拿掉，呼叫處改 `AppContainer.shared.x`。
+     例外：`LibraryIndex.shared` 是 HubStore 模組內部的快取（不 public、不是可注入的相依）。
 
 ### dev 版（重構期間與正式版並存）
 

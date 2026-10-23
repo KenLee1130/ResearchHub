@@ -1,10 +1,11 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 /// 從 Zotero 文獻庫挑一篇，插入 \cite{key} 到目前作用中的編輯器游標處。
 struct CitationPickerView: View {
-    private var zotero = ZoteroStore.shared
+    private var zotero = AppContainer.shared.zotero
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
 
@@ -79,7 +80,7 @@ struct CitationPickerView: View {
     }
 
     private func insert(_ item: ZoteroItem) {
-        ActiveEditorRegistry.shared.insert("\\cite{\(item.key)}")
+        AppContainer.shared.activeEditor.insert("\\cite{\(item.key)}")
         dismiss()
     }
 }

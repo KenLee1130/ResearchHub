@@ -1,4 +1,5 @@
 import Foundation
+import HubCore
 import Observation
 import Combine
 
@@ -15,74 +16,82 @@ import Combine
 // MARK: - 題庫資料結構
 
 /// 一題理解題（單選）。
-struct GateQuestion: Codable, Equatable {
-    var q: String
-    var options: [String]
+public struct GateQuestion: Codable, Equatable {
+    public var q: String
+    public var options: [String]
     /// 正解在 options 裡的 index
-    var answer: Int
+    public var answer: Int
     /// 答錯時顯示的說明（可省略）
-    var explain: String?
+    public var explain: String?
 }
 
 /// 題庫裡的一篇 paper。
-struct GatePaper: Codable, Equatable, Identifiable {
+public struct GatePaper: Codable, Equatable, Identifiable {
     /// 穩定 id：優先用 Zotero item key
-    var id: String
-    var title: String
-    var authors: String?
-    var year: String?
-    var abstract: String
-    var questions: [GateQuestion]
+    public var id: String
+    public var title: String
+    public var authors: String?
+    public var year: String?
+    public var abstract: String
+    public var questions: [GateQuestion]
     /// 有值就在關卡畫面提供「在 Zotero 開啟」
-    var zoteroKey: String?
+    public var zoteroKey: String?
 }
 
-struct GateBank: Codable {
-    var updatedAt: Date?
-    var papers: [GatePaper]
+public struct GateBank: Codable {
+    public var updatedAt: Date?
+    public var papers: [GatePaper]
 }
 
 /// 已通過紀錄：paper id → 最後通過時間（輪替時優先挑最久沒讀的）。
-struct GateLog: Codable {
-    var passedAt: [String: Date] = [:]
+public struct GateLog: Codable {
+    public var passedAt: [String: Date] = [:]
     /// 累計通過次數（首頁之後可以拿來顯示成就）
-    var totalPasses: Int = 0
+    public var totalPasses: Int = 0
 }
 
 // MARK: - 專注狀態（Mac 寫、手機讀）
 
 /// `.hub/focus_state.json` 的內容。Mac 端蕃茄鐘每次狀態變動就覆寫一份，
 /// 手機端讀它決定關卡要不要啟用（iCloud 同步通常數秒內到）。
-struct GateFocusState: Codable {
+public struct GateFocusState: Codable {
     /// 蕃茄鐘正在跑
-    var pomodoroActive: Bool = false
+    public var pomodoroActive: Bool = false
     /// 目前階段（work / shortBreak / longBreak）；只有 work 會啟用關卡
-    var phase: String = "work"
+    public var phase: String = "work"
     /// 這個階段的結束時刻——手機用它防「Mac 睡著沒寫收尾」的殘留狀態
-    var phaseEndAt: Date?
+    public var phaseEndAt: Date?
     /// 使用者手動打開的專注模式（不靠蕃茄鐘）
-    var manualGate: Bool = false
+    public var manualGate: Bool = false
     /// 這顆蕃茄鐘開始前寫下的「這顆要做什麼」——關卡畫面用它把你拉回正事
-    var plan: String = ""
+    public var plan: String = ""
     /// 今天第幾顆 / 一輪共幾顆（顯示用，缺就不顯示）
-    var pomoIndex: Int?
-    var pomoTotal: Int?
-    var updatedAt: Date = .now
+    public var pomoIndex: Int?
+    public var pomoTotal: Int?
+    public var updatedAt: Date = .now
 
     /// 這個階段還剩多久（秒）；沒在跑或已過期回 nil。
-    var remainingSeconds: Int? {
+    public var remainingSeconds: Int? {
         guard pomodoroActive, let end = phaseEndAt else { return nil }
         let left = Int(end.timeIntervalSinceNow)
         return left > 0 ? left : nil
     }
 
     /// 這份狀態現在是否該啟用關卡。
-    var gateActive: Bool {
+    public var gateActive: Bool {
         if manualGate { return true }
         guard pomodoroActive, phase == "work" else { return false }
         // 階段早該結束卻還寫著 active（Mac 睡著/當掉）→ 視為沒在跑，不要一直擋
         if let end = phaseEndAt, end < Date().addingTimeInterval(-300) { return false }
         return true
+    }
+
+    public init(pomodoroActive: Bool = false, phase: String = "work", phaseEndAt: Date? = nil,
+                manualGate: Bool = false, plan: String = "", pomoIndex: Int? = nil,
+                pomoTotal: Int? = nil, updatedAt: Date = .now) {
+        self.pomodoroActive = pomodoroActive; self.phase = phase; self.phaseEndAt = phaseEndAt
+        self.manualGate = manualGate; self.plan = plan; self.pomoIndex = pomoIndex
+        self.pomoTotal = pomoTotal; self.updatedAt = updatedAt
     }
 }
 
@@ -90,17 +99,16 @@ struct GateFocusState: Codable {
 
 @MainActor
 @Observable
-final class ReadingGateStore {
-    static let shared = ReadingGateStore()
+public final class ReadingGateStore {
 
-    private(set) var bank = GateBank(updatedAt: nil, papers: [])
+    public private(set) var bank = GateBank(updatedAt: nil, papers: [])
     /// 手機本機的專注模式開關（不必等 iCloud，立刻生效）
-    var localManual: Bool {
+    public var localManual: Bool {
         get { UserDefaults.standard.bool(forKey: "gate.localManual") }
         set { UserDefaults.standard.set(newValue, forKey: "gate.localManual") }
     }
     /// 通過後的寬限期分鐘數（這段時間內再打開那些 app 不會再攔）
-    var graceMinutes: Int {
+    public var graceMinutes: Int {
         get {
             let v = UserDefaults.standard.integer(forKey: "gate.graceMinutes")
             return v > 0 ? v : 10
@@ -112,9 +120,9 @@ final class ReadingGateStore {
     private var log = GateLog()
     private var libraryObserver: AnyCancellable?
 
-    private init() {
+    public init(librarySync: LibrarySync) {
         // Mac 端 Claude 更新了題庫、或另一台裝置記了通過紀錄 → 重讀
-        libraryObserver = LibrarySync.shared.changes
+        libraryObserver = librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self else { return }
@@ -124,7 +132,7 @@ final class ReadingGateStore {
             }
     }
 
-    func configure(rootURL: URL?) {
+    public func configure(rootURL: URL?) {
         guard rootURL?.path != self.rootURL?.path else { return }
         self.rootURL = rootURL
         reload()
@@ -161,13 +169,13 @@ final class ReadingGateStore {
     // MARK: 讀寫
 
     /// 重讀題庫與通過紀錄（iCloud 檔案可能還沒下載，safeRead 會回 nil，下次再試）。
-    func reload() {
-        if let url = bankURL, let s = FileSystemStore.safeRead(url),
+    public func reload() {
+        if let url = bankURL, let s = ICloudFile.safeRead(url),
            let data = s.data(using: .utf8),
            let b = try? Self.decoder.decode(GateBank.self, from: data) {
             bank = b
         }
-        if let url = logURL, let s = FileSystemStore.safeRead(url),
+        if let url = logURL, let s = ICloudFile.safeRead(url),
            let data = s.data(using: .utf8),
            let l = try? Self.decoder.decode(GateLog.self, from: data) {
             log = l
@@ -175,8 +183,8 @@ final class ReadingGateStore {
     }
 
     /// 目前的專注狀態（讀 Mac 寫下的檔案）。讀不到就當沒啟用。
-    func focusState() -> GateFocusState {
-        guard let url = focusURL, let s = FileSystemStore.safeRead(url),
+    public func focusState() -> GateFocusState {
+        guard let url = focusURL, let s = ICloudFile.safeRead(url),
               let data = s.data(using: .utf8),
               let st = try? Self.decoder.decode(GateFocusState.self, from: data)
         else { return GateFocusState() }
@@ -184,12 +192,12 @@ final class ReadingGateStore {
     }
 
     /// 關卡現在是否該擋：iCloud 來的狀態，或手機本機的開關。
-    func isGateActive() -> Bool {
+    public func isGateActive() -> Bool {
         localManual || focusState().gateActive
     }
 
     /// Mac 端：蕃茄鐘/手動開關變動時寫入狀態檔。
-    func writeFocusState(_ state: GateFocusState) {
+    public func writeFocusState(_ state: GateFocusState) {
         guard let url = focusURL, let hub = hubURL else { return }
         try? FileManager.default.createDirectory(at: hub, withIntermediateDirectories: true)
         guard let data = try? Self.encoder.encode(state) else { return }
@@ -200,7 +208,7 @@ final class ReadingGateStore {
 
     private let graceKey = "gate.graceUntil"
 
-    var graceUntil: Date? {
+    public var graceUntil: Date? {
         let t = UserDefaults.standard.double(forKey: graceKey)
         guard t > 0 else { return nil }
         let d = Date(timeIntervalSince1970: t)
@@ -208,7 +216,7 @@ final class ReadingGateStore {
     }
 
     /// 現在放行嗎？（關卡沒啟用，或還在寬限期內）
-    func shouldPassThrough() -> Bool {
+    public func shouldPassThrough() -> Bool {
         if graceUntil != nil { return true }
         return !isGateActive()
     }
@@ -220,14 +228,14 @@ final class ReadingGateStore {
     }
 
     /// 手動結束寬限期（設定裡的「立刻恢復攔截」）。
-    func clearGrace() {
+    public func clearGrace() {
         UserDefaults.standard.removeObject(forKey: graceKey)
     }
 
     // MARK: 選題
 
     /// 挑一篇要讀的：優先沒讀過的，其次最久沒讀的。題庫空的話回 nil。
-    func nextPaper() -> GatePaper? {
+    public func nextPaper() -> GatePaper? {
         let candidates = bank.papers.filter { !$0.abstract.isEmpty && !$0.questions.isEmpty }
         guard !candidates.isEmpty else { return nil }
         let unread = candidates.filter { log.passedAt[$0.id] == nil }
@@ -238,7 +246,7 @@ final class ReadingGateStore {
     }
 
     /// 通過一篇：記錄、開始寬限期。
-    func recordPass(_ paper: GatePaper) {
+    public func recordPass(_ paper: GatePaper) {
         reload()   // 先讀另一台裝置的通過紀錄，別蓋掉
         log.passedAt[paper.id] = .now
         log.totalPasses += 1
@@ -249,7 +257,7 @@ final class ReadingGateStore {
         try? data.write(to: url, options: .atomic)
     }
 
-    var totalPasses: Int { log.totalPasses }
+    public var totalPasses: Int { log.totalPasses }
 }
 
 // MARK: - 黑名單 app 目錄
@@ -258,22 +266,22 @@ final class ReadingGateStore {
 /// iOS 不允許列舉手機上安裝了哪些 app（沒有公開 API，官方 FamilyActivityPicker
 /// 需要拿不到的 family-controls entitlement），所以改用「內建目錄 + canOpenURL 偵測」：
 /// 只把「你手機上真的有裝」的列給你勾。找不到的 app 可以自己新增（名稱 + URL scheme）。
-struct GateApp: Codable, Equatable, Identifiable, Hashable {
+public struct GateApp: Codable, Equatable, Identifiable, Hashable {
     /// URL scheme（不含 "://"），同時當 id 用
-    var scheme: String
-    var name: String
+    public var scheme: String
+    public var name: String
     /// 使用者自己加的（可刪）
-    var custom: Bool = false
+    public var custom: Bool = false
 
-    var id: String { scheme }
-    var openURL: URL? { URL(string: "\(scheme)://") }
+    public var id: String { scheme }
+    public var openURL: URL? { URL(string: "\(scheme)://") }
 }
 
 extension GateApp {
     /// 內建目錄：常見的「一滑就是一小時」類 app。
     /// 這些 scheme 必須同時列在 Info.plist 的 LSApplicationQueriesSchemes，
     /// canOpenURL 才查得到（iOS 上限 50 個）。
-    static let catalog: [GateApp] = [
+    public static let catalog: [GateApp] = [
         .init(scheme: "instagram", name: "Instagram"),
         .init(scheme: "barcelona", name: "Threads"),
         .init(scheme: "youtube", name: "YouTube"),
@@ -307,7 +315,7 @@ extension ReadingGateStore {
     private var customAppsKey: String { "gate.customApps" }
 
     /// 使用者自訂新增的 app。
-    var customApps: [GateApp] {
+    public var customApps: [GateApp] {
         get {
             guard let data = UserDefaults.standard.data(forKey: customAppsKey),
                   let list = try? JSONDecoder().decode([GateApp].self, from: data)
@@ -321,23 +329,23 @@ extension ReadingGateStore {
     }
 
     /// 內建目錄 + 自訂的完整清單。
-    var allKnownApps: [GateApp] { GateApp.catalog + customApps }
+    public var allKnownApps: [GateApp] { GateApp.catalog + customApps }
 
     /// 目前列入黑名單的 scheme。
-    var blacklist: Set<String> {
+    public var blacklist: Set<String> {
         get { Set(UserDefaults.standard.stringArray(forKey: blacklistKey) ?? []) }
         set { UserDefaults.standard.set(Array(newValue).sorted(), forKey: blacklistKey) }
     }
 
-    func isBlacklisted(_ scheme: String) -> Bool { blacklist.contains(scheme) }
+    public func isBlacklisted(_ scheme: String) -> Bool { blacklist.contains(scheme) }
 
-    func setBlacklisted(_ scheme: String, _ on: Bool) {
+    public func setBlacklisted(_ scheme: String, _ on: Bool) {
         var b = blacklist
         if on { b.insert(scheme) } else { b.remove(scheme) }
         blacklist = b
     }
 
-    func addCustomApp(name: String, scheme: String) {
+    public func addCustomApp(name: String, scheme: String) {
         let clean = scheme
             .replacingOccurrences(of: "://", with: "")
             .trimmingCharacters(in: .whitespaces)
@@ -347,13 +355,13 @@ extension ReadingGateStore {
         setBlacklisted(clean, true)   // 自己加的預設就是要擋的
     }
 
-    func removeCustomApp(_ app: GateApp) {
+    public func removeCustomApp(_ app: GateApp) {
         customApps.removeAll { $0.scheme == app.scheme }
         setBlacklisted(app.scheme, false)
     }
 
     /// 深連結帶進來的 app（researchhub://gate?app=instagram）對應到目錄裡的哪一個。
-    func app(forScheme scheme: String) -> GateApp? {
+    public func app(forScheme scheme: String) -> GateApp? {
         allKnownApps.first { $0.scheme == scheme }
     }
 }

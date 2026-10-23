@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubStore
 import UIKit
 
 /// 閱讀關卡畫面：讀 abstract → 答理解題 → 全對才放行回原本的 app。
@@ -9,7 +10,7 @@ struct ReadingGateView: View {
     let target: GateApp?
     var onFinish: () -> Void
 
-    private var gate = ReadingGateStore.shared
+    private var gate = AppContainer.shared.readingGate
     @Environment(\.openURL) private var openURL
 
     @State private var paper: GatePaper?

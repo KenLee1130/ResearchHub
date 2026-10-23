@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 
 /// LaTeX 專案的歷史紀錄面板：左＝快照時間軸、中＝這一版改了哪些檔、右＝差異＋還原。
 struct LatexHistoryView: View {

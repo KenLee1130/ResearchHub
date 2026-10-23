@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 import PDFKit
 import CoreImage
@@ -9,7 +10,7 @@ import UniformTypeIdentifiers
 /// 論文分頁：左 Zotero library 清單（可搜尋），右內建 PDF 閱讀器。
 struct PapersView: View {
     @Environment(FileSystemStore.self) private var store
-    private var zotero = ZoteroStore.shared
+    private var zotero = AppContainer.shared.zotero
 
     @State private var search = ""
     @State private var selected: ZoteroItem?
@@ -66,7 +67,7 @@ struct PapersView: View {
                 (v.window?.firstResponder as? NSView)?.isDescendant(of: v) ?? false
             } ?? visible.first
             guard let target else { return false }
-            PageFinder.shared.show(in: target)
+            AppContainer.shared.pageFinder.show(in: target)
             return true
         }
         .fileImporter(isPresented: $importingTranslation, allowedContentTypes: [.pdf]) { result in

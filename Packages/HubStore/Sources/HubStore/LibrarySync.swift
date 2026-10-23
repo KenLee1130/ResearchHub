@@ -1,17 +1,17 @@
-import SwiftUI
+import Foundation
 import HubCore
 import Observation
 import Combine
 
 /// 資料夾裡有檔案被另一台裝置（經 iCloud）或外部工具改動、或剛從 iCloud 下載完成。
 /// `urls` 空陣列＝不確定是哪些（例如切回 app），全部重讀。
-/// 訂閱 `LibrarySync.shared.changes`（以前是 Notification.Name 廣播，誰在收看不出來）。
-nonisolated struct LibraryChange: Sendable {
-    let urls: [URL]
+/// 訂閱 `LibrarySync.changes`（app 的 AppContainer 持有唯一實例）（以前是 Notification.Name 廣播，誰在收看不出來）。
+public nonisolated struct LibraryChange: Sendable {
+    public let urls: [URL]
 
     /// 跟 `item`（檔案或資料夾）有關嗎？
     /// 沒列檔案＝全部都算；改動的是它本身、它所在的資料夾、或它底下的東西都算。
-    func affects(_ item: URL?) -> Bool {
+    public func affects(_ item: URL?) -> Bool {
         guard let item else { return false }
         if urls.isEmpty { return true }
         let target = item.standardizedFileURL.path
@@ -23,7 +23,7 @@ nonisolated struct LibraryChange: Sendable {
 
     /// 會不會改變「筆記清單」的長相（有筆記／資料夾增刪改名）？
     /// LaTeX 專案裡的 .tex、.bib、圖檔內容變了不算——專案在清單上只是一個項目。
-    func affectsNoteListing(notes: URL?) -> Bool {
+    public func affectsNoteListing(notes: URL?) -> Bool {
         guard affects(notes) else { return false }
         return urls.isEmpty || urls.contains {
             if $0.pathExtension.lowercased() == "md" { return true }
@@ -48,14 +48,13 @@ nonisolated struct LibraryChange: Sendable {
 /// 2. 對根資料夾掛一個 NSFilePresenter：app 開著時另一台裝置同步進來的改動也會送進 `changes`。
 @MainActor
 @Observable
-final class LibrarySync {
-    static let shared = LibrarySync()
+public final class LibrarySync {
 
     /// 還在從 iCloud 下載的檔案數（>0 時畫面顯示「正在同步」）
-    private(set) var pendingCount = 0
+    public private(set) var pendingCount = 0
 
     /// 資料夾裡的檔案變了（另一台裝置、外部工具、iCloud 下載完成）。各 store／畫面自己訂閱、自己重讀。
-    @ObservationIgnored let changes = PassthroughSubject<LibraryChange, Never>()
+    @ObservationIgnored public let changes = PassthroughSubject<LibraryChange, Never>()
 
     private var rootURL: URL?
     private var watcher: DirectoryWatcher?
@@ -65,12 +64,12 @@ final class LibrarySync {
     private var changedBuffer: Set<URL> = []
     private var broadcastTask: Task<Void, Never>?
 
-    private init() {}
+    public init() {}
 
     /// 下載等待上限：超過就不再轉圈（檔案之後到了，presenter 一樣會通知）
     private static let pollLimit = 90
 
-    func configure(rootURL: URL?) {
+    public func configure(rootURL: URL?) {
         guard rootURL?.path != self.rootURL?.path else { return }
         self.rootURL = rootURL
         watcher?.stop()
@@ -82,7 +81,7 @@ final class LibrarySync {
     }
 
     /// 開始監看根資料夾（iOS 回到前景時呼叫）
-    func resume() {
+    public func resume() {
         guard watcher == nil, let root = rootURL else { return }
         watcher = DirectoryWatcher(url: root) { [weak self] url in
             self?.noteChanged(url)
@@ -90,13 +89,13 @@ final class LibrarySync {
     }
 
     /// 停止監看（iOS 進背景時呼叫：被暫停的 app 掛著 presenter 會拖住別人的協調寫入）
-    func suspend() {
+    public func suspend() {
         watcher?.stop()
         watcher = nil
     }
 
     /// 跟 iCloud 要所有檔案的最新版，並請畫面重讀。打開 app、切回 app、下拉重新整理時呼叫。
-    func syncNow() {
+    public func syncNow() {
         guard let root = rootURL else { return }
         // 先請大家重讀一次：本機檔可能早就更新了，只是記憶體裡還是舊的
         broadcast([])
@@ -212,12 +211,12 @@ final class LibrarySync {
 /// 讀資料夾裡的機器檔（.hub/*.json、pomodoro.json）。
 /// 區分「檔案不存在」與「在 iCloud 上但還沒下載」——後者絕對不能當成空的，
 /// 否則下一次存檔就會拿空內容蓋掉另一台裝置的資料。
-enum LibraryFileRead {
+public enum LibraryFileRead {
     case data(Data)
     case missing
     case notDownloaded
 
-    nonisolated static func read(_ url: URL) -> LibraryFileRead {
+    public nonisolated static func read(_ url: URL) -> LibraryFileRead {
         if let status = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
             .ubiquitousItemDownloadingStatus {
             if status == .notDownloaded {
@@ -236,27 +235,7 @@ enum LibraryFileRead {
 
 /// 以 id 合併：以磁碟那份為主，補上只存在本機的項目。
 /// 用在「檔案還沒下載完時使用者就先動手」的情況，兩邊的新增都保得住。
-func mergeByID<T: Identifiable>(disk: [T], local: [T]) -> [T] {
+public func mergeByID<T: Identifiable>(disk: [T], local: [T]) -> [T] {
     let ids = Set(disk.map(\.id))
     return disk + local.filter { !ids.contains($0.id) }
-}
-
-// MARK: - 同步狀態列
-
-/// 「正在從 iCloud 取得另一台裝置的更新…」提示；沒在下載時不佔空間。
-struct LibrarySyncBanner: View {
-    private var sync = LibrarySync.shared
-
-    var body: some View {
-        if sync.pendingCount > 0 {
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("正在從 iCloud 取得另一台裝置的更新（\(sync.pendingCount) 個檔案）…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .transition(.opacity)
-        }
-    }
 }

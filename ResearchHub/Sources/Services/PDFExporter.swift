@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 import WebKit
 import UniformTypeIdentifiers
@@ -7,7 +8,6 @@ import UniformTypeIdentifiers
 /// 把筆記 markdown 渲染成 PDF：離屏 WKWebView（KaTeX + 本地圖片）→ createPDF → 儲存面板。
 @MainActor
 final class PDFExporter: NSObject, WKNavigationDelegate {
-    static let shared = PDFExporter()
 
     private var webView: WKWebView?
     private var markdown = ""
@@ -21,8 +21,8 @@ final class PDFExporter: NSObject, WKNavigationDelegate {
         suggestedName = noteURL.deletingPathExtension().lastPathComponent
         // 先處理 [[筆記]] / \cite / \footnote / \eqref / \label，再把本地圖片轉成 data URI。
         let pre = NotePreprocessor.process(
-            content, zoteroItems: ZoteroStore.shared.items,
-            noteLinks: NoteLinkIndex.shared.entries())
+            content, zoteroItems: AppContainer.shared.zotero.items,
+            noteLinks: AppContainer.shared.noteLinks.entries())
         markdown = Self.resolveLocalImages(
             in: pre, baseDir: noteURL.deletingLastPathComponent())
 

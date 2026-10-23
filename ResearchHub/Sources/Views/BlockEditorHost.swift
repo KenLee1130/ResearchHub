@@ -6,7 +6,6 @@ import Combine
 /// 之後切到日記分頁是即時顯示，只推送新的 markdown 內容。
 @MainActor
 final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
-    static let shared = BlockEditorHost()
 
     let webView: WKWebView
     var baseDir: URL?
@@ -24,7 +23,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     private var assetCache: [String: String] = [:]
     private var retryCount = 0
 
-    private override init() {
+    override init() {
         #if os(macOS)
         webView = FirstMouseWebView(frame: .zero, configuration: WKWebViewConfiguration())
         #else

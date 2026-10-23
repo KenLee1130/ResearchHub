@@ -1,13 +1,14 @@
 #if os(iOS)
 import SwiftUI
+import HubStore
 import UIKit
 
 /// 閱讀關卡設定：專注模式開關、黑名單（偵測已安裝的 app）、捷徑自動化設定指引。
 struct ReadingGateSettingsView: View {
-    private var gate = ReadingGateStore.shared
-    @State private var manual = ReadingGateStore.shared.localManual
-    @State private var grace = ReadingGateStore.shared.graceMinutes
-    @State private var blacklist = ReadingGateStore.shared.blacklist
+    private var gate = AppContainer.shared.readingGate
+    @State private var manual = AppContainer.shared.readingGate.localManual
+    @State private var grace = AppContainer.shared.readingGate.graceMinutes
+    @State private var blacklist = AppContainer.shared.readingGate.blacklist
     @State private var showAddCustom = false
     @State private var newName = ""
     @State private var newScheme = ""

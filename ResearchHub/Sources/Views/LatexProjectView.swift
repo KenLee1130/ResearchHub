@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 import AppKit
 import Combine
@@ -57,7 +58,7 @@ struct LatexProjectView: View {
         content
             .pageCommands(commands) { cmd in
                 guard cmd == .find, let target = editor.findTarget() else { return false }
-                PageFinder.shared.show(in: target)
+                AppContainer.shared.pageFinder.show(in: target)
                 return true
             }
     }

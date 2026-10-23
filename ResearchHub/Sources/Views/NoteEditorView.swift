@@ -77,7 +77,7 @@ struct NoteEditorView: View {
                 .keyboardShortcut("y", modifiers: .command)
 
                 Button {
-                    PDFExporter.shared.export(noteURL: noteURL)
+                    AppContainer.shared.pdfExporter.export(noteURL: noteURL)
                 } label: {
                     Image(systemName: "arrow.down.doc")
                         .padding(5)
@@ -103,7 +103,7 @@ struct NoteEditorView: View {
         }
         .pageCommands(commands) { cmd in
             guard cmd == .find, let target = editor.findTarget() else { return false }
-            PageFinder.shared.show(in: target)
+            AppContainer.shared.pageFinder.show(in: target)
             return true
         }
         .sheet(isPresented: $showCitePicker) {

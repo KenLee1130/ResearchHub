@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 import Observation
 import Combine
 import HubCore
@@ -7,16 +7,17 @@ import HubCore
 
 @MainActor
 @Observable
-final class ZoteroStore {
+public final class ZoteroStore {
     /// 全 app 共用的實例：論文分頁與筆記引用（\cite）都讀同一份快取。
-    static let shared = ZoteroStore()
 
-    private(set) var items: [ZoteroItem] = []
-    private(set) var isLoading = false
-    var errorMessage: String?
+    public private(set) var items: [ZoteroItem] = []
 
-    static let portKey = "settings.zoteroPort"
-    static let defaultPort = ZoteroClient.defaultPort
+    public init() {}
+    public private(set) var isLoading = false
+    public var errorMessage: String?
+
+    public static let portKey = "settings.zoteroPort"
+    public static let defaultPort = ZoteroClient.defaultPort
 
     /// Zotero 7 本地 API；port 可在設定調整（預設 23119）。請求本體在 HubCore 的 ZoteroClient。
     private var client: ZoteroClient {
@@ -29,7 +30,7 @@ final class ZoteroStore {
     /// \cite 補全每次跳出來都會呼叫：剛在 Zotero 加的文獻幾秒內就搜得到，
     /// 連打時又不會每個按鍵都去問 Zotero。
     @discardableResult
-    func refreshIfStale(maxAge: TimeInterval = 10) async -> Bool {
+    public func refreshIfStale(maxAge: TimeInterval = 10) async -> Bool {
         if isLoading { return false }
         if let last = lastRefreshed, Date().timeIntervalSince(last) < maxAge { return false }
         let before = items.map(\.key)
@@ -37,7 +38,7 @@ final class ZoteroStore {
         return items.map(\.key) != before
     }
 
-    func refresh() async {
+    public func refresh() async {
         lastRefreshed = Date()
         isLoading = true
         errorMessage = nil
@@ -55,22 +56,22 @@ final class ZoteroStore {
     // MARK: - BibTeX
 
     /// 這筆文獻的 BibTeX（Zotero 自己的匯出，欄位最完整）。Zotero 沒開就回 nil。
-    func bibtex(for item: ZoteroItem) async -> String? {
+    public func bibtex(for item: ZoteroItem) async -> String? {
         await client.bibtex(for: item)
     }
 
     // MARK: - PDF 附件
 
-    typealias Attachment = ZoteroClient.Attachment
+    public typealias Attachment = ZoteroClient.Attachment
 
     /// 找出某筆文獻的 PDF 附件
-    func pdfAttachment(for item: ZoteroItem) async -> Attachment? {
+    public func pdfAttachment(for item: ZoteroItem) async -> Attachment? {
         await client.pdfAttachment(for: item)
     }
 
     /// 取得 PDF：優先讀本地 Zotero/storage（需一次性授權資料夾），HTTP /file 當備援。
     /// 回傳 fileURL 供註記寫回（HTTP 來源無法寫回）。
-    func pdfData(attachment: Attachment) async -> (data: Data, fileURL: URL?)? {
+    public func pdfData(attachment: Attachment) async -> (data: Data, fileURL: URL?)? {
         if let dir = zoteroDir {
             let folder = dir.appendingPathComponent("storage/\(attachment.key)", isDirectory: true)
             if let filename = attachment.filename {
@@ -93,11 +94,11 @@ final class ZoteroStore {
     // MARK: - Zotero 資料夾授權（讀取 storage/ 裡的 PDF）
 
     private static let dirBookmarkKey = "zotero.dirBookmark"
-    private(set) var hasZoteroDir = false
+    public private(set) var hasZoteroDir = false
     private var zoteroDir: URL?
 
     // Zotero storage/ 授權只在 macOS 有意義（手機連不到桌機的 Zotero 資料夾）。
-    func restoreZoteroDir() {
+    public func restoreZoteroDir() {
         #if os(macOS)
         guard zoteroDir == nil,
               let data = UserDefaults.standard.data(forKey: Self.dirBookmarkKey)
@@ -113,7 +114,7 @@ final class ZoteroStore {
         #endif
     }
 
-    func setZoteroDir(_ url: URL) {
+    public func setZoteroDir(_ url: URL) {
         #if os(macOS)
         _ = url.startAccessingSecurityScopedResource()
         if let data = try? url.bookmarkData(

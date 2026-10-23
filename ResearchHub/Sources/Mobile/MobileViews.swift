@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 // MARK: - 筆記瀏覽（唯讀：手機上翻筆記、看公式；編輯在 Mac 版）
@@ -43,11 +44,11 @@ struct MobileNotesView: View {
             }
             .task { await reloadTree() }
             .refreshable {
-                LibrarySync.shared.syncNow()
+                AppContainer.shared.librarySync.syncNow()
                 await reloadTree()
             }
             // Mac 新增／改名的筆記同步進來 → 清單跟著變
-            .onReceive(LibrarySync.shared.changes) { change in
+            .onReceive(AppContainer.shared.librarySync.changes) { change in
                 if change.affectsNoteListing(notes: store.notesURL) {
                     Task { await reloadTree() }
                 }

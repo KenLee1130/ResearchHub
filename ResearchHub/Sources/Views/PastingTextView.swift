@@ -90,7 +90,7 @@ final class PastingTextView: NSTextView {
 
     override func becomeFirstResponder() -> Bool {
         let ok = super.becomeFirstResponder()
-        if ok { ActiveEditorRegistry.shared.textView = self }
+        if ok { AppContainer.shared.activeEditor.textView = self }
         return ok
     }
 

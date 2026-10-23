@@ -123,7 +123,7 @@ struct MarkdownPreviewView {
             if url.scheme == "researchhub", url.host == "note" {
                 if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
                    let rel = comps.queryItems?.first(where: { $0.name == "path" })?.value,
-                   let fileURL = NoteLinkIndex.shared.url(forRelativePath: rel) {
+                   let fileURL = AppContainer.shared.noteLinks.url(forRelativePath: rel) {
                     onOpenNote?(fileURL)
                 }
                 decisionHandler(.cancel)
@@ -190,7 +190,7 @@ struct MarkdownPreviewView {
         private func push(_ text: String) {
             // 先處理 [[筆記]] / \cite / \footnote / \eqref / \label，再把本地圖片轉成 data URI。
             let pre = NotePreprocessor.process(
-                text, zoteroItems: citationItems, noteLinks: NoteLinkIndex.shared.entries())
+                text, zoteroItems: citationItems, noteLinks: AppContainer.shared.noteLinks.entries())
             let resolved = resolveLocalImages(in: pre)
             guard
                 let data = try? JSONEncoder().encode([resolved]),

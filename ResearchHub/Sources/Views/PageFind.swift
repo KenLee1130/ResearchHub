@@ -10,7 +10,6 @@ import PDFKit
 /// 尋找列貼在內容右上角（子視窗，跟著視窗移動）。
 @MainActor
 final class PageFinder {
-    static let shared = PageFinder()
 
     private var panel: FindBarPanel?
 

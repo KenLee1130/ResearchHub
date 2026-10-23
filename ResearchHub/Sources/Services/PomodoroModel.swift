@@ -1,4 +1,5 @@
 import SwiftUI
+import HubStore
 import Observation
 import Combine
 import UserNotifications
@@ -162,7 +163,7 @@ final class PomodoroModel {
         )
         #endif
 
-        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+        UNUserNotificationCenter.current().delegate = AppContainer.shared.notificationDelegate
         Task {
             try? await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound])
@@ -208,7 +209,7 @@ final class PomodoroModel {
             pomoIndex: min(cyclePosition + 1, cycleLength),
             pomoTotal: cycleLength,
             updatedAt: .now)
-        ReadingGateStore.shared.writeFocusState(state)
+        AppContainer.shared.readingGate.writeFocusState(state)
     }
 
     /// 設定裡的「專注模式」手動開關（不靠蕃茄鐘也能啟用手機端關卡）。
@@ -253,9 +254,9 @@ final class PomodoroModel {
         sessionsReady = false
         editedWhileNotReady = false
         loadSessions()
-        ReadingGateStore.shared.configure(rootURL: rootURL)
+        AppContainer.shared.readingGate.configure(rootURL: rootURL)
         // 另一台裝置記了蕃茄鐘（或切回 app）→ 重讀
-        libraryObserver = LibrarySync.shared.changes
+        libraryObserver = AppContainer.shared.librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self, change.affects(self.sessionsFileURL) else { return }
@@ -323,7 +324,7 @@ final class PomodoroModel {
         guard sessionsReady else {
             // 雲端那份還沒下載到：現在寫會蓋掉整份歷史。先記著，檔案到了合併再存。
             editedWhileNotReady = true
-            LibrarySync.shared.syncNow()
+            AppContainer.shared.librarySync.syncNow()
             return
         }
         try? FileManager.default.createDirectory(
@@ -890,7 +891,6 @@ final class PomodoroModel {
 
 /// 讓通知在 app 位於前景時也顯示橫幅（macOS 預設前景時不顯示）。
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
-    static let shared = NotificationDelegate()
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -905,7 +905,6 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 
 @MainActor
 final class PomodoroPanelController {
-    static let shared = PomodoroPanelController()
     private var panel: NSPanel?
 
     func toggle(pomodoro: PomodoroModel) {
@@ -1000,7 +999,7 @@ struct PomodoroPanelView: View {
         .overlay(alignment: .topTrailing) {
             // 滑過面板時顯示關閉鈕
             Button {
-                PomodoroPanelController.shared.close()
+                AppContainer.shared.pomodoroPanel.close()
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 16))
@@ -1108,7 +1107,7 @@ struct PomodoroMiniView: View {
                     Button("整個循環歸零") { pomodoro.resetCycle() }
                 }
                 Button {
-                    PomodoroPanelController.shared.toggle(pomodoro: pomodoro)
+                    AppContainer.shared.pomodoroPanel.toggle(pomodoro: pomodoro)
                 } label: {
                     Image(systemName: "arrow.up.right.square")
                         .padding(5)

@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import AppKit
 import HubCore
 
@@ -420,15 +421,15 @@ struct RootView: View {
         // 先確保 LanguageManager 已套用新語言（不依賴 SettingsView 的觸發順序）。
         .onChange(of: language) {
             LanguageManager.apply(language == AppLanguage.system.rawValue ? nil : language)
-            BlockEditorHost.shared.retry()
+            AppContainer.shared.blockEditor.retry()
         }
         .background(WindowMinSizeSetter(minWidth: 700, minHeight: 560))
         .onAppear {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
-            LibrarySync.shared.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要手機的更新
-            BlockEditorHost.shared.preload() // 預載日記編輯器，切分頁即時顯示
+            AppContainer.shared.librarySync.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要手機的更新
+            AppContainer.shared.blockEditor.preload() // 預載日記編輯器，切分頁即時顯示
             reloadNoteTreeInBackground()
         }
         .onChange(of: hostWindow) { hideSystemNewTabButton() }
@@ -442,15 +443,15 @@ struct RootView: View {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             generalTodos.configure(rootURL: store.rootURL)
-            LibrarySync.shared.configure(rootURL: store.rootURL)
+            AppContainer.shared.librarySync.configure(rootURL: store.rootURL)
             reloadNoteTreeInBackground()
         }
         // 切回 app：手機可能改過東西 → 跟 iCloud 要最新版，各 store 自己重讀
         .onReceive(NotificationCenter.default.publisher(
             for: NSApplication.didBecomeActiveNotification)) { _ in
-            LibrarySync.shared.syncNow()
+            AppContainer.shared.librarySync.syncNow()
         }
-        .onReceive(LibrarySync.shared.changes) { change in
+        .onReceive(AppContainer.shared.librarySync.changes) { change in
             if change.affectsNoteListing(notes: store.notesURL) {
                 reloadNoteTreeInBackground()
             }
@@ -473,7 +474,7 @@ struct RootView: View {
             switch url.host {
             case "note":
                 if let rel = comps?.queryItems?.first(where: { $0.name == "path" })?.value,
-                   let fileURL = NoteLinkIndex.shared.url(forRelativePath: rel) {
+                   let fileURL = AppContainer.shared.noteLinks.url(forRelativePath: rel) {
                     store.openNote(fileURL)
                 }
             case "project":

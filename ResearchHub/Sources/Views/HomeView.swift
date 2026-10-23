@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 import HubCore
 
 /// 首頁 v2：今天的工作台。
@@ -51,7 +52,7 @@ struct HomeView: View {
             PlanningSheet()
         }
         // 另一台裝置的改動同步進來（或切回 app）→ 首頁的待辦、筆記、日記預覽重算
-        .onReceive(LibrarySync.shared.changes) { change in
+        .onReceive(AppContainer.shared.librarySync.changes) { change in
             // refresh() 會重掃所有筆記與日記，很貴：只在跟首頁有關的檔案變動時才做
             // （.md 筆記／日記、.hub 的 JSON）；LaTeX 專案裡的 .tex、.bib、PDF 都無關。
             let urls = change.urls
