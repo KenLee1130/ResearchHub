@@ -195,8 +195,13 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      `NoteLinkResolver`（從 `NoteLinkIndex` 切出，原處保留轉呼叫）。
      `LatexBibliography.cite` 不再自己找 `ZoteroStore.shared`，改收 `exportedBibtex:`，
      由呼叫端先向 ZoteroStore 要——這是本批唯一的簽名變動。
-   - 第三批（待做）：Zotero 與 PaperChat 的 client（純 URLSession 的部分）；要先把
-     UserDefaults（port、模型快取）與 PDFKit 的部分拆出去留在 app。
+   - 第三批（已拆，2026-10-23）：這批是「拆分」不是搬家。`ZoteroClient`（純 URLSession：
+     抓文獻、BibTeX、附件）搬進 HubCore，`ZoteroStore` 留在 app 只管狀態、port 設定與
+     資料夾書籤，請求全部轉呼叫 client。PaperChat 拆成 HubCore 的 `PaperChatModels`
+     （資料模型＋ISO8601 的 JSON coder）、`PaperText`（引文正規化與核對；PDF 抽字的
+     `pages(from:)` 用 PDFKit，以 extension 留在 app）、`PaperChatStream`（小幫手 JSONL 解析）、
+     `PaperPrompt`（system prompt 與每輪提示詞）；`PaperChatSession`／`PaperModelCatalog`
+     （檔案、小幫手、UserDefaults）留在 app。至此第 2 步列的項目都已進 HubCore。
 3. **拆三個巨檔並去重。** 三個編輯器各自的尋找／undo 處理合併；`Mobile/` 與 mac 重複邏輯合併。
    同時落地第 3 節的命令路由，刪除 7 個 `Notification.Name`。
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；

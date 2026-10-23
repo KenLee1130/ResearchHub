@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubCore
 
 /// 論文右側的問答欄（像 alphaXiv）：選取 PDF 文字 →「引用」→ 問 Claude 或 ChatGPT。
 /// 回答裡的引文 [p.3「…」] 會逐字核對論文原文：✓ 找得到、⚠︎ 找不到（可能是幻覺）。

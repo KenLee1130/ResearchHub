@@ -16,13 +16,11 @@ final class ZoteroStore {
     var errorMessage: String?
 
     static let portKey = "settings.zoteroPort"
-    static let defaultPort = 23119
+    static let defaultPort = ZoteroClient.defaultPort
 
-    /// Zotero 7 本地 API 端點；port 可在設定調整（預設 23119）。
-    private var base: URL {
-        let stored = UserDefaults.standard.integer(forKey: Self.portKey)
-        let port = stored > 0 ? stored : Self.defaultPort
-        return URL(string: "http://localhost:\(port)/api/users/0")!
+    /// Zotero 7 本地 API；port 可在設定調整（預設 23119）。請求本體在 HubCore 的 ZoteroClient。
+    private var client: ZoteroClient {
+        ZoteroClient(port: UserDefaults.standard.integer(forKey: Self.portKey))
     }
 
     @ObservationIgnored private var lastRefreshed: Date?
@@ -45,27 +43,8 @@ final class ZoteroStore {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            // 整個文獻庫都抓（分頁）：以前只抓最近改過的 200 筆，舊文獻在 \cite 裡搜不到
-            var decoded: [ZoteroItem] = []
-            let pageSize = 200
-            for page in 0..<25 {
-                var components = URLComponents(
-                    url: base.appendingPathComponent("items/top"),
-                    resolvingAgainstBaseURL: false)!
-                components.queryItems = [
-                    URLQueryItem(name: "format", value: "json"),
-                    URLQueryItem(name: "limit", value: String(pageSize)),
-                    URLQueryItem(name: "start", value: String(page * pageSize)),
-                    URLQueryItem(name: "sort", value: "dateModified")
-                ]
-                let (data, _) = try await URLSession.shared.data(from: components.url!)
-                let batch = try JSONDecoder().decode([ZoteroItem].self, from: data)
-                decoded += batch
-                if batch.count < pageSize { break }
-            }
-            let fresh = decoded.filter {
-                ($0.data.itemType != "attachment" && $0.data.itemType != "note") || $0.isStandalonePDF
-            }
+            let decoded = try await client.fetchTopItems()
+            let fresh = decoded.filter(ZoteroClient.isLibraryEntry)
             if fresh != items { items = fresh }
         } catch {
             errorMessage = "無法連線 Zotero。請確認 Zotero 已開啟，"
@@ -77,42 +56,16 @@ final class ZoteroStore {
 
     /// 這筆文獻的 BibTeX（Zotero 自己的匯出，欄位最完整）。Zotero 沒開就回 nil。
     func bibtex(for item: ZoteroItem) async -> String? {
-        var components = URLComponents(
-            url: base.appendingPathComponent("items/\(item.key)"),
-            resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "format", value: "bibtex")]
-        var request = URLRequest(url: components.url!)
-        request.timeoutInterval = 4
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let text = String(data: data, encoding: .utf8),
-              text.contains("@") else { return nil }
-        return text
+        await client.bibtex(for: item)
     }
 
     // MARK: - PDF 附件
 
-    struct Attachment {
-        let key: String
-        let filename: String?
-    }
+    typealias Attachment = ZoteroClient.Attachment
 
     /// 找出某筆文獻的 PDF 附件
     func pdfAttachment(for item: ZoteroItem) async -> Attachment? {
-        // 獨立的 PDF：PDF 就是它自己，沒有子項目
-        if item.isStandalonePDF { return Attachment(key: item.key, filename: item.data.filename) }
-        let url = base.appendingPathComponent("items/\(item.key)/children")
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let children = try? JSONDecoder().decode([ZoteroItem].self, from: data)
-        else { return nil }
-        let pdf = children.first {
-            $0.data.itemType == "attachment" && (
-                $0.data.contentType == "application/pdf"
-                || ($0.data.filename?.lowercased().hasSuffix(".pdf") ?? false)
-            )
-        }
-        guard let pdf else { return nil }
-        return Attachment(key: pdf.key, filename: pdf.data.filename)
+        await client.pdfAttachment(for: item)
     }
 
     /// 取得 PDF：優先讀本地 Zotero/storage（需一次性授權資料夾），HTTP /file 當備援。
@@ -133,12 +86,7 @@ final class ZoteroStore {
             }
         }
         // HTTP 備援
-        let url = base.appendingPathComponent("items/\(attachment.key)/file")
-        if let (data, response) = try? await URLSession.shared.data(from: url),
-           let http = response as? HTTPURLResponse, http.statusCode == 200,
-           !data.isEmpty {
-            return (data, nil)
-        }
+        if let data = await client.fileData(attachmentKey: attachment.key) { return (data, nil) }
         return nil
     }
 
