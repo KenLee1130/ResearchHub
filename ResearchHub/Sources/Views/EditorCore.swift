@@ -102,7 +102,7 @@ struct EditorCore: View {
     @AppStorage("settings.editorFontSize") private var editorFontSize = 14.0
     /// 預覽版面：flow = 連續、a4 = A4 分頁（註腳在當頁底部）。
     @AppStorage("settings.previewLayout") private var previewLayout = "flow"
-    private var zotero = ZoteroStore.shared
+    private var zotero = AppContainer.shared.zotero
     /// 檔案的讀寫、自動存檔、外部改動重讀（mac 與 iPhone 共用，見 EditorDocument）
     @State private var doc = EditorDocument()
     /// 右欄預覽雙擊段落 → 左欄源碼跳轉（兩欄捲動各自獨立，只有雙擊會觸發跳轉）。
@@ -878,7 +878,7 @@ struct QuickCommandBar: View {
 
 /// Block 編輯器載入狀態覆蓋層：載入中顯示進度、失敗顯示重試。
 struct BlockEditorStatusOverlay: View {
-    @ObservedObject private var host = BlockEditorHost.shared
+    @ObservedObject private var host = AppContainer.shared.blockEditor
 
     var body: some View {
         if let error = host.loadError {

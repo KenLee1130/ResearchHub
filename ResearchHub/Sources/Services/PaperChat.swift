@@ -9,12 +9,11 @@ import PDFKit
 @Observable
 @MainActor
 final class PaperModelCatalog {
-    static let shared = PaperModelCatalog()
     private(set) var chatgpt: [PaperModel]
     @ObservationIgnored private var loaded = false
     private static let cacheKey = "paperChat.codexModels"
 
-    private init() {
+    init() {
         let cached = UserDefaults.standard.string(forKey: Self.cacheKey).map(PaperModel.parseCodex) ?? []
         chatgpt = cached.isEmpty ? PaperModel.chatgptFallback : cached
     }

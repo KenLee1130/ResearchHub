@@ -38,7 +38,7 @@ struct AppCommands: Commands {
         CommandGroup(after: .textEditing) {
             // ⌘F：以頁面為範圍找（頁面決定目標，見 EditorHandle.findTarget）；首頁等沒人接 → ⌘K
             Button("在此頁尋找…") {
-                if let router { router.handle(.find) } else { PageFinder.shared.refocusIfVisible() }
+                if let router { router.handle(.find) } else { AppContainer.shared.pageFinder.refocusIfVisible() }
             }
             .keyboardShortcut("f", modifiers: .command)
             // ⌘K：全 app 搜尋（日記、筆記、LaTeX、論文、待辦），只在 key window 跳出來
@@ -126,7 +126,7 @@ final class EditorHandle {
 
     /// ⌘F 的目標：焦點所在的那塊 > 看得到的（原始碼 > PDF > 預覽 > 區塊編輯器）
     func findTarget() -> NSView? {
-        let blocks: NSView? = usesBlockEditor ? BlockEditorHost.shared.webView : nil
+        let blocks: NSView? = usesBlockEditor ? AppContainer.shared.blockEditor.webView : nil
         let visible = [textView, pdfView, previewWebView, blocks].compactMap { $0 }.filter(Self.isShowing)
         if let focused = visible.first(where: { v in
             (v.window?.firstResponder as? NSView)?.isDescendant(of: v) ?? false

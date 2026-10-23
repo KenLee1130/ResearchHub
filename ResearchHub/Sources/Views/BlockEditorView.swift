@@ -15,7 +15,7 @@ struct BlockEditorView {
 
     /// 共用 webView 永遠掛在「最新的」容器上；舊容器被 SwiftUI 回收時不會帶走它。
     private func attachWebView(to container: WebViewContainer) {
-        let webView = BlockEditorHost.shared.webView
+        let webView = AppContainer.shared.blockEditor.webView
         guard webView.superview !== container else { return }
         #if os(macOS)
         // 搬家會讓 webView 失去鍵盤焦點：網頁裡游標照樣在閃，打字卻沒反應、要再點一次
@@ -32,7 +32,7 @@ struct BlockEditorView {
     }
 
     private func sync() {
-        let host = BlockEditorHost.shared
+        let host = AppContainer.shared.blockEditor
         host.textBinding = $text
         host.baseDir = baseDir
         host.onCommand = onCommand
@@ -92,7 +92,7 @@ final class WebViewContainer: NSView {
     /// 在別的視窗 → 只有那個視窗看不到（背景分頁、關掉了）或這個視窗是目前的主視窗才拿。
     var shouldOwnWebView: Bool {
         guard let mine = window else { return false }
-        let web = BlockEditorHost.shared.webView
+        let web = AppContainer.shared.blockEditor.webView
         if web.superview === self { return true }
         guard let other = web.window, other !== mine else { return true }
         return mine.isKeyWindow || mine.isMainWindow
@@ -114,7 +114,7 @@ final class WebViewContainer: NSView {
     }
 
     @objc private func windowActivated(_ note: Notification) {
-        if BlockEditorHost.shared.webView.superview !== self { onActivate?() }
+        if AppContainer.shared.blockEditor.webView.superview !== self { onActivate?() }
         restoreFocusIfIdle(force: false)
     }
 
@@ -123,7 +123,7 @@ final class WebViewContainer: NSView {
     func restoreFocusIfIdle(force: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self, let win = self.window, win.isKeyWindow else { return }
-            let web = BlockEditorHost.shared.webView
+            let web = AppContainer.shared.blockEditor.webView
             guard web.superview === self else { return }
             if (win.firstResponder as? NSView)?.isDescendant(of: web) == true { return }
             guard force || nothingFocused(in: win) else { return }

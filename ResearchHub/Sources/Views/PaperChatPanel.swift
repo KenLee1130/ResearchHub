@@ -17,7 +17,7 @@ struct PaperChatPanel: View {
     @AppStorage("paperChat.claudeEffort") private var claudeEffort = "high"
     @AppStorage("paperChat.codexModel") private var codexModelID = ""
     @AppStorage("paperChat.codexEffort") private var codexEffort = ""
-    private var catalog = PaperModelCatalog.shared
+    private var catalog = AppContainer.shared.paperModels
     @State private var draft = ""
     @State private var quote: String?
     @State private var quotePage: Int?

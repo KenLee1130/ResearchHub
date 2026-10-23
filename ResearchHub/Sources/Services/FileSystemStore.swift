@@ -36,7 +36,7 @@ final class FileSystemStore {
     init() {
         restoreRoot()
         // 另一台裝置新增／改名／刪除筆記 → 目前資料夾的清單要跟著變
-        libraryObserver = LibrarySync.shared.changes
+        libraryObserver = AppContainer.shared.librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self, change.affectsNoteListing(notes: self.notesURL) else { return }
@@ -109,7 +109,7 @@ final class FileSystemStore {
         rootURL = url
         ensureLayout()
         // 讓 [[...]] 筆記引用知道要從哪裡掃描筆記
-        NoteLinkIndex.shared.notesRoot = notesURL
+        AppContainer.shared.noteLinks.notesRoot = notesURL
         if let notes = notesURL {
             stack = [notes]
         }
@@ -179,7 +179,7 @@ final class FileSystemStore {
 
     func refresh() {
         // 筆記檔可能有增刪改名 → 讓 [[...]] 引用索引下次取用時重掃。
-        NoteLinkIndex.shared.invalidate()
+        AppContainer.shared.noteLinks.invalidate()
         guard let current = currentURL else {
             items = []
             return

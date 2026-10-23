@@ -161,7 +161,7 @@ extension PastingTextView {
     /// [[ 自動補全：列出所有其他筆記（依名稱／路徑過濾）。
     private func noteLinkItems(prefix: String) -> [CompletionItem] {
         let q = prefix.trimmingCharacters(in: .whitespaces).lowercased()
-        let all = NoteLinkIndex.shared.entries()
+        let all = AppContainer.shared.noteLinks.entries()
         // 名稱若不唯一就插入含資料夾的路徑，避免引用對象有歧義。
         var nameCount: [String: Int] = [:]
         for e in all { nameCount[e.name.lowercased(), default: 0] += 1 }
@@ -209,7 +209,7 @@ extension PastingTextView {
     private func citeItems(prefix: String) -> [CompletionItem] {
         let tokens = prefix.lowercased().split(whereSeparator: { $0 == " " || $0 == "\u{3000}" })
         var result: [CompletionItem] = []
-        for item in ZoteroStore.shared.items where !item.isStandalonePDF {
+        for item in AppContainer.shared.zotero.items where !item.isStandalonePDF {
             let hay = "\(item.authors) \(item.title) \(item.year) \(item.data.publicationTitle ?? "") \(item.key)"
                 .lowercased()
             guard tokens.allSatisfy({ hay.contains($0) }) else { continue }
@@ -237,10 +237,10 @@ extension PastingTextView {
         if ctx.kind == .cite {
             // 清單是 Zotero 的快取：背景跟 Zotero 對一下，有新文獻就重列
             Task { @MainActor [weak self] in
-                if await ZoteroStore.shared.refreshIfStale() { self?.updateCompletion() }
+                if await AppContainer.shared.zotero.refreshIfStale() { self?.updateCompletion() }
             }
         }
-        if ctx.kind == .cite, !ZoteroStore.shared.items.isEmpty {
+        if ctx.kind == .cite, !AppContainer.shared.zotero.items.isEmpty {
             // 文獻清單一定帶搜尋說明；搜不到也留著（不然看起來像壞掉）
             hint = items.isEmpty
                 ? L("找不到符合「\(partial)」的文獻——換個關鍵字（作者、標題、年份）")
@@ -305,7 +305,7 @@ extension PastingTextView {
     /// 再把 .bib 裡的 key 填進 \cite{}（Markdown 筆記仍用 Zotero key，預覽靠它查文獻）。
     private func acceptProjectCite(_ item: CompletionItem) {
         guard let root = completionRoot,
-              let zotero = ZoteroStore.shared.items.first(where: { $0.key == item.insert })
+              let zotero = AppContainer.shared.zotero.items.first(where: { $0.key == item.insert })
         else {
             insertText(item.insert, replacementRange: completionRange)
             return
@@ -313,7 +313,7 @@ extension PastingTextView {
         let range = completionRange
         let typed = (string as NSString).substring(with: range)
         Task { @MainActor [weak self] in
-            let exported = await ZoteroStore.shared.bibtex(for: zotero)
+            let exported = await AppContainer.shared.zotero.bibtex(for: zotero)
             let key = LatexBibliography.cite(zotero, in: root, exportedBibtex: exported)
             guard let self else { return }
             // 等 Zotero 回應的這一瞬間使用者又打字了 → 不要硬塞到錯的位置

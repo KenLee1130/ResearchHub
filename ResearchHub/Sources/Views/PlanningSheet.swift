@@ -94,7 +94,7 @@ struct PlanningSheet: View {
                 .id(url)
                 .pageCommands(commands) { cmd in
                     guard cmd == .find, let target = editor.findTarget() else { return false }
-                    PageFinder.shared.show(in: target)
+                    AppContainer.shared.pageFinder.show(in: target)
                     return true
                 }
         } else {

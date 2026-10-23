@@ -9,7 +9,6 @@ import HubCore
 /// MarkdownPreviewView 攔截處理）。
 @MainActor
 final class NoteLinkIndex {
-    static let shared = NoteLinkIndex()
 
     /// Notes/ 根目錄；由 FileSystemStore 設定。
     var notesRoot: URL? {

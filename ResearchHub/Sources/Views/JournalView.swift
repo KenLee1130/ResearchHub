@@ -93,7 +93,7 @@ struct JournalView: View {
         .onChange(of: selectedDay) { refreshMonthData() }
         .onChange(of: eventStore.events) { refreshMonthData() }
         // 手機寫的日記同步進來 → 月曆上的「有日記」標記跟著更新
-        .onReceive(LibrarySync.shared.changes) { change in
+        .onReceive(AppContainer.shared.librarySync.changes) { change in
             if change.affects(store.journalURL) || change.affects(store.notesURL) {
                 refreshMonthData()
             }
@@ -103,7 +103,7 @@ struct JournalView: View {
         }
         .pageCommands(commands) { cmd in
             guard cmd == .find, let target = editor.findTarget() else { return false }
-            PageFinder.shared.show(in: target)
+            AppContainer.shared.pageFinder.show(in: target)
             return true
         }
         .sheet(isPresented: $showTaskManager, onDismiss: refreshMonthData) {

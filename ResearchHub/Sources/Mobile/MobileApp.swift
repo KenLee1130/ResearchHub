@@ -37,7 +37,7 @@ struct MobileRootView: View {
     @Environment(GeneralTodoStore.self) private var generalTodos
     @Environment(PomodoroModel.self) private var pomodoro
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
-    private var gate = ReadingGateStore.shared
+    private var gate = AppContainer.shared.readingGate
     @State private var gateRequest: GateRequest?
     @Environment(\.scenePhase) private var scenePhase
 
@@ -91,16 +91,16 @@ struct MobileRootView: View {
             generalTodos.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             gate.configure(rootURL: store.rootURL)
-            LibrarySync.shared.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要 Mac 的更新
+            AppContainer.shared.librarySync.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要 Mac 的更新
         }
         // 回到前景：Mac 可能改過東西 → 跟 iCloud 要最新版；進背景就停止監看
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
-                LibrarySync.shared.resume()
-                LibrarySync.shared.syncNow()
+                AppContainer.shared.librarySync.resume()
+                AppContainer.shared.librarySync.syncNow()
             case .background:
-                LibrarySync.shared.suspend()
+                AppContainer.shared.librarySync.suspend()
             default:
                 break
             }
@@ -115,7 +115,7 @@ struct MobileRootView: View {
             generalTodos.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
             gate.configure(rootURL: store.rootURL)
-            LibrarySync.shared.configure(rootURL: store.rootURL)
+            AppContainer.shared.librarySync.configure(rootURL: store.rootURL)
         }
     }
 }
@@ -155,7 +155,7 @@ struct MobileTodayView: View {
     @Environment(FileSystemStore.self) private var store
     @Environment(EventStore.self) private var eventStore
     @Environment(GeneralTodoStore.self) private var generalTodos
-    @ObservedObject private var editorHost = BlockEditorHost.shared
+    @ObservedObject private var editorHost = AppContainer.shared.blockEditor
 
     /// 當天日記的讀寫（與 Mac 版 EditorCore 共用 EditorDocument）
     @State private var doc = EditorDocument()
@@ -314,7 +314,7 @@ struct MobileTodayView: View {
                 }
             }
             .refreshable {
-                LibrarySync.shared.syncNow()
+                AppContainer.shared.librarySync.syncNow()
                 generalTodos.reload()
                 load()
             }
@@ -417,7 +417,7 @@ struct MobileInboxView: View {
             }
             .navigationTitle("一般待辦")
             .refreshable {
-                LibrarySync.shared.syncNow()
+                AppContainer.shared.librarySync.syncNow()
                 generalTodos.reload()
             }
         }

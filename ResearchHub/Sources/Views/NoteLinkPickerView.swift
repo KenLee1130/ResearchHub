@@ -57,7 +57,7 @@ struct NoteLinkPickerView: View {
             }
         }
         .frame(width: 470, height: 470)
-        .onAppear { links = NoteLinkIndex.shared.entries() }
+        .onAppear { links = AppContainer.shared.noteLinks.entries() }
     }
 
     private func row(_ link: NoteLink) -> some View {
@@ -80,7 +80,7 @@ struct NoteLinkPickerView: View {
 
     private func insert(_ link: NoteLink) {
         let target = (nameCount[link.name.lowercased()] ?? 0) > 1 ? link.displayPath : link.name
-        ActiveEditorRegistry.shared.insert("[[\(target)]]")
+        AppContainer.shared.activeEditor.insert("[[\(target)]]")
         dismiss()
     }
 }
