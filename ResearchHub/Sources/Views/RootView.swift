@@ -207,18 +207,27 @@ struct RootView: View {
     /// 找不到（系統改了）就什麼都不做，最差是兩顆都在。
     /// 分頁增減時整組視窗會改高度（分頁列出現／消失），所以在 resize 與成為主視窗時再藏一次。
     private func hideSystemNewTabButton() {
-        func pass() {
-            guard let frame = hostWindow?.contentView?.superview else { return }
+        /// 回傳有沒有找到按鈕。只走訪標題列那棵子樹（分頁列掛在那裡）：
+        /// 以前從 theme frame 掃整個視窗，連 WKWebView／PDFView 的內部 view 都走，
+        /// 每次視窗變 main 都來一輪（取樣約 5 ms）。
+        @discardableResult
+        func pass() -> Bool {
+            guard let frame = hostWindow?.contentView?.superview else { return false }
+            var found = false
             func walk(_ v: NSView) {
+                if found { return }
                 if String(describing: type(of: v)) == "NSTabBarNewTabButton" {
                     if !v.isHidden { v.isHidden = true }
+                    found = true
                     return
                 }
                 v.subviews.forEach(walk)
             }
-            walk(frame)
+            let titlebars = frame.subviews.filter { String(describing: type(of: $0)).contains("Titlebar") }
+            if titlebars.isEmpty { walk(frame) } else { titlebars.forEach(walk) }
+            return found
         }
-        pass()
+        if pass() { return }
         // 分頁列出現有動畫，按鈕可能晚一點才建好
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { pass() }
     }
