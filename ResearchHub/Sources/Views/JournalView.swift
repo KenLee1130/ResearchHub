@@ -13,6 +13,9 @@ struct JournalView: View {
     @Environment(EventStore.self) private var eventStore
     @Environment(GeneralTodoStore.self) private var generalStore
     @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(\.locale) private var locale
+    /// 左邊的月曆欄可以收起（拖分隔線到底、或按標題列的側欄按鈕）
+    @AppStorage("journal.showCalendar") private var showCalendar = true
 
     @State private var displayedMonth: Date = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: .now)
@@ -76,12 +79,14 @@ struct JournalView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                HStack(spacing: 0) {
-                    calendarPane
-                        .frame(width: 280)
-                    Divider()
-                    journalPane
-                }
+                // 分隔線跟筆記／論文一樣用 PersistentSplitView：記得位置、好抓；月曆欄拖到底可收起
+                PersistentSplitView(autosaveName: "JournalPanes", panes: [
+                    .init(id: "calendar", minWidth: 240, initialWidth: 280,
+                          holdingPriority: .init(260), isVisible: showCalendar,
+                          content: hosted(calendarPane),
+                          onVisibilityChange: { showCalendar = $0 }),
+                    .init(id: "journal", minWidth: 320, content: hosted(journalPane)),
+                ])
             }
         }
         .navigationTitle("日記")
@@ -110,6 +115,27 @@ struct JournalView: View {
         .sheet(isPresented: $showTaskManager, onDismiss: refreshMonthData) {
             TaskManagerSheet()
         }
+    }
+
+    /// 分隔視圖的子畫面是各自的 NSHostingView，環境要自己再注入一次
+    private func hosted<V: View>(_ view: V) -> AnyView {
+        AnyView(view
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(store)
+            .environment(eventStore)
+            .environment(generalStore)
+            .environment(pomodoro)
+            .environment(\.locale, locale))
+    }
+
+    private var calendarToggle: some View {
+        Button { showCalendar.toggle() } label: {
+            Image(systemName: "sidebar.leading")
+                .padding(6)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(showCalendar ? "收起月曆" : "展開月曆")
     }
 
     // MARK: - Calendar pane
@@ -340,6 +366,7 @@ struct JournalView: View {
     /// 標題列左半：日期切換鍵＋標題（一列/兩列佈局共用）
     private var journalHeaderLeading: some View {
         HStack(spacing: 12) {
+            calendarToggle
             // 左右鍵：不用回月曆就能逐日切換
             HStack(spacing: 0) {
                 Button {
