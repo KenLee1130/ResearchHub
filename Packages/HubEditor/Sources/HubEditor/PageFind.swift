@@ -30,18 +30,28 @@ public final class PageFinder {
         return true
     }
 
+    /// 用頁面自己的引擎（例如日記的時間軸：跨所有日記找，上下鍵在天與天之間跳），
+    /// 尋找列貼在 target 的右上角。
+    public func show(in target: NSView, engine: FindEngine) {
+        if refocusIfVisible() { return }
+        present(for: target, engine: engine)
+    }
+
+    /// 這個 view 適合的找法：原始碼 NSTextView、網頁、PDF；其他回 nil
+    public static func engine(for view: NSView) -> FindEngine? {
+        if let tv = view as? NSTextView { return TextFindEngine(textView: tv) }
+        if let web = view as? WKWebView { return WebFindEngine(webView: web) }
+        if let pdf = view as? PDFView { return PDFFindEngine(pdfView: pdf) }
+        return nil
+    }
+
     private func present(for target: NSView) {
+        guard let engine = Self.engine(for: target) else { return }
+        present(for: target, engine: engine)
+    }
+
+    private func present(for target: NSView, engine: FindEngine) {
         panel?.close()
-        let engine: FindEngine
-        if let tv = target as? NSTextView {
-            engine = TextFindEngine(textView: tv)
-        } else if let web = target as? WKWebView {
-            engine = WebFindEngine(webView: web)
-        } else if let pdf = target as? PDFView {
-            engine = PDFFindEngine(pdfView: pdf)
-        } else {
-            return
-        }
         let panel = FindBarPanel(target: target, engine: engine) { [weak self] in self?.panel = nil }
         self.panel = panel
         panel.show()

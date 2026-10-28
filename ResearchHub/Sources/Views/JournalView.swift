@@ -22,6 +22,8 @@ struct JournalView: View {
     @State private var mode: EditorMode = .blocks
     @State private var editor = EditorHandle()
     @State private var commands = ClosureCommandHandler()
+    /// 日記欄的 NSView：尋找列貼在它右上角（換天時編輯器會重建，不能拿編輯器當錨點）
+    @State private var journalPaneView: NSView?
     /// 本月有日記的日（day number）
     @State private var journalDays: Set<Int> = []
     /// 本月有筆記更新的日 → 筆記名稱列表
@@ -85,7 +87,8 @@ struct JournalView: View {
                           holdingPriority: .init(260), isVisible: showCalendar,
                           content: hosted(calendarPane),
                           onVisibilityChange: { showCalendar = $0 }),
-                    .init(id: "journal", minWidth: 320, content: hosted(journalPane)),
+                    .init(id: "journal", minWidth: 320,
+                          content: hosted(journalPane.background(ViewProbe { journalPaneView = $0 }))),
                 ])
             }
         }
@@ -108,8 +111,16 @@ struct JournalView: View {
             EventEditorSheet(draft: config.draft, isNew: config.isNew)
         }
         .pageCommands(commands) { cmd in
-            guard cmd == .find, let target = editor.findTarget() else { return false }
-            AppContainer.shared.pageFinder.show(in: target)
+            // ⌘F：時間軸模式——跨所有日記找，上下鍵在天與天之間跳（第 4 節）
+            guard cmd == .find, let anchor = journalPaneView ?? editor.findTarget() else { return false }
+            let engine = JournalTimelineFindEngine(
+                root: store.rootURL,
+                jump: { day in
+                    selectedDay = calendar.startOfDay(for: day)
+                    displayedMonth = calendar.startOfMonth(for: day)
+                },
+                innerTarget: { editor.findTarget() })
+            AppContainer.shared.pageFinder.show(in: anchor, engine: engine)
             return true
         }
         .sheet(isPresented: $showTaskManager, onDismiss: refreshMonthData) {
