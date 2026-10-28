@@ -52,7 +52,14 @@ struct LatexProjectView: View {
         _compiler = StateObject(wrappedValue: LatexCompiler(projectURL: projectURL))
     }
 
-    private var mainURL: URL? { LatexProject.mainFile(in: projectURL) }
+    /// 主檔路徑的快取。以前是每次讀：檔案樹每一列都要比「是不是主檔」，每列各列一次目錄、
+    /// 讀一次 .tex 開頭，視窗一變 key 整欄重畫就跑一輪（iCloud 上的檔案還會等磁碟）。
+    /// 現在只在樹重掃、主檔改設時更新。
+    @State private var mainURL: URL?
+
+    private func refreshMainURL() {
+        mainURL = LatexProject.mainFile(in: projectURL)
+    }
     private var pdfURL: URL { LatexProject.outputPDF(of: projectURL) }
 
     var body: some View {
@@ -365,6 +372,7 @@ struct LatexProjectView: View {
                     var s = LatexProject.settings(of: projectURL)
                     s.main = relativePath(node.url)
                     LatexProject.save(s, to: projectURL)
+                    refreshMainURL()
                     compiler.compileNow()
                 }
             }
@@ -587,6 +595,7 @@ struct LatexProjectView: View {
 
     private func refreshTree() {
         tree = LatexProject.tree(of: projectURL)
+        refreshMainURL()
     }
 
     /// 檔案被外部改動（存檔、iCloud 同步）時走這條：背景重列，有變才換上。
@@ -594,10 +603,11 @@ struct LatexProjectView: View {
     private func refreshTreeInBackground() {
         let project = projectURL
         Task {
-            let fresh = await Task.detached(priority: .utility) {
-                LatexProject.tree(of: project)
+            let (fresh, main) = await Task.detached(priority: .utility) {
+                (LatexProject.tree(of: project), LatexProject.mainFile(in: project))
             }.value
             if fresh != tree { tree = fresh }
+            if main?.path != mainURL?.path { mainURL = main }
         }
     }
 
@@ -730,6 +740,7 @@ struct LatexProjectView: View {
                 if settings.main == relativePath(src) {
                     settings.main = relativePath(target)
                     LatexProject.save(settings, to: projectURL)
+                    refreshMainURL()
                 }
             } else {
                 try? fm.copyItem(at: src, to: target)
