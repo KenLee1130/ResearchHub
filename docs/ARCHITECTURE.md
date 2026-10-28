@@ -166,8 +166,11 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   同篇兩者都中合併成一筆；`.all` 保留 ⌘K 舊行為（每類 30 筆）。
 - 日記時間軸：`JournalTimelineFindEngine`（app）實作既有的 `FindEngine`，所以用現成的尋找列呈現
   「第 n 個／共 N 個」；上下鍵跳天，跳到的那天由 JournalView 切換，再用那天編輯器自己的找字
-  （原始碼 NSTextView／區塊 WKWebView）反白。方向切換（最舊在上）還沒做。
-- 論文兩段式列表、筆記合併列表：待做（引擎已回傳需要的資料）。
+  （原始碼 NSTextView／區塊 WKWebView）反白。尋找列「…」選單可切「最舊在上」（`FindOption`，記在偏好）。
+- 筆記合併列表：筆記頁沒開著筆記時 ⌘F → `SearchPaletteView(scope: .notes)`，每筆標「檔名」／「內文」
+  （兩者都中就兩個）。開著筆記或專案時 ⌘F 仍是在檔案裡找。
+- 論文兩段式列表：論文頁清單的搜尋框有字時，清單變「論文（n）」「筆記（n）」兩段，各自可收合
+  （收合狀態記在偏好）；筆記那段點了切到筆記分頁打開。論文全文搜尋（讀 `Papers/<key>/` 抽出的文字）未做。
 
 ## 5. 擴充功能模板
 

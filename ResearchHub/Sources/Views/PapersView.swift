@@ -14,6 +14,11 @@ struct PapersView: View {
     private var zotero = AppContainer.shared.zotero
 
     @State private var search = ""
+    /// 搜尋框有字時，清單變兩段：先論文、再筆記（第 4 節），各自可收合
+    @State private var noteHits: [SearchEngine.Hit] = []
+    @State private var noteSearchTask: Task<Void, Never>?
+    @AppStorage("papers.search.showPapers") private var showPaperSection = true
+    @AppStorage("papers.search.showNotes") private var showNoteSection = true
     @State private var selected: ZoteroItem?
     @State private var attachment: ZoteroStore.Attachment?
     @State private var pdfData: Data?
@@ -162,13 +167,91 @@ struct PapersView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 3) {
-                        ForEach(filtered) { item in
-                            paperRow(item)
+                        if search.trimmingCharacters(in: .whitespaces).isEmpty {
+                            ForEach(filtered) { item in
+                                paperRow(item)
+                            }
+                        } else {
+                            // 兩段式：先論文、再筆記，各自可收合
+                            sectionHeader("論文", count: filtered.count, expanded: $showPaperSection)
+                            if showPaperSection {
+                                ForEach(filtered) { item in
+                                    paperRow(item)
+                                }
+                            }
+                            sectionHeader("筆記", count: noteHits.count, expanded: $showNoteSection)
+                            if showNoteSection {
+                                ForEach(noteHits) { hit in
+                                    noteHitRow(hit)
+                                }
+                            }
                         }
                     }
                     .padding(8)
                 }
             }
+        }
+        .onChange(of: search) { scheduleNoteSearch() }
+        .onDisappear { noteSearchTask?.cancel() }
+    }
+
+    private func sectionHeader(_ title: String, count: Int, expanded: Binding<Bool>) -> some View {
+        Button { expanded.wrappedValue.toggle() } label: {
+            HStack(spacing: 4) {
+                Image(systemName: expanded.wrappedValue ? "chevron.down" : "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                Text("\(title)（\(count)）")
+                    .font(.caption.weight(.semibold))
+                Spacer()
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 筆記命中：點了切到筆記分頁打開
+    private func noteHitRow(_ hit: SearchEngine.Hit) -> some View {
+        Button {
+            if case .note(let url) = hit.target { store.openNote(url) }
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(hit.title)
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+                if let snippet = hit.snippet, !snippet.isEmpty {
+                    Text(snippet)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+            .background(RoundedRectangle(cornerRadius: 7).fill(Color.primary.opacity(0.04)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 筆記那一段：背景搜（打字停 0.2 秒才搜，新的一輪取消舊的）
+    private func scheduleNoteSearch() {
+        noteSearchTask?.cancel()
+        let q = search.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { noteHits = []; return }
+        let root = store.rootURL
+        noteSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+            let hits = await Task.detached(priority: .userInitiated) {
+                SearchEngine.search(q, scope: .notes, root: root)
+            }.value
+            guard !Task.isCancelled else { return }
+            noteHits = hits
         }
     }
 

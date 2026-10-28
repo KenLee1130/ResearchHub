@@ -60,11 +60,25 @@ public final class PageFinder {
 
 // MARK: - 找的方式
 
+/// 尋找列右側「…」選單裡的一個開關（例如日記時間軸的「最舊在上」）
+public struct FindOption: Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let isOn: Bool
+    public let toggle: @MainActor @Sendable () -> Void
+
+    public init(id: String, title: String, isOn: Bool, toggle: @escaping @MainActor @Sendable () -> Void) {
+        self.id = id; self.title = title; self.isOn = isOn; self.toggle = toggle
+    }
+}
+
 @MainActor
 public protocol FindEngine: AnyObject {
     /// 找 query；forward=false 往前找。回傳（第幾個, 共幾個），找不到回 (0, 0)
     func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int)
     func clear()
+    /// 引擎自己的開關（切了會從頭重找）；預設沒有
+    var options: [FindOption] { get }
     /// 能不能取代（只有原始碼編輯器可以；日記網頁、PDF 不行）
     var supportsReplace: Bool { get }
     /// 目前選到的那個符合處換成 replacement；回傳有沒有換
@@ -74,6 +88,7 @@ public protocol FindEngine: AnyObject {
 }
 
 extension FindEngine {
+    public var options: [FindOption] { [] }
     public var supportsReplace: Bool { false }
     public func replaceCurrent(_ query: String, with replacement: String) -> Bool { false }
     public func replaceAll(_ query: String, with replacement: String) -> Int { 0 }
@@ -358,7 +373,14 @@ public final class FindBarModel {
     /// 取代列展開／收起時讓面板跟著長高變矮
     public var onResize: (() -> Void)?
     public var supportsReplace: Bool { engine.supportsReplace }
+    public var options: [FindOption] { engine.options }
     private let engine: FindEngine
+
+    /// 切引擎的開關，然後從頭重找
+    public func toggle(_ option: FindOption) {
+        option.toggle()
+        run(forward: true, restart: true)
+    }
     private var task: Task<Void, Never>?
 
     public init(engine: FindEngine) { self.engine = engine }
@@ -467,6 +489,23 @@ public struct FindBarView: View {
                 Image(systemName: "chevron.down")
             }
             .help("下一個（Return）")
+            if !model.options.isEmpty {
+                Menu {
+                    ForEach(model.options) { option in
+                        Button {
+                            model.toggle(option)
+                        } label: {
+                            if option.isOn { Label(option.title, systemImage: "checkmark") } else { Text(option.title) }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("選項")
+            }
             Button { model.onClose?() } label: {
                 Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
             }

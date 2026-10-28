@@ -6,6 +6,9 @@ import HubCore
 /// 全 app 搜尋面板（⌘F／⌘K）：日記、筆記、LaTeX 專案、論文、一般待辦一起搜，點結果跳過去。
 /// 搜尋在背景跑（SearchEngine），打字停 0.15 秒才搜、新的一輪會取消舊的。
 struct SearchPaletteView: View {
+    /// 範圍（第 4 節）：⌘K 是 .all；筆記頁的 ⌘F 是 .notes（合併列表：檔名命中排前、內文排後，同篇兩個標籤）
+    var scope: SearchScope = .all
+
     @Environment(FileSystemStore.self) private var store
     @Environment(GeneralTodoStore.self) private var generalTodos
     @Environment(\.dismiss) private var dismiss
@@ -22,7 +25,7 @@ struct SearchPaletteView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("搜尋日記、筆記、LaTeX、論文、待辦…", text: $query)
+                TextField(scope == .notes ? "搜尋所有筆記（檔名與內文）…" : "搜尋日記、筆記、LaTeX、論文、待辦…", text: $query)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .focused($fieldFocused)
@@ -110,9 +113,21 @@ struct SearchPaletteView: View {
 
     private func row(_ hit: SearchEngine.Hit, selected: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(hit.title)
-                .font(.callout.weight(.medium))
-                .lineLimit(1)
+            HStack(spacing: 6) {
+                Text(hit.title)
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+                // 筆記範圍：標出命中的是檔名還是內文（兩者都中就兩個標籤）
+                if scope == .notes {
+                    ForEach(hit.fields.sorted { $0 == .fileName && $1 != .fileName }, id: \.self) { field in
+                        Text(field == .fileName ? "檔名" : "內文")
+                            .font(.caption2)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                    }
+                }
+            }
             if let snippet = hit.snippet, !snippet.isEmpty {
                 Text(snippet)
                     .font(.caption)
@@ -154,7 +169,7 @@ struct SearchPaletteView: View {
             try? await Task.sleep(nanoseconds: 150_000_000)   // 打字停一下才搜
             guard !Task.isCancelled else { return }
             let hits = await Task.detached(priority: .userInitiated) {
-                SearchEngine.search(q, scope: .all, root: root, papers: papers, todos: todos)
+                SearchEngine.search(q, scope: scope, root: root, papers: papers, todos: todos)
             }.value
             guard !Task.isCancelled else { return }
             // 跟畫面上的分組順序一致，上下鍵才不會亂跳
