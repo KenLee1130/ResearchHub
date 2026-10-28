@@ -4,14 +4,14 @@ import HubStore
 import HubCore
 
 /// 全 app 搜尋面板（⌘F／⌘K）：日記、筆記、LaTeX 專案、論文、一般待辦一起搜，點結果跳過去。
-/// 搜尋在背景跑（GlobalSearch），打字停 0.15 秒才搜、新的一輪會取消舊的。
+/// 搜尋在背景跑（SearchEngine），打字停 0.15 秒才搜、新的一輪會取消舊的。
 struct SearchPaletteView: View {
     @Environment(FileSystemStore.self) private var store
     @Environment(GeneralTodoStore.self) private var generalTodos
     @Environment(\.dismiss) private var dismiss
 
     @State private var query = ""
-    @State private var results: [GlobalSearch.Hit] = []
+    @State private var results: [SearchEngine.Hit] = []
     @State private var searching = false
     @State private var selection = 0
     @State private var searchTask: Task<Void, Never>?
@@ -83,7 +83,7 @@ struct SearchPaletteView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(GlobalSearch.Kind.allCases, id: \.self) { kind in
+                    ForEach(SearchEngine.Kind.allCases, id: \.self) { kind in
                         let group = results.enumerated().filter { $0.element.kind == kind }
                         if !group.isEmpty {
                             Label("\(kind.title)（\(group.count)）", systemImage: kind.icon)
@@ -108,7 +108,7 @@ struct SearchPaletteView: View {
         }
     }
 
-    private func row(_ hit: GlobalSearch.Hit, selected: Bool) -> some View {
+    private func row(_ hit: SearchEngine.Hit, selected: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(hit.title)
                 .font(.callout.weight(.medium))
@@ -142,7 +142,7 @@ struct SearchPaletteView: View {
         }
         // 論文、待辦在主執行緒先抽成純資料，再丟到背景
         let papers = AppContainer.shared.zotero.items.map {
-            GlobalSearch.PaperEntry(
+            SearchEngine.PaperEntry(
                 key: $0.key, title: $0.data.title ?? "", authors: $0.authors, year: $0.year,
                 venue: $0.data.publicationTitle ?? "", abstract: $0.data.abstractNote ?? "",
                 tags: ($0.data.tags ?? []).map(\.tag))
@@ -154,7 +154,7 @@ struct SearchPaletteView: View {
             try? await Task.sleep(nanoseconds: 150_000_000)   // 打字停一下才搜
             guard !Task.isCancelled else { return }
             let hits = await Task.detached(priority: .userInitiated) {
-                GlobalSearch.search(q, root: root, papers: papers, todos: todos)
+                SearchEngine.search(q, scope: .all, root: root, papers: papers, todos: todos)
             }.value
             guard !Task.isCancelled else { return }
             // 跟畫面上的分組順序一致，上下鍵才不會亂跳
@@ -174,7 +174,7 @@ struct SearchPaletteView: View {
         open(results[selection])
     }
 
-    private func open(_ hit: GlobalSearch.Hit) {
+    private func open(_ hit: SearchEngine.Hit) {
         dismiss()
         switch hit.target {
         case .journal(let date):

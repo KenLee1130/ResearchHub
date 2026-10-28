@@ -160,6 +160,15 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
 | 筆記 | `.notes` | **合併列表**：檔名命中排前、內文命中排後，每筆標「檔名」或「內文」；同篇兩者都中合併成一筆、兩個標籤。 |
 | 首頁／⌘K | `.all` | 現有的 palette。 |
 
+落地（2026-10-28）：
+- 引擎：`SearchEngine`（HubCore，取代 `GlobalSearch`）；`Hit` 多 `field`／`fields`／`line`／`range`／`date`，
+  `bodyMatch` 回報第一個關鍵字的行號與行內 UTF-16 範圍。`.journal` 不設上限、新到舊；`.notes` 檔名命中排前、
+  同篇兩者都中合併成一筆；`.all` 保留 ⌘K 舊行為（每類 30 筆）。
+- 日記時間軸：`JournalTimelineFindEngine`（app）實作既有的 `FindEngine`，所以用現成的尋找列呈現
+  「第 n 個／共 N 個」；上下鍵跳天，跳到的那天由 JournalView 切換，再用那天編輯器自己的找字
+  （原始碼 NSTextView／區塊 WKWebView）反白。方向切換（最舊在上）還沒做。
+- 論文兩段式列表、筆記合併列表：待做（引擎已回傳需要的資料）。
+
 ## 5. 擴充功能模板
 
 每個新功能填四格；前三格必填，第四格可選。
