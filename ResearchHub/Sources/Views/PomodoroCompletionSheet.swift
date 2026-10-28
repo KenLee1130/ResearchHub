@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import HubStore
 
 /// 工作 / 休息結束時跳出的小視窗。
 /// 工作結束:先記「這顆做了什麼」,再選 繼續工作(分鐘+下一顆計畫) / 開始休息 / 稍後再說。

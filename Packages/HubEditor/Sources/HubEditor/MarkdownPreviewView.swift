@@ -1,5 +1,4 @@
 import SwiftUI
-import HubEditor
 import HubStore
 import HubCore
 import WebKit

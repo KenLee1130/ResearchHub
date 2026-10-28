@@ -12,9 +12,11 @@ import UniformTypeIdentifiers
 struct ResearchHubMobileApp: App {
     @State private var store = FileSystemStore(noteLinks: AppContainer.shared.noteLinks,
                                                librarySync: AppContainer.shared.librarySync)
-    @State private var eventStore = EventStore()
-    @State private var generalTodos = GeneralTodoStore()
-    @State private var pomodoro = PomodoroModel()
+    @State private var eventStore = EventStore(librarySync: AppContainer.shared.librarySync)
+    @State private var generalTodos = GeneralTodoStore(librarySync: AppContainer.shared.librarySync)
+    @State private var pomodoro = PomodoroModel(librarySync: AppContainer.shared.librarySync,
+                                                readingGate: AppContainer.shared.readingGate,
+                                                system: AppPomodoroSystem())
 
     init() {
         LanguageManager.activate()

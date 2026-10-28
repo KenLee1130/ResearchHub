@@ -1,32 +1,35 @@
-import SwiftUI
-import HubStore
+import Foundation
+import HubCore
 import Observation
 import Combine
-#if canImport(AppKit)
-import AppKit
-#else
-import UIKit
-#endif
 
 // MARK: - Models
 
-struct EventTag: Codable, Identifiable, Hashable {
-    var id = UUID()
-    var name: String
-    var colorHex: String
+public struct EventTag: Codable, Identifiable, Hashable {
+    public var id = UUID()
+    public var name: String
+    public var colorHex: String
 
-    var color: Color { Color(hex: colorHex) }
+    public init(id: UUID = UUID(), name: String, colorHex: String) {
+        self.id = id; self.name = name; self.colorHex = colorHex
+    }
 }
 
-struct CalendarEvent: Codable, Identifiable, Hashable {
-    var id = UUID()
-    var title: String
+public struct CalendarEvent: Codable, Identifiable, Hashable {
+    public var id = UUID()
+    public var title: String
     /// 詳細內容：這件事具體要做什麼。
-    var notes: String = ""
-    var isAllDay: Bool
-    var start: Date
-    var end: Date
-    var tagID: UUID?
+    public var notes: String = ""
+    public var isAllDay: Bool
+    public var start: Date
+    public var end: Date
+    public var tagID: UUID?
+
+    public init(id: UUID = UUID(), title: String, notes: String = "", isAllDay: Bool,
+                start: Date, end: Date, tagID: UUID? = nil) {
+        self.id = id; self.title = title; self.notes = notes; self.isAllDay = isAllDay
+        self.start = start; self.end = end; self.tagID = tagID
+    }
 }
 
 extension CalendarEvent {
@@ -35,7 +38,7 @@ extension CalendarEvent {
     }
 
     /// 舊版 events.json 沒有 notes 欄位 → 解碼時補空字串。
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         title = try c.decode(String.self, forKey: .title)
@@ -52,10 +55,14 @@ extension CalendarEvent {
 /// 事件與標籤的儲存，落地於根資料夾的 .hub/events.json。
 @MainActor
 @Observable
-final class EventStore {
+public final class EventStore {
+    private let librarySync: LibrarySync
 
-    private(set) var events: [CalendarEvent] = []
-    var tags: [EventTag] = [] {
+    public init(librarySync: LibrarySync) { self.librarySync = librarySync }
+
+
+    public private(set) var events: [CalendarEvent] = []
+    public var tags: [EventTag] = [] {
         didSet { save() }
     }
 
@@ -72,7 +79,7 @@ final class EventStore {
         var events: [CalendarEvent]
     }
 
-    static let defaultTags: [EventTag] = [
+    public static let defaultTags: [EventTag] = [
         EventTag(name: "研究", colorHex: "#378ADD"),
         EventTag(name: "會議", colorHex: "#EF9F27"),
         EventTag(name: "截止日", colorHex: "#E24B4A"),
@@ -82,7 +89,7 @@ final class EventStore {
 
     // MARK: - Setup
 
-    func configure(rootURL: URL?) {
+    public func configure(rootURL: URL?) {
         guard let rootURL else {
             fileURL = nil
             events = []
@@ -99,7 +106,7 @@ final class EventStore {
         editedWhileNotReady = false
         load()
         // 另一台裝置改了 events.json（或切回 app）→ 重讀
-        libraryObserver = AppContainer.shared.librarySync.changes
+        libraryObserver = librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self, change.affects(self.fileURL) else { return }
@@ -151,7 +158,7 @@ final class EventStore {
         guard ready else {
             // 雲端那份還沒下載到：現在寫會蓋掉它。先記著，檔案到了合併再存。
             editedWhileNotReady = true
-            AppContainer.shared.librarySync.syncNow()
+            librarySync.syncNow()
             return
         }
         let encoder = JSONEncoder()
@@ -164,13 +171,13 @@ final class EventStore {
 
     // MARK: - Events
 
-    func add(_ event: CalendarEvent) {
+    public func add(_ event: CalendarEvent) {
         load()
         events.append(event)
         save()
     }
 
-    func update(_ event: CalendarEvent) {
+    public func update(_ event: CalendarEvent) {
         load()
         if let i = events.firstIndex(where: { $0.id == event.id }) {
             events[i] = event
@@ -178,14 +185,14 @@ final class EventStore {
         }
     }
 
-    func delete(_ event: CalendarEvent) {
+    public func delete(_ event: CalendarEvent) {
         load()
         events.removeAll { $0.id == event.id }
         save()
     }
 
     /// 某天涵蓋的事件（含跨日），全天優先、再按開始時間排序。
-    func events(on day: Date, calendar: Calendar = .current) -> [CalendarEvent] {
+    public func events(on day: Date, calendar: Calendar = .current) -> [CalendarEvent] {
         let target = calendar.startOfDay(for: day)
         return events
             .filter { event in
@@ -199,39 +206,35 @@ final class EventStore {
             }
     }
 
-    /// 整月各日的事件標籤顏色（日 → 前幾個顏色），給日曆畫點用。
-    func tagColorsByDay(inMonth month: Date, calendar: Calendar = .current, maxPerDay: Int = 3) -> [Int: [Color]] {
+    /// 整月各日的事件標籤顏色（日 → 前幾個 hex 色碼），給日曆畫點用；沒標籤的用灰色。
+    public func tagColorsByDay(inMonth month: Date, calendar: Calendar = .current, maxPerDay: Int = 3) -> [Int: [String]] {
         guard let range = calendar.range(of: .day, in: .month, for: month) else { return [:] }
-        var result: [Int: [Color]] = [:]
+        var result: [Int: [String]] = [:]
         for day in range {
             guard let date = calendar.date(byAdding: .day, value: day - 1,
                                            to: calendar.startOfMonth(for: month)) else { continue }
             let dayEvents = events(on: date, calendar: calendar)
             guard !dayEvents.isEmpty else { continue }
-            var colors: [Color] = []
-            for event in dayEvents.prefix(maxPerDay) {
-                colors.append(tag(for: event.tagID)?.color ?? .gray)
-            }
-            result[day] = colors
+            result[day] = dayEvents.prefix(maxPerDay).map { tag(for: $0.tagID)?.colorHex ?? "#8E8E93" }
         }
         return result
     }
 
     // MARK: - Tags
 
-    func tag(for id: UUID?) -> EventTag? {
+    public func tag(for id: UUID?) -> EventTag? {
         guard let id else { return nil }
         return tags.first { $0.id == id }
     }
 
-    func addTag(name: String, color: Color) {
+    public func addTag(name: String, colorHex: String) {
         load()
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        tags.append(EventTag(name: trimmed, colorHex: color.hexString))
+        tags.append(EventTag(name: trimmed, colorHex: colorHex))
     }
 
-    func deleteTag(_ tag: EventTag) {
+    public func deleteTag(_ tag: EventTag) {
         load()
         tags.removeAll { $0.id == tag.id }
         // 用到此標籤的事件改為無標籤
@@ -247,7 +250,7 @@ final class EventStore {
 extension EventStore {
     /// 全部事件 → 標準 .ics（RFC 5545），可匯入 Apple／Google 行事曆或任何行事曆 app。
     /// 時間用 floating local time（無時區後綴），符合個人行事曆的直覺。
-    func icsString() -> String {
+    public func icsString() -> String {
         let df = DateFormatter()
         df.locale = Locale(identifier: "en_US_POSIX")
 
@@ -298,36 +301,5 @@ extension EventStore {
         }
         lines.append("END:VCALENDAR")
         return lines.joined(separator: "\r\n") + "\r\n"
-    }
-}
-
-// MARK: - Color ↔ hex
-
-extension Color {
-    init(hex: String) {
-        var value: UInt64 = 0
-        let cleaned = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        Scanner(string: cleaned).scanHexInt64(&value)
-        let r = Double((value >> 16) & 0xFF) / 255
-        let g = Double((value >> 8) & 0xFF) / 255
-        let b = Double(value & 0xFF) / 255
-        self = Color(.sRGB, red: r, green: g, blue: b)
-    }
-
-    var hexString: String {
-        #if canImport(AppKit)
-        guard let rgb = NSColor(self).usingColorSpace(.sRGB) else { return "#888888" }
-        let r = Int(round(rgb.redComponent * 255))
-        let g = Int(round(rgb.greenComponent * 255))
-        let b = Int(round(rgb.blueComponent * 255))
-        #else
-        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-        guard UIColor(self).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        else { return "#888888" }
-        let r = Int(round(red * 255))
-        let g = Int(round(green * 255))
-        let b = Int(round(blue * 255))
-        #endif
-        return String(format: "#%02X%02X%02X", r, g, b)
     }
 }

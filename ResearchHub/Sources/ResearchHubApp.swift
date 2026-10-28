@@ -8,9 +8,11 @@ import HubCore
 struct ResearchHubApp: App {
     @State private var store = FileSystemStore(noteLinks: AppContainer.shared.noteLinks,
                                                librarySync: AppContainer.shared.librarySync)
-    @State private var pomodoro = PomodoroModel()
-    @State private var eventStore = EventStore()
-    @State private var generalTodos = GeneralTodoStore()
+    @State private var pomodoro = PomodoroModel(librarySync: AppContainer.shared.librarySync,
+                                                readingGate: AppContainer.shared.readingGate,
+                                                system: AppPomodoroSystem())
+    @State private var eventStore = EventStore(librarySync: AppContainer.shared.librarySync)
+    @State private var generalTodos = GeneralTodoStore(librarySync: AppContainer.shared.librarySync)
 
     init() {
         // 啟用即時語系切換，並套用上次選擇的語言。
