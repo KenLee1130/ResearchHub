@@ -21,6 +21,21 @@ final class JournalTimelineFindEngine: FindEngine {
     private var lastQuery = ""
     private var inner: FindEngine?
 
+    /// 預設最新在上、往下是往舊；可切成最舊在上（記在偏好設定）
+    private static let newestFirstKey = "journal.searchNewestFirst"
+    private var newestFirst: Bool {
+        get { UserDefaults.standard.object(forKey: Self.newestFirstKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: Self.newestFirstKey) }
+    }
+
+    var options: [FindOption] {
+        [FindOption(id: "oldestFirst", title: "最舊在上（往下是往新）", isOn: !newestFirst) { [weak self] in
+            guard let self else { return }
+            self.newestFirst.toggle()
+            self.lastQuery = ""   // 下一次 find 會重排
+        }]
+    }
+
     init(root: URL?, jump: @escaping (Date) -> Void, innerTarget: @escaping () -> NSView?) {
         self.root = root
         self.jump = jump
@@ -30,8 +45,10 @@ final class JournalTimelineFindEngine: FindEngine {
     func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
         if restart || query != lastQuery {
             let root = self.root
+            let newestFirst = self.newestFirst
             hits = await Task.detached(priority: .userInitiated) {
-                SearchEngine.search(query, scope: .journal, root: root)
+                let found = SearchEngine.search(query, scope: .journal, root: root)   // 引擎給的是新到舊
+                return newestFirst ? found : found.reversed()
             }.value
             lastQuery = query
             index = 0

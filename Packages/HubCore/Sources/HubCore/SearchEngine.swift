@@ -7,7 +7,7 @@ public enum SearchScope: Sendable, Hashable {
     case journal
     /// 論文頁：論文（標題／作者／摘要／標籤）＋筆記
     case papersAndNotes
-    /// 筆記頁：Notes/ 下的 .md（LaTeX 專案裡的檔不算）
+    /// 筆記頁：Notes/ 下的 .md，加上 LaTeX 專案裡的 .tex／.bib（排在筆記後面）
     case notes
     /// ⌘K palette：日記、筆記、LaTeX、論文、待辦，每類最多 `perKindLimit` 筆
     case all
@@ -123,7 +123,8 @@ public nonisolated enum SearchEngine {
         case .journal:
             return journalHits(terms, root: root, limit: nil)
         case .notes:
-            return noteHits(terms, root: root, includeLatex: false, limit: nil).notes
+            let (notes, latex) = noteHits(terms, root: root, includeLatex: true, limit: nil)
+            return notes + latex
         case .papersAndNotes:
             let papers = paperHits(terms, papers: papers, limit: nil)
             let notes = noteHits(terms, root: root, includeLatex: false, limit: nil).notes

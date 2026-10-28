@@ -7,6 +7,10 @@ import UniformTypeIdentifiers
 
 struct NotesBrowserView: View {
     @Environment(FileSystemStore.self) private var store
+    @Environment(GeneralTodoStore.self) private var generalTodos
+    /// ⌘F（沒開著筆記時）：搜尋所有筆記的合併列表（第 4 節）
+    @State private var commands = ClosureCommandHandler()
+    @State private var showNoteSearch = false
 
     @State private var selection: URL?
     /// 正在就地改名的項目（新建後自動進入；右鍵「重新命名」也走這裡）
@@ -46,6 +50,17 @@ struct NotesBrowserView: View {
             }
         }
         .navigationTitle("筆記")
+        .pageCommands(commands) { cmd in
+            // 開著筆記／專案時由它們自己接 ⌘F（在檔案裡找）；清單畫面才開跨筆記搜尋
+            guard cmd == .find, editingNote == nil, editingProject == nil else { return false }
+            showNoteSearch = true
+            return true
+        }
+        .sheet(isPresented: $showNoteSearch) {
+            SearchPaletteView(scope: .notes)
+                .environment(store)
+                .environment(generalTodos)
+        }
         .onAppear(perform: consumePendingOpen)
         .onChange(of: store.pendingOpenNote) { consumePendingOpen() }
     }
