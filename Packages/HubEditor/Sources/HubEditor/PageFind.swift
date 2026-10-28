@@ -226,7 +226,27 @@ public final class WebFindEngine: FindEngine {
         return (try? await webView.evaluateJavaScript(js) as? Int) ?? 0
     }
 
-    public func clear() {}
+    /// WebKit 的 find 是用選取反白：關尋找列時把選取收成游標，否則黃底一直留在頁面上。
+    /// 區塊編輯器（Tiptap）自己持有選取狀態、會把 DOM 選取蓋回去，所以也請它把選取收掉。
+    public func clear() {
+        index = 0
+        let js = """
+        (function () {
+          var ed = window.__editor;
+          if (ed && ed.state) { try { ed.commands.setTextSelection(ed.state.selection.to); } catch (e) {} }
+          var s = window.getSelection();
+          if (s && s.rangeCount) { s.collapseToEnd(); }
+          return 0;
+        })()
+        """
+        guard let webView else { return }
+        webView.evaluateJavaScript(js)
+        // WebKit 的黃色「find indicator」是自己畫的一層，跟 DOM 選取無關；
+        // 再找一個一定找不到的字，WebKit 找不到就會把指示器收掉。
+        let config = WKFindConfiguration()
+        config.wraps = false
+        Task { _ = try? await webView.find("\u{E000}\u{E001}\u{E002}", configuration: config) }
+    }
 }
 
 /// PDF：全部符合處標黃，目前這一個選起來並捲過去
