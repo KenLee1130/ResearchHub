@@ -2,6 +2,7 @@
 import SwiftUI
 import HubEditor
 import HubCore
+import HubStore
 import AppKit
 
 /// 左欄源碼編輯器：NSTextView 包裝，Overleaf 式多色語法高亮，
@@ -9,16 +10,22 @@ import AppKit
 /// 配色：定界符（$、$$、\[、\(）橘、數學內容紫、指令藍、
 /// 環境名與指令第一個 {…} 參數綠、標題粗體、checkbox 橘。
 /// 支援 Cmd+V 貼上圖片的 NSTextView：圖片交給 onPasteImage 存檔，插入回傳的 markdown。
-final class PastingTextView: NSTextView {
-    var onPasteImage: ((NSImage) -> String?)?
+public final class PastingTextView: NSTextView {
+    public var onPasteImage: ((NSImage) -> String?)?
     /// LaTeX 專案的根目錄。有值時補全會多出專案才有意義的指令，
     /// 以及 \input{ 列檔案、\ref{ 列整個專案的 label 等（見 LatexProjectIndex）。
-    var completionRoot: URL?
+    public var completionRoot: URL?
 
     /// Shift+Return。LaTeX 專案拿來當「編譯」。
     /// 直接攔 keyDown：AppKit 的標準鍵綁定沒有把 Shift+Return 對到 insertLineBreak:，
     /// 它會跟一般 Return 一樣走 insertNewline:，所以改不了行為。
-    var onShiftReturn: (() -> Void)?
+    public var onShiftReturn: (() -> Void)?
+
+    /// 補全用的相依（由 SourceTextView 從 app 轉交；沒給就沒有 \cite／[[ 補全）
+    public var zotero: ZoteroStore?
+    public var noteLinks: NoteLinkIndex?
+    /// 取得焦點時登記自己（插入引用要知道游標在哪個編輯器）
+    public var activeEditor: ActiveEditorRegistry?
 
     // MARK: - 拖曳選取自己來：拖曳中按的鍵不能掉
     //
@@ -28,7 +35,7 @@ final class PastingTextView: NSTextView {
     // 這裡只接手最單純的「單擊拖曳選取」：拖曳中收到的按鍵先存起來，選取完成後再送出去，
     // 所以 ⌘C 會複製到完整的選取、delete 會刪掉完整的選取。雙擊／三擊、Shift 等修飾鍵、
     // 點在既有選取上（可能要拖曳文字）、點到連結、輸入法組字中：維持交給系統。
-    override func mouseDown(with event: NSEvent) {
+    public override func mouseDown(with event: NSEvent) {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let point = convert(event.locationInWindow, from: nil)
         let index = characterIndexForInsertion(at: point)
@@ -72,7 +79,7 @@ final class PastingTextView: NSTextView {
         for key in pendingKeys { NSApp.sendEvent(key) }
     }
 
-    override func keyDown(with event: NSEvent) {
+    public override func keyDown(with event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if let onShiftReturn,
            event.keyCode == 36,                       // Return
@@ -87,22 +94,22 @@ final class PastingTextView: NSTextView {
 
     /// 從別的 app 切回來時，第一下點擊就直接放游標、可以馬上打字
     /// （預設行為是第一下只啟動視窗、被吃掉）。
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    override func becomeFirstResponder() -> Bool {
+    public override func becomeFirstResponder() -> Bool {
         let ok = super.becomeFirstResponder()
-        if ok { AppContainer.shared.activeEditor.textView = self }
+        if ok { activeEditor?.textView = self }
         return ok
     }
 
-    override func resignFirstResponder() -> Bool {
+    public override func resignFirstResponder() -> Bool {
         completionPopup.hide()   // 點到別處時關掉浮動清單
         return super.resignFirstResponder()
     }
 
     // 浮動清單是掛在視窗上的子視窗：擁有它的編輯器被移除（換版面、換檔案、彈出視窗）時，
     // 如果不主動關，它會一直掛在畫面上，而且再也沒有人會去關它。
-    override func viewWillMove(toWindow newWindow: NSWindow?) {
+    public override func viewWillMove(toWindow newWindow: NSWindow?) {
         if newWindow !== window {
             completionPopup.hide()
             if let old = window {
@@ -113,7 +120,7 @@ final class PastingTextView: NSTextView {
         super.viewWillMove(toWindow: newWindow)
     }
 
-    override func viewDidMoveToWindow() {
+    public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard let window else { return }
         // 切到別的視窗時編輯器本身沒有失去焦點（resignFirstResponder 不會被叫），也要關
@@ -131,7 +138,7 @@ final class PastingTextView: NSTextView {
     // 使用者回報筆記源碼區選字後 ⌘C 複製不到（2026-09-22），靜態查不出攔截點；
     // 改成文字區是焦點時直接處理這四個快捷鍵後就正常了。
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         // ⌘/：切換 % 註解。用實體鍵位（44＝/）判斷：注音輸入法下字元不是「/」
         if mods == [.command], event.keyCode == 44 || event.charactersIgnoringModifiers == "/",
@@ -155,10 +162,10 @@ final class PastingTextView: NSTextView {
     }
 
     // MARK: - 各 extension 用的狀態（儲存屬性不能放 extension）
-    var completionRange = NSRange(location: 0, length: 0)
-    var suppressCompletionOnce = false
+    public var completionRange = NSRange(location: 0, length: 0)
+    public var suppressCompletionOnce = false
 
-    lazy var completionPopup: CompletionPopup = {
+    public lazy var completionPopup: CompletionPopup = {
         let p = CompletionPopup()
         p.onAccept = { [weak self] item in self?.acceptCompletion(item) }
         return p

@@ -10,7 +10,7 @@ extension PastingTextView {
     // MARK: - 自動補全（Overleaf 式浮動清單：不強制插入；方向鍵選、Tab 接受、Esc 關閉）
 
     /// \begin{} 內可選的環境名稱。
-    static let envList: [String] = [
+    public static let envList: [String] = [
         "equation", "equation*", "align", "align*", "aligned", "gather", "gather*",
         "cases", "split", "multline", "matrix", "pmatrix", "bmatrix", "vmatrix", "Vmatrix",
         "enumerate", "itemize",
@@ -162,7 +162,7 @@ extension PastingTextView {
     /// [[ 自動補全：列出所有其他筆記（依名稱／路徑過濾）。
     private func noteLinkItems(prefix: String) -> [CompletionItem] {
         let q = prefix.trimmingCharacters(in: .whitespaces).lowercased()
-        let all = AppContainer.shared.noteLinks.entries()
+        let all = noteLinks?.entries() ?? []
         // 名稱若不唯一就插入含資料夾的路徑，避免引用對象有歧義。
         var nameCount: [String: Int] = [:]
         for e in all { nameCount[e.name.lowercased(), default: 0] += 1 }
@@ -210,7 +210,7 @@ extension PastingTextView {
     private func citeItems(prefix: String) -> [CompletionItem] {
         let tokens = prefix.lowercased().split(whereSeparator: { $0 == " " || $0 == "\u{3000}" })
         var result: [CompletionItem] = []
-        for item in AppContainer.shared.zotero.items where !item.isStandalonePDF {
+        for item in zotero?.items ?? [] where !item.isStandalonePDF {
             let hay = "\(item.authors) \(item.title) \(item.year) \(item.data.publicationTitle ?? "") \(item.key)"
                 .lowercased()
             guard tokens.allSatisfy({ hay.contains($0) }) else { continue }
@@ -226,7 +226,7 @@ extension PastingTextView {
     }
 
     /// 重新計算情境並更新浮動清單（由選取/輸入變動時呼叫）。
-    func updateCompletion() {
+    public func updateCompletion() {
         // 輸入法組字中不要重新計算清單（組字暫存會干擾判斷），但開著的要關掉——
         // 以前這裡直接 return，清單會一路卡在畫面上。關清單不影響選字視窗。
         if hasMarkedText() { completionPopup.hide(); return }
@@ -238,16 +238,16 @@ extension PastingTextView {
         if ctx.kind == .cite {
             // 清單是 Zotero 的快取：背景跟 Zotero 對一下，有新文獻就重列
             Task { @MainActor [weak self] in
-                if await AppContainer.shared.zotero.refreshIfStale() { self?.updateCompletion() }
+                if await self?.zotero?.refreshIfStale() == true { self?.updateCompletion() }
             }
         }
-        if ctx.kind == .cite, !AppContainer.shared.zotero.items.isEmpty {
+        if ctx.kind == .cite, !(zotero?.items.isEmpty ?? true) {
             // 文獻清單一定帶搜尋說明；搜不到也留著（不然看起來像壞掉）
             hint = items.isEmpty
-                ? L("找不到符合「\(partial)」的文獻——換個關鍵字（作者、標題、年份）")
+                ? EditorLocalization.L("找不到符合「\(partial)」的文獻——換個關鍵字（作者、標題、年份）")
                 : (partial.isEmpty
-                   ? L("直接打字搜尋：作者、標題、年份，空白分隔多個關鍵字")
-                   : L("符合 \(items.count) 筆 · ↑↓ 選擇 · Tab 插入"))
+                   ? EditorLocalization.L("直接打字搜尋：作者、標題、年份，空白分隔多個關鍵字")
+                   : EditorLocalization.L("符合 \(items.count) 筆 · ↑↓ 選擇 · Tab 插入"))
         }
         guard !items.isEmpty || hint != nil else { completionPopup.hide(); return }
         completionRange = ctx.range
@@ -258,7 +258,7 @@ extension PastingTextView {
     }
 
     /// 接受一個補全項目。
-    func acceptCompletion(_ item: CompletionItem) {
+    public func acceptCompletion(_ item: CompletionItem) {
         completionPopup.hide()
         switch item.kind {
         case .command:
@@ -305,8 +305,9 @@ extension PastingTextView {
     /// LaTeX 專案裡選了 Zotero 的文獻：先把它的 BibTeX 寫進專案的 .bib，
     /// 再把 .bib 裡的 key 填進 \cite{}（Markdown 筆記仍用 Zotero key，預覽靠它查文獻）。
     private func acceptProjectCite(_ item: CompletionItem) {
+        let store = zotero
         guard let root = completionRoot,
-              let zotero = AppContainer.shared.zotero.items.first(where: { $0.key == item.insert })
+              let entry = store?.items.first(where: { $0.key == item.insert })
         else {
             insertText(item.insert, replacementRange: completionRange)
             return
@@ -314,8 +315,8 @@ extension PastingTextView {
         let range = completionRange
         let typed = (string as NSString).substring(with: range)
         Task { @MainActor [weak self] in
-            let exported = await AppContainer.shared.zotero.bibtex(for: zotero)
-            let key = LatexBibliography.cite(zotero, in: root, exportedBibtex: exported)
+            let exported = await store?.bibtex(for: entry)
+            let key = LatexBibliography.cite(entry, in: root, exportedBibtex: exported)
             guard let self else { return }
             // 等 Zotero 回應的這一瞬間使用者又打字了 → 不要硬塞到錯的位置
             let ns = self.string as NSString
@@ -352,7 +353,7 @@ extension PastingTextView {
     }
 
     /// 浮動清單可見時攔截方向鍵/Tab/Esc；不可見時 Esc 用來手動叫出清單。
-    override func doCommand(by selector: Selector) {
+    public override func doCommand(by selector: Selector) {
         if completionPopup.isVisible {
             switch selector {
             case #selector(moveUp(_:)): completionPopup.move(by: -1); return

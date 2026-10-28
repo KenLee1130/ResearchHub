@@ -1,4 +1,5 @@
 import SwiftUI
+import HubCore
 import OSLog
 import WebKit
 import Combine
@@ -6,17 +7,17 @@ import Combine
 /// 常駐的 block 編輯器宿主：WKWebView 只建立並載入一次（app 啟動即預載），
 /// 之後切到日記分頁是即時顯示，只推送新的 markdown 內容。
 @MainActor
-final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
+public final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
 
-    let webView: WKWebView
-    var baseDir: URL?
-    var textBinding: Binding<String>?
-    var documentID: URL?
+    public let webView: WKWebView
+    public var baseDir: URL?
+    public var textBinding: Binding<String>?
+    public var documentID: URL?
     /// 命令列送出的命令（"list"、"go:…"），由目前擁有 webView 的 BlockEditorView 設定
-    var onCommand: ((String) -> Void)?
+    public var onCommand: ((String) -> Void)?
 
-    @Published private(set) var isReady = false
-    @Published private(set) var loadError: String?
+    @Published public private(set) var isReady = false
+    @Published public private(set) var loadError: String?
 
     private var lastTextFromJS: String?
     private var lastPushed: String?
@@ -24,7 +25,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     private var assetCache: [String: String] = [:]
     private var retryCount = 0
 
-    override init() {
+    public override init() {
         #if os(macOS)
         webView = FirstMouseWebView(frame: .zero, configuration: WKWebViewConfiguration())
         #else
@@ -63,7 +64,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     }
 
     /// app 啟動時呼叫即可觸發預載
-    func preload() {}
+    public func preload() {}
 
     private func startLoad() {
         loadError = nil
@@ -89,7 +90,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     #if os(macOS)
     /// 切回 app 時把焦點還給編輯器：macOS 預設第一下點擊只用來啟動視窗，
     /// 使用者得多點一兩下才能打字。焦點已經在別的文字區（搜尋面板等）就不搶。
-    @objc func appBecameActive() {
+    @objc public func appBecameActive() {
         DispatchQueue.main.async { [weak self] in
             guard let self, let win = self.webView.window, win.isKeyWindow,
                   nothingFocused(in: win) else { return }
@@ -103,12 +104,12 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     #endif
 
 
-    func retry() {
+    public func retry() {
         retryCount = 0
         startLoad()
     }
 
-    nonisolated func userContentController(
+    public nonisolated func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
@@ -122,8 +123,8 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 self.retryCount = 0
                 self.webView.evaluateJavaScript(
                     "window.__markersEnabled = \(self.markersEnabled); "
-                    + "window.__pomoMinutes = \(Self.pomoMinutes)")
-                self.lastMarkersSent = (self.markersEnabled, Self.pomoMinutes)
+                    + "window.__pomoMinutes = \(pomoMinutes)")
+                self.lastMarkersSent = (self.markersEnabled, pomoMinutes)
                 if let pending = self.pendingText {
                     self.pendingText = nil
                     self.push(pending)
@@ -141,7 +142,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
                 // 命令列送出的命令（如 "list"、"go:明天"）→ 由目前擁有 webView 的畫面決定怎麼呈現
                 self.onCommand?(body)
             case "jsError":
-                AppLog.editor.error("BlockEditor JS error: \(body, privacy: .public)")
+                EditorLog.text.error("BlockEditor JS error: \(body, privacy: .public)")
                 if !self.isReady {
                     self.loadError = "編輯器發生錯誤：\(body.prefix(120))"
                 }
@@ -178,7 +179,7 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
     }
 
     /// 換文件時清空狀態，避免跨文件的內容比對誤判（todo 偶爾不顯示的元兇）
-    func resetForNewDocument() {
+    public func resetForNewDocument() {
         lastTextFromJS = nil
         lastPushed = nil
         pendingText = nil
@@ -189,26 +190,24 @@ final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageHandler,
 
     private var lastMarkersSent: (Bool, Int)?
 
-    func setMarkersEnabled(_ enabled: Bool) {
+    public func setMarkersEnabled(_ enabled: Bool) {
         markersEnabled = enabled
         // sync() 在每次 SwiftUI 更新都會呼叫；值沒變就別再跨行程送 JS
-        let sig = (enabled, Self.pomoMinutes)
+        let sig = (enabled, pomoMinutes)
         if let last = lastMarkersSent, last == sig { return }
         if isReady {
             lastMarkersSent = sig
             webView.evaluateJavaScript(
                 "window.__markersEnabled = \(enabled); "
-                + "window.__pomoMinutes = \(Self.pomoMinutes)")
+                + "window.__pomoMinutes = \(pomoMinutes)")
         }
     }
 
-    /// 一顆蕃茄的分鐘數（跟蕃茄鐘設定連動），給 @est 進度條換算格數。
-    private static var pomoMinutes: Int {
-        let v = UserDefaults.standard.integer(forKey: PomodoroModel.SettingsKey.workMinutes)
-        return v > 0 ? v : 25
-    }
+    /// 一顆蕃茄的分鐘數（跟蕃茄鐘設定連動），給 @est 進度條換算格數；由 app 注入（設定鍵在 app）。
+    public var pomoMinutesProvider: () -> Int = { 25 }
+    private var pomoMinutes: Int { pomoMinutesProvider() }
 
-    func pushIfNeeded(_ text: String) {
+    public func pushIfNeeded(_ text: String) {
         guard text != lastTextFromJS, text != lastPushed else { return }
         push(text)
     }
