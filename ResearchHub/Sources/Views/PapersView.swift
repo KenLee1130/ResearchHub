@@ -12,11 +12,14 @@ import UniformTypeIdentifiers
 struct PapersView: View {
     @Environment(FileSystemStore.self) private var store
     private var zotero = AppContainer.shared.zotero
+    /// PDF 全文索引（Zotero 的索引；搜尋框搜標題、作者、標籤之外也搜它）
+    private var fulltext = AppContainer.shared.paperFulltext
 
     @State private var search = ""
-    /// 搜尋框有字時，清單變兩段：先論文、再筆記（第 4 節），各自可收合
-    @State private var noteHits: [SearchEngine.Hit] = []
-    @State private var noteSearchTask: Task<Void, Never>?
+    /// 搜尋框有字時，清單變兩段：先論文、再筆記（第 4 節），各自可收合。
+    /// 兩段都來自同一次 SearchEngine 搜尋（`.papersAndNotes`）。
+    @State private var searchHits: [SearchEngine.Hit] = []
+    @State private var searchTask: Task<Void, Never>?
     @AppStorage("papers.search.showPapers") private var showPaperSection = true
     @AppStorage("papers.search.showNotes") private var showNoteSection = true
     @State private var selected: ZoteroItem?
@@ -93,8 +96,12 @@ struct PapersView: View {
         .task {
             zotero.restoreZoteroDir()
             await zotero.refresh()
+            fulltext.ensureIndexed(zotero.items)
             consumeRequestedPaper()
         }
+        // 重新整理後清單變了 → 補索引新論文；索引有進展 → 重搜一次把全文命中補進來
+        .onChange(of: zotero.items) { fulltext.ensureIndexed(zotero.items); scheduleSearch() }
+        .onChange(of: fulltext.generation) { scheduleSearch() }
         // 全 app 搜尋點了論文 → 選它（論文頁已經開著時也要接得到）
         .onChange(of: store.requestedPaperKey) { consumeRequestedPaper() }
         .onAppear { consumeRequestedPaper() }
@@ -116,22 +123,15 @@ struct PapersView: View {
 
     // MARK: - List
 
-    private var filtered: [ZoteroItem] {
-        let q = search.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return zotero.items }
-        return zotero.items.filter {
-            $0.title.lowercased().contains(q)
-            || $0.authors.lowercased().contains(q)
-            || ($0.data.tags ?? []).contains { $0.tag.lowercased().contains(q) }
-        }
-    }
+    private var paperHits: [SearchEngine.Hit] { searchHits.filter { $0.kind == .paper } }
+    private var noteHits: [SearchEngine.Hit] { searchHits.filter { $0.kind == .note } }
 
     private var listPane: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("搜尋標題、作者、標籤…", text: $search)
+                TextField("搜尋標題、作者、標籤、全文…", text: $search)
                     .textFieldStyle(.plain)
                 Button {
                     Task { await zotero.refresh() }
@@ -168,15 +168,28 @@ struct PapersView: View {
                 ScrollView {
                     VStack(spacing: 3) {
                         if search.trimmingCharacters(in: .whitespaces).isEmpty {
-                            ForEach(filtered) { item in
+                            ForEach(zotero.items) { item in
                                 paperRow(item)
                             }
                         } else {
                             // 兩段式：先論文、再筆記，各自可收合
-                            sectionHeader("論文", count: filtered.count, expanded: $showPaperSection)
+                            sectionHeader("論文", count: paperHits.count, expanded: $showPaperSection)
+                            if fulltext.isIndexing {
+                                HStack(spacing: 6) {
+                                    ProgressView().controlSize(.mini)
+                                    Text("全文索引建立中 \(fulltext.done)/\(fulltext.total)")
+                                }
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.bottom, 2)
+                            }
                             if showPaperSection {
-                                ForEach(filtered) { item in
-                                    paperRow(item)
+                                ForEach(paperHits) { hit in
+                                    if case .paper(let key) = hit.target,
+                                       let item = zotero.items.first(where: { $0.key == key }) {
+                                        paperRow(item, hit: hit)
+                                    }
                                 }
                             }
                             sectionHeader("筆記", count: noteHits.count, expanded: $showNoteSection)
@@ -191,8 +204,8 @@ struct PapersView: View {
                 }
             }
         }
-        .onChange(of: search) { scheduleNoteSearch() }
-        .onDisappear { noteSearchTask?.cancel() }
+        .onChange(of: search) { scheduleSearch() }
+        .onDisappear { searchTask?.cancel() }
     }
 
     private func sectionHeader(_ title: String, count: Int, expanded: Binding<Bool>) -> some View {
@@ -238,32 +251,59 @@ struct PapersView: View {
         .buttonStyle(.plain)
     }
 
-    /// 筆記那一段：背景搜（打字停 0.2 秒才搜，新的一輪取消舊的）
-    private func scheduleNoteSearch() {
-        noteSearchTask?.cancel()
+    /// 搜尋框有字時背景搜（打字停 0.2 秒才搜，新的一輪取消舊的）：
+    /// 論文（書目＋全文）與筆記一起，SearchEngine 會先論文、再筆記。
+    private func scheduleSearch() {
+        searchTask?.cancel()
         let q = search.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { noteHits = []; return }
+        guard !q.isEmpty else { searchHits = []; return }
         let root = store.rootURL
-        noteSearchTask = Task {
+        // 論文在主執行緒先抽成純資料（含已索引的全文），再丟到背景
+        let texts = fulltext.texts
+        let papers = zotero.items.map {
+            SearchEngine.PaperEntry(
+                key: $0.key, title: $0.data.title ?? "", authors: $0.authors, year: $0.year,
+                venue: $0.data.publicationTitle ?? "", abstract: $0.data.abstractNote ?? "",
+                tags: ($0.data.tags ?? []).map(\.tag), fullText: texts[$0.key])
+        }
+        searchTask = Task {
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
             let hits = await Task.detached(priority: .userInitiated) {
-                SearchEngine.search(q, scope: .notes, root: root)
+                SearchEngine.search(q, scope: .papersAndNotes, root: root, papers: papers)
             }.value
             guard !Task.isCancelled else { return }
-            noteHits = hits
+            searchHits = hits
         }
     }
 
-    private func paperRow(_ item: ZoteroItem) -> some View {
+    /// 論文列。搜尋命中的（`hit`）多一行片段：全文命中標「全文」並顯示命中處前後的文字，
+    /// 摘要命中顯示摘要片段；標題／作者命中不用多顯示。
+    private func paperRow(_ item: ZoteroItem, hit: SearchEngine.Hit? = nil) -> some View {
         Button {
             select(item)
         } label: {
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.title)
-                    .font(.callout.weight(.medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(item.title)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    if hit?.field == .fullText {
+                        Text("全文")
+                            .font(.caption2)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                    }
+                }
+                if let hit, hit.field != .title, let snippet = hit.snippet, !snippet.isEmpty {
+                    Text(snippet)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
                 HStack(spacing: 6) {
                     Text(item.authors)
                         .lineLimit(1)

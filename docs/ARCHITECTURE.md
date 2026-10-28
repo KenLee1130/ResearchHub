@@ -156,7 +156,7 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
 | 頁面 | scope | 呈現 |
 |---|---|---|
 | 日記 | `.journal` | **時間軸模式**：命中序列依日期排序，右上角「第 n 個／共 N 個」，上下鍵在天與天之間跳，跳到的那天自動打開並反白該字。預設最新在最上、往下是往舊；可切換。需要日記頁提供 `jump(to: Date, line: Int)`。 |
-| 論文 | `.papersAndNotes` | **兩段式列表**：先論文、再筆記，各自可收合。論文目前只搜標題／作者／摘要／標籤；全文搜尋要讀 `Papers/<key>/` 已抽出的 PDF 文字，沒有就抽一次並快取。 |
+| 論文 | `.papersAndNotes` | **兩段式列表**：先論文、再筆記，各自可收合。論文搜標題／作者／摘要／標籤，書目沒中再搜 PDF 全文（文字用 Zotero 自己的索引，不另外抽）。 |
 | 筆記 | `.notes` | **合併列表**：檔名命中排前、內文命中排後，每筆標「檔名」或「內文」；同篇兩者都中合併成一筆、兩個標籤。 |
 | 首頁／⌘K | `.all` | 現有的 palette。 |
 
@@ -171,7 +171,12 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   （兩者都中就兩個）；`.notes` 範圍也包含 LaTeX 專案裡的 .tex／.bib（另一組「LaTeX 專案」，排在筆記後面，
   點了打開專案）。開著筆記或專案時 ⌘F 仍是在檔案裡找。
 - 論文兩段式列表：論文頁清單的搜尋框有字時，清單變「論文（n）」「筆記（n）」兩段，各自可收合
-  （收合狀態記在偏好）；筆記那段點了切到筆記分頁打開。論文全文搜尋（讀 `Papers/<key>/` 抽出的文字）未做。
+  （收合狀態記在偏好）；筆記那段點了切到筆記分頁打開。
+- 論文全文搜尋：文字來源是 **Zotero 自己的全文索引**（`storage/<附件>/.zotero-ft-cache`，沒授權資料夾就問本地 API
+  `/items/<附件>/fulltext`），不自己跑 PDFKit 抽字；`ZoteroItem.pdfAttachmentKey` 從 `links.attachment` 直接拿附件 key，
+  免抓 children。`PaperFulltextIndex`（HubStore）存在 Caches 目錄、以項目的 `changeStamp`（dateModified；沒同步的
+  文獻庫 version 永遠 0）判斷要不要重抓；論文頁載入與 ⌘K 開啟時補索引，索引中清單顯示「全文索引建立中 n/N」，
+  建完自動重搜。排序：標題／作者命中 → 其他書目欄位 → 全文（`Hit.Field.fullText`，列表標「全文」＋命中片段）。
 
 ## 5. 擴充功能模板
 
@@ -295,6 +300,5 @@ URL scheme `researchhub-dev://`、橘色 AccentColor），不碰、不關正式�
 
 - 日記時間軸預設方向（暫定最新在上）。
 - 記帳是否需要獨立分頁（暫定首頁卡片）。
-- 論文全文搜尋的文字來源：`Papers/<key>/` 現有抽取結果是否完整。
 - `.hub/contract-version` 的升級策略：舊版 app 遇到新契約是拒開還是唯讀。
   （2026-10-23 暫定：警告但照開，`errorMessage` 顯示一次；真的要拒開時改 `FileSystemStore.checkContractVersion`。）

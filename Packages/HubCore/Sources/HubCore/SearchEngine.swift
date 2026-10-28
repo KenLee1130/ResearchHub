@@ -54,8 +54,8 @@ public nonisolated enum SearchEngine {
     }
 
     public struct Hit: Identifiable, Sendable, Hashable {
-        /// 命中的是檔名、標題還是內文
-        public enum Field: Sendable, Hashable { case fileName, title, body }
+        /// 命中的是檔名、標題、內文（筆記內文／論文摘要等書目資料），還是論文的 PDF 全文
+        public enum Field: Sendable, Hashable { case fileName, title, body, fullText }
 
         public let id: String
         public let kind: Kind
@@ -92,11 +92,13 @@ public nonisolated enum SearchEngine {
         public let venue: String
         public let abstract: String
         public let tags: [String]
+        /// PDF 全文（Zotero 的索引；還沒建好就 nil）。書目資料沒中才看它。
+        public let fullText: String?
 
         public init(key: String, title: String, authors: String, year: String,
-                    venue: String, abstract: String, tags: [String]) {
+                    venue: String, abstract: String, tags: [String], fullText: String? = nil) {
             self.key = key; self.title = title; self.authors = authors; self.year = year
-            self.venue = venue; self.abstract = abstract; self.tags = tags
+            self.venue = venue; self.abstract = abstract; self.tags = tags; self.fullText = fullText
         }
     }
 
@@ -227,27 +229,32 @@ public nonisolated enum SearchEngine {
         return (ordered, latexHits)
     }
 
-    /// 論文：標題、作者、年份、期刊、摘要、標籤
+    /// 論文：標題、作者、年份、期刊、摘要、標籤，書目沒中再看 PDF 全文。
+    /// 排序：標題／作者命中 → 其他書目欄位命中 → 全文命中（各組內維持原順序）。
     static func paperHits(_ terms: [String], papers: [PaperEntry], limit: Int?) -> [Hit] {
-        var hits: [Hit] = []
+        var head: [Hit] = [], meta: [Hit] = [], body: [Hit] = []
         for p in papers {
             if Task.isCancelled { return [] }
-            if let limit, hits.count >= limit { break }
+            if let limit, head.count + meta.count + body.count >= limit { break }
             let haystack = [p.title, p.authors, p.year, p.venue, p.abstract, p.tags.joined(separator: " ")]
-                .joined(separator: "\n")
-            guard terms.allSatisfy({ haystack.lowercased().contains($0) }) else { continue }
-            // 標題／作者沒中才顯示摘要片段
-            let head = [p.title, p.authors].joined(separator: " ").lowercased()
-            let headMatch = terms.allSatisfy { head.contains($0) }
-            let snippet = headMatch
-                ? [p.authors, p.year].filter { !$0.isEmpty }.joined(separator: " · ")
-                : match(terms, in: p.abstract) ?? p.authors
-            hits.append(Hit(id: "p:" + p.key, kind: .paper,
-                            title: p.title.isEmpty ? "（無標題）" : p.title,
-                            target: .paper(key: p.key), field: headMatch ? .title : .body,
-                            snippet: snippet))
+                .joined(separator: "\n").lowercased()
+            let title = p.title.isEmpty ? "（無標題）" : p.title
+            let byline = [p.authors, p.year].filter { !$0.isEmpty }.joined(separator: " · ")
+            if terms.allSatisfy({ haystack.contains($0) }) {
+                // 標題／作者沒中才顯示摘要片段
+                let headText = [p.title, p.authors].joined(separator: " ").lowercased()
+                let headMatch = terms.allSatisfy { headText.contains($0) }
+                let hit = Hit(id: "p:" + p.key, kind: .paper, title: title,
+                              target: .paper(key: p.key), field: headMatch ? .title : .body,
+                              snippet: headMatch ? byline : (match(terms, in: p.abstract) ?? p.authors))
+                if headMatch { head.append(hit) } else { meta.append(hit) }
+            } else if let text = p.fullText, let m = bodyMatch(terms, in: text) {
+                body.append(Hit(id: "p:" + p.key, kind: .paper, title: title,
+                                target: .paper(key: p.key), field: .fullText,
+                                line: m.line, range: m.range, snippet: m.snippet))
+            }
         }
-        return hits
+        return head + meta + body
     }
 
     // MARK: - 比對與片段
