@@ -100,12 +100,17 @@ final class SearchEngineTests: XCTestCase {
         try TestFixtures.write("cft in a project note", at: "Notes/Proj/notes.md", in: root)
         try TestFixtures.write("- [ ] cft", at: "Journal/2026/03/2026-03-01.md", in: root)
         let hits = SearchEngine.search("cft", scope: .notes, root: root)
-        XCTAssertEqual(hits.map(\.title).sorted(), ["CFT both", "CFT name only", "body only"].sorted())
-        XCTAssertEqual(hits.prefix(2).map(\.field), [.fileName, .fileName], "檔名命中排前")
-        XCTAssertEqual(hits.last?.field, .body)
-        let both = try XCTUnwrap(hits.first { $0.title == "CFT both" })
+        let notes = hits.filter { $0.kind == .note }
+        XCTAssertEqual(notes.map(\.title).sorted(), ["CFT both", "CFT name only", "body only"].sorted())
+        XCTAssertEqual(notes.prefix(2).map(\.field), [.fileName, .fileName], "檔名命中排前")
+        XCTAssertEqual(notes.last?.field, .body)
+        let both = try XCTUnwrap(notes.first { $0.title == "CFT both" })
         XCTAssertEqual(both.fields, [.fileName, .body], "同篇兩者都中合併成一筆、兩個標籤")
-        XCTAssertFalse(hits.contains { $0.kind != .note }, "筆記範圍不含日記、LaTeX 專案")
+        // LaTeX 專案裡的檔排在筆記後面；日記不算
+        let latex = hits.filter { $0.kind == .latex }
+        XCTAssertEqual(latex.map(\.title).sorted(), ["Proj › main.tex", "Proj › notes.md"])
+        XCTAssertEqual(hits.map(\.kind), Array(repeating: .note, count: 3) + [.latex, .latex])
+        XCTAssertFalse(hits.contains { $0.kind == .journal }, "筆記範圍不含日記")
     }
 
     func testPapersAndNotesScope() throws {

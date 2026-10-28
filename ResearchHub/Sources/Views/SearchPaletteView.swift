@@ -25,7 +25,7 @@ struct SearchPaletteView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField(scope == .notes ? "搜尋所有筆記（檔名與內文）…" : "搜尋日記、筆記、LaTeX、論文、待辦…", text: $query)
+                TextField(scope == .notes ? "搜尋所有筆記與 LaTeX 專案（檔名與內文）…" : "搜尋日記、筆記、LaTeX、論文、待辦…", text: $query)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .focused($fieldFocused)
