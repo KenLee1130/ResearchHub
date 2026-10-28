@@ -1,31 +1,41 @@
-import SwiftUI
-import HubStore
+import Foundation
+import HubCore
 import Observation
 import Combine
-import UserNotifications
-#if canImport(AppKit)
-import AppKit
-#endif
-#if canImport(UIKit)
-import UIKit
-#endif
+
+/// 蕃茄鐘要用到的系統服務（推播、提示音、把 app 帶到前景、app 結束前的通知）：
+/// 這些是 UserNotifications／AppKit／UIKit，由 app 實作、建構時注入，HubStore 不碰。
+@MainActor
+public protocol PomodoroSystem: AnyObject {
+    /// app 即將結束時呼叫 handler（存計時器快照）
+    func observeTermination(_ handler: @escaping @MainActor () -> Void)
+    /// 要求推播權限（並掛上前景也顯示橫幅的 delegate）
+    func requestNotificationPermission()
+    /// 預約 `seconds` 秒後的推播（同 id 會覆蓋）
+    func scheduleNotification(id: String, title: String, body: String, after seconds: Int)
+    func cancelNotification(id: String)
+    /// 立刻推播（含即時提示音）
+    func notify(title: String, body: String)
+    /// 把 app 帶到前景（完成小視窗要彈出來）
+    func bringToFront()
+}
 
 /// 一顆已完成的蕃茄鐘紀錄(存進 <root>/Pomodoro/pomodoro.json)。
-struct PomodoroSession: Codable, Identifiable, Equatable {
-    var id: UUID = UUID()
-    var date: Date          // 完成時間
-    var minutes: Int        // 這顆的長度(分)
-    var plan: String        // 開始前的計畫(這顆要做什麼)
-    var done: String        // 完成後記下實際做了什麼
+public struct PomodoroSession: Codable, Identifiable, Equatable {
+    public var id: UUID = UUID()
+    public var date: Date          // 完成時間
+    public var minutes: Int        // 這顆的長度(分)
+    public var plan: String        // 開始前的計畫(這顆要做什麼)
+    public var done: String        // 完成後記下實際做了什麼
     // 新欄位;舊紀錄缺這個 key,靠 Optional 讓 Codable 解碼為 nil(向下相容)。
-    var startedAt: Date? = nil   // 這顆實際開始倒數的時刻(用來算真實專注時段)
+    public var startedAt: Date? = nil   // 這顆實際開始倒數的時刻(用來算真實專注時段)
 }
 
 /// 統計區間。
-enum PomodoroStatsPeriod: String, CaseIterable, Identifiable {
+public enum PomodoroStatsPeriod: String, CaseIterable, Identifiable {
     case thisWeek, lastWeek, thisMonth, thisYear
-    var id: String { rawValue }
-    var label: String {
+    public var id: String { rawValue }
+    public var label: String {
         switch self {
         case .thisWeek: return "本週"
         case .lastWeek: return "上週"
@@ -40,12 +50,12 @@ enum PomodoroStatsPeriod: String, CaseIterable, Identifiable {
 /// 含「計畫 / 完成內容」，統計(今日/本週/上週/本月/今年)都從紀錄推導。
 @MainActor
 @Observable
-final class PomodoroModel {
+public final class PomodoroModel {
 
-    enum Phase: String {
+    public enum Phase: String {
         case work, shortBreak, longBreak
 
-        var label: String {
+        public var label: String {
             switch self {
             case .work: return "專注中"
             case .shortBreak: return "短休息"
@@ -55,10 +65,10 @@ final class PomodoroModel {
     }
 
     /// 一段結束時要彈出的小視窗類型。
-    enum CompletionPrompt: Identifiable, Equatable {
+    public enum CompletionPrompt: Identifiable, Equatable {
         case workDone                  // 工作結束
         case breakDone(wasLong: Bool)  // 休息結束
-        var id: String {
+        public var id: String {
             switch self {
             case .workDone: return "workDone"
             case .breakDone(let wasLong): return "breakDone-\(wasLong)"
@@ -68,16 +78,16 @@ final class PomodoroModel {
 
     // MARK: - Settings keys（與 SettingsView 的 @AppStorage 對應）
 
-    enum SettingsKey {
-        static let workMinutes = "settings.workMinutes"
-        static let shortBreakMinutes = "settings.shortBreakMinutes"
-        static let longBreakMinutes = "settings.longBreakMinutes"
-        static let cycleLength = "settings.cycleLength"
+    public enum SettingsKey {
+        public static let workMinutes = "settings.workMinutes"
+        public static let shortBreakMinutes = "settings.shortBreakMinutes"
+        public static let longBreakMinutes = "settings.longBreakMinutes"
+        public static let cycleLength = "settings.cycleLength"
         // 完成小視窗各欄位是否「必填」(預設只有「繼續休息要多久」必填)。
-        static let requireContinueWorkMinutes = "settings.pomo.requireContinueWorkMinutes" // 工作完→繼續工作:還要工作多久
-        static let requireLastWorkNote = "settings.pomo.requireLastWorkNote"               // 工作完→開始休息:上一輪做了什麼
-        static let requirePlannedNote = "settings.pomo.requirePlannedNote"                 // 休息完→繼續工作:預計做什麼
-        static let requireExtendBreakMinutes = "settings.pomo.requireExtendBreakMinutes"   // 休息完→繼續休息:還要休息多久
+        public static let requireContinueWorkMinutes = "settings.pomo.requireContinueWorkMinutes" // 工作完→繼續工作:還要工作多久
+        public static let requireLastWorkNote = "settings.pomo.requireLastWorkNote"               // 工作完→開始休息:上一輪做了什麼
+        public static let requirePlannedNote = "settings.pomo.requirePlannedNote"                 // 休息完→繼續工作:預計做什麼
+        public static let requireExtendBreakMinutes = "settings.pomo.requireExtendBreakMinutes"   // 休息完→繼續休息:還要休息多久
     }
 
     private enum CountKey {
@@ -91,34 +101,34 @@ final class PomodoroModel {
 
     // MARK: - State
 
-    private(set) var phase: Phase = .work
+    public private(set) var phase: Phase = .work
     /// 每秒跳動的倒數獨立放在 clock。PomodoroModel 是 ObservableObject，任何
     /// 一變，所有觀察者（根畫面、首頁、日記…共 8 個）整個 body 重算；
     /// 以前 remaining 放在這裡，蕃茄鐘一跑整個 app 就每秒全部重畫——打字卡頓、
     /// 背景也吃掉 50% CPU（系統有 cpu_resource 報告）。現在只有真的顯示倒數的
     /// PomodoroCountdownText 觀察 clock。
-    let clock = PomodoroClock()
-    private(set) var remaining: Int {
+    public let clock = PomodoroClock()
+    public private(set) var remaining: Int {
         get { clock.remaining }
         set { if clock.remaining != newValue { clock.remaining = newValue } }
     }
-    private(set) var isRunning = false
-    private(set) var todayCount = 0
-    private(set) var totalCount = 0
+    public private(set) var isRunning = false
+    public private(set) var todayCount = 0
+    public private(set) var totalCount = 0
     /// 本循環已完成的 work 顆數（0..<cycleLength）
-    private(set) var cyclePosition = 0
+    public private(set) var cyclePosition = 0
     /// 非 nil 時，RootView 會彈出完成小視窗讓使用者決定下一步。
-    var completionPrompt: CompletionPrompt?
+    public var completionPrompt: CompletionPrompt?
 
     /// 已完成的蕃茄鐘紀錄(JSON 持久化)。
-    private(set) var sessions: [PomodoroSession] = [] {
+    public private(set) var sessions: [PomodoroSession] = [] {
         didSet { dayCounts = nil }
     }
     /// 每天幾顆（startOfDay → 顆數）。統計圖每次重畫會問幾十次「某天幾顆」，
     /// 以前每問一次就把幾百筆紀錄全掃一遍做日曆比較，首頁重畫一次要 20–40 毫秒。
     @ObservationIgnored private var dayCounts: [Date: Int]?
     /// 目前(這顆)work 的計畫;顯示在計時器上,完成時寫進紀錄。
-    var currentPlan: String = ""
+    public var currentPlan: String = ""
 
     private var timer: Timer?
     private var hasStartedPhase = false
@@ -137,7 +147,14 @@ final class PomodoroModel {
     /// 這顆 work 實際開始倒數的時刻,完成時寫進 session.startedAt。
     private var activeStartedAt: Date?
 
-    init() {
+    private let librarySync: LibrarySync
+    private let readingGate: ReadingGateStore
+    private let system: PomodoroSystem
+
+    public init(librarySync: LibrarySync, readingGate: ReadingGateStore, system: PomodoroSystem) {
+        self.librarySync = librarySync
+        self.readingGate = readingGate
+        self.system = system
         remaining = duration(of: .work)
 
         NotificationCenter.default.addObserver(
@@ -147,33 +164,10 @@ final class PomodoroModel {
             object: nil
         )
         // app 結束前把計時器快照存起來，重啟後續跑
-        #if os(macOS)
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appWillTerminate),
-            name: NSApplication.willTerminateNotification,
-            object: nil
-        )
-        #else
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appWillTerminate),
-            name: UIApplication.willTerminateNotification,
-            object: nil
-        )
-        #endif
-
-        UNUserNotificationCenter.current().delegate = AppContainer.shared.notificationDelegate
-        Task {
-            try? await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .sound])
-        }
+        system.observeTermination { [weak self] in self?.saveTimerState() }
+        system.requestNotificationPermission()
 
         restoreTimerState()
-    }
-
-    @objc private func appWillTerminate() {
-        saveTimerState()
     }
 
     // MARK: - 計時器快照（重啟 app 後續跑）
@@ -209,11 +203,11 @@ final class PomodoroModel {
             pomoIndex: min(cyclePosition + 1, cycleLength),
             pomoTotal: cycleLength,
             updatedAt: .now)
-        AppContainer.shared.readingGate.writeFocusState(state)
+        readingGate.writeFocusState(state)
     }
 
     /// 設定裡的「專注模式」手動開關（不靠蕃茄鐘也能啟用手機端關卡）。
-    var manualGate: Bool {
+    public var manualGate: Bool {
         get { defaults.bool(forKey: "gate.manualGate") }
         set {
             defaults.set(newValue, forKey: "gate.manualGate")
@@ -248,15 +242,15 @@ final class PomodoroModel {
     // MARK: - 紀錄檔（JSON）
 
     /// 由 RootView 在取得/變更根目錄時呼叫:載入紀錄並重算統計。
-    func configure(rootURL: URL?) {
+    public func configure(rootURL: URL?) {
         guard rootURL?.path != self.rootURL?.path else { return }
         self.rootURL = rootURL
         sessionsReady = false
         editedWhileNotReady = false
         loadSessions()
-        AppContainer.shared.readingGate.configure(rootURL: rootURL)
+        readingGate.configure(rootURL: rootURL)
         // 另一台裝置記了蕃茄鐘（或切回 app）→ 重讀
-        libraryObserver = AppContainer.shared.librarySync.changes
+        libraryObserver = librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self, change.affects(self.sessionsFileURL) else { return }
@@ -324,7 +318,7 @@ final class PomodoroModel {
         guard sessionsReady else {
             // 雲端那份還沒下載到：現在寫會蓋掉整份歷史。先記著，檔案到了合併再存。
             editedWhileNotReady = true
-            AppContainer.shared.librarySync.syncNow()
+            librarySync.syncNow()
             return
         }
         try? FileManager.default.createDirectory(
@@ -375,7 +369,7 @@ final class PomodoroModel {
     }
 
     /// 把使用者填的「這顆完成了什麼」寫回剛完成那筆。
-    func recordDone(_ text: String) {
+    public func recordDone(_ text: String) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         loadSessions()
         guard let id = pendingSessionID,
@@ -391,7 +385,7 @@ final class PomodoroModel {
         return v > 0 ? v : def
     }
 
-    var cycleLength: Int {
+    public var cycleLength: Int {
         max(1, min(12, storedMinutes(SettingsKey.cycleLength, default: 4)))
     }
 
@@ -417,14 +411,14 @@ final class PomodoroModel {
 
     // MARK: - Controls
 
-    var timeString: String { clock.timeString }
+    public var timeString: String { clock.timeString }
 
-    func toggle() {
+    public func toggle() {
         isRunning ? pause() : start()
     }
 
     /// 重設目前這顆鐘（不動循環進度）。
-    func reset() {
+    public func reset() {
         pause()
         hasStartedPhase = false
         activeStartedAt = nil           // 這顆作廢,別把起始時刻帶到下一顆
@@ -433,7 +427,7 @@ final class PomodoroModel {
     }
 
     /// 整個循環歸零。
-    func resetCycle() {
+    public func resetCycle() {
         pause()
         hasStartedPhase = false
         activeStartedAt = nil
@@ -482,28 +476,17 @@ final class PomodoroModel {
     private func scheduleEndNotification() {
         cancelEndNotification()
         guard remaining > 1 else { return }
-        let content = UNMutableNotificationContent()
+        let (title, body): (String, String)
         switch phase {
-        case .work:
-            content.title = "🍅 完成一顆蕃茄"
-            content.body = "要繼續工作,還是開始休息?"
-        case .shortBreak:
-            content.title = "☕ 休息結束"
-            content.body = "要開始工作,還是再休息一下?"
-        case .longBreak:
-            content.title = "🧘 長休息結束"
-            content.body = "要開始工作,還是再休息一下?"
+        case .work: (title, body) = ("🍅 完成一顆蕃茄", "要繼續工作,還是開始休息?")
+        case .shortBreak: (title, body) = ("☕ 休息結束", "要開始工作,還是再休息一下?")
+        case .longBreak: (title, body) = ("🧘 長休息結束", "要開始工作,還是再休息一下?")
         }
-        content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(remaining), repeats: false)
-        UNUserNotificationCenter.current().add(UNNotificationRequest(
-            identifier: Self.endNotificationID, content: content, trigger: trigger))
+        system.scheduleNotification(id: Self.endNotificationID, title: title, body: body, after: remaining)
     }
 
     private func cancelEndNotification() {
-        UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [Self.endNotificationID])
+        system.cancelNotification(id: Self.endNotificationID)
     }
 
     // MARK: - Tick
@@ -552,16 +535,14 @@ final class PomodoroModel {
 
     /// 把 app 帶到前景並要求彈出完成小視窗。
     private func present(_ prompt: CompletionPrompt) {
-        #if os(macOS)
-        NSApp.activate(ignoringOtherApps: true)
-        #endif
+        system.bringToFront()
         completionPrompt = prompt
     }
 
     // MARK: - 完成小視窗的動作
 
     /// 工作完成 →「繼續工作」:記下這顆完成內容,再開一顆(可給分鐘數與下一顆計畫)。
-    func continueWorkAfterWork(doneNote: String, extraMinutes: Int?, nextPlan: String) {
+    public func continueWorkAfterWork(doneNote: String, extraMinutes: Int?, nextPlan: String) {
         recordDone(doneNote)
         completionPrompt = nil
         currentPlan = nextPlan.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -572,7 +553,7 @@ final class PomodoroModel {
     }
 
     /// 工作完成 →「開始休息」:記下這顆完成內容,開始休息。
-    func startBreakAfterWork(doneNote: String) {
+    public func startBreakAfterWork(doneNote: String) {
         recordDone(doneNote)
         completionPrompt = nil
         currentPlan = ""
@@ -585,7 +566,7 @@ final class PomodoroModel {
 
     /// 工作完成 →「稍後再說」:記下完成內容後關掉視窗,不啟動下一段(離開電腦本身就是休息)。
     /// 下一段預設成 work、循環滿了則歸零;之後使用者自己按開始。
-    func dismissAfterWork(doneNote: String) {
+    public func dismissAfterWork(doneNote: String) {
         recordDone(doneNote)
         completionPrompt = nil
         currentPlan = ""
@@ -598,7 +579,7 @@ final class PomodoroModel {
     }
 
     /// 休息結束 →「繼續工作」:可給下一顆計畫與分鐘數。長休息後循環歸零。
-    func continueWorkAfterBreak(nextPlan: String, extraMinutes: Int?, wasLong: Bool) {
+    public func continueWorkAfterBreak(nextPlan: String, extraMinutes: Int?, wasLong: Bool) {
         completionPrompt = nil
         if wasLong { cyclePosition = 0 }
         currentPlan = nextPlan.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -609,7 +590,7 @@ final class PomodoroModel {
     }
 
     /// 休息結束 →「繼續休息」(還要休息幾分鐘;留空時用預設短休息長度)。
-    func extendBreak(minutes: Int?) {
+    public func extendBreak(minutes: Int?) {
         completionPrompt = nil
         phase = .shortBreak
         remaining = minutes.map { max(1, $0) * 60 } ?? duration(of: .shortBreak)
@@ -618,7 +599,7 @@ final class PomodoroModel {
     }
 
     /// 休息結束 →「稍後再說」:關掉視窗不啟動;之後自己開始工作。
-    func dismissAfterBreak(wasLong: Bool) {
+    public func dismissAfterBreak(wasLong: Bool) {
         completionPrompt = nil
         if wasLong { cyclePosition = 0 }
         phase = .work
@@ -639,7 +620,7 @@ final class PomodoroModel {
 
     // MARK: - 統計（全部由 sessions 推導）
 
-    func count(on date: Date) -> Int {
+    public func count(on date: Date) -> Int {
         let cal = Calendar.current
         if dayCounts == nil {
             var counts: [Date: Int] = [:]
@@ -654,19 +635,19 @@ final class PomodoroModel {
     }
 
     /// 某統計區間的總顆數。
-    func total(_ period: PomodoroStatsPeriod) -> Int {
+    public func total(_ period: PomodoroStatsPeriod) -> Int {
         guard let interval = interval(for: period) else { return 0 }
         return count(in: interval)
     }
 
     /// 本週（週一開頭）每天的顆數（首頁原本就有用到）。
-    func weekCounts(locale: Locale = .autoupdatingCurrent)
+    public func weekCounts(locale: Locale = .autoupdatingCurrent)
         -> [(label: String, count: Int, isToday: Bool)] {
         dayBars(weekMondayContaining: .now, locale: locale)
     }
 
     /// 統計卡的長條資料：週/上週→7 天、本月→當月每天、今年→12 個月。
-    func statBars(_ period: PomodoroStatsPeriod, locale: Locale = .autoupdatingCurrent)
+    public func statBars(_ period: PomodoroStatsPeriod, locale: Locale = .autoupdatingCurrent)
         -> [(label: String, count: Int, isNow: Bool)] {
         let cal = Calendar.current
         switch period {
@@ -753,23 +734,23 @@ final class PomodoroModel {
     }
 
     /// 最近 N 筆完成紀錄(新到舊),給首頁回顧用。
-    func recentSessions(limit: Int = 6) -> [PomodoroSession] {
+    public func recentSessions(limit: Int = 6) -> [PomodoroSession] {
         Array(sessions.suffix(limit).reversed())
     }
 
     // MARK: - 生產力分析
 
     /// 依「開始工作的時刻」統計的生產力輪廓。
-    struct ProductivityProfile {
+    public struct ProductivityProfile {
         /// hourCounts[h] = h:00–h:59 開始且完成的顆數
-        var hourCounts: [Int] = Array(repeating: 0, count: 24)
+        public var hourCounts: [Int] = Array(repeating: 0, count: 24)
         /// weekdayCounts[i] = 週一(0)…週日(6) 的顆數
-        var weekdayCounts: [Int] = Array(repeating: 0, count: 7)
+        public var weekdayCounts: [Int] = Array(repeating: 0, count: 7)
         /// 納入統計的顆數（排除舊資料補登）
-        var sampleCount = 0
+        public var sampleCount = 0
 
         /// 顆數最多的連續 2 小時窗（回傳起始小時），樣本太少回 nil。
-        var peakWindowStart: Int? {
+        public var peakWindowStart: Int? {
             guard sampleCount >= 10 else { return nil }
             var best = 0, bestSum = -1
             for h in 0..<23 {
@@ -780,7 +761,7 @@ final class PomodoroModel {
         }
 
         /// 顆數最多的星期（0 = 週一），樣本太少回 nil。
-        var peakWeekday: Int? {
+        public var peakWeekday: Int? {
             guard sampleCount >= 10 else { return nil }
             guard let m = weekdayCounts.max(), m > 0 else { return nil }
             return weekdayCounts.firstIndex(of: m)
@@ -788,27 +769,27 @@ final class PomodoroModel {
     }
 
     /// 計畫 vs 實際的執行統計（排除舊資料補登）。
-    struct ExecutionStats {
-        var sampleCount = 0
+    public struct ExecutionStats {
+        public var sampleCount = 0
         /// 有寫「計畫」的顆數
-        var plannedCount = 0
+        public var plannedCount = 0
         /// 計畫、完成都有寫的顆數
-        var bothCount = 0
+        public var bothCount = 0
         /// 其中「完成 == 計畫」（照計畫做完）的顆數
-        var followedCount = 0
+        public var followedCount = 0
         /// 每個工作日第一顆的開始時刻（當天 0 點起算的分鐘），供平均
-        var firstStartMinutes: [Int] = []
+        public var firstStartMinutes: [Int] = []
 
         /// 照計畫率：計畫和完成都有寫的顆之中，實際做的就是計畫的比例
-        var followRate: Double? {
+        public var followRate: Double? {
             bothCount >= 5 ? Double(followedCount) / Double(bothCount) : nil
         }
         /// 有計畫率
-        var planRate: Double? {
+        public var planRate: Double? {
             sampleCount >= 5 ? Double(plannedCount) / Double(sampleCount) : nil
         }
         /// 平均第一顆開始時刻
-        var averageFirstStart: (hour: Int, minute: Int)? {
+        public var averageFirstStart: (hour: Int, minute: Int)? {
             guard firstStartMinutes.count >= 3 else { return nil }
             let avg = firstStartMinutes.reduce(0, +) / firstStartMinutes.count
             return (avg / 60, avg % 60)
@@ -816,7 +797,7 @@ final class PomodoroModel {
     }
 
     /// 最近 `days` 天的「計畫 vs 實際」統計。
-    func executionStats(days: Int? = nil) -> ExecutionStats {
+    public func executionStats(days: Int? = nil) -> ExecutionStats {
         let cal = Calendar.current
         var stats = ExecutionStats()
         let cutoff = days.flatMap { cal.date(byAdding: .day, value: -$0, to: .now) }
@@ -853,7 +834,7 @@ final class PomodoroModel {
     /// 統計最近 `days` 天（nil = 全部）每小時／每星期幾的完成顆數。
     /// 舊版遷移補登的紀錄（無 startedAt、無內容、正午 12:00 整）不列入，
     /// 免得 12 點被灌水成假的生產力高峰。
-    func productivityProfile(days: Int? = nil) -> ProductivityProfile {
+    public func productivityProfile(days: Int? = nil) -> ProductivityProfile {
         let cal = Calendar.current
         var profile = ProductivityProfile()
         let cutoff = days.flatMap { cal.date(byAdding: .day, value: -$0, to: .now) }
@@ -876,298 +857,6 @@ final class PomodoroModel {
     }
 
     private func notify(_ title: String, _ body: String) {
-        #if os(macOS)
-        NSSound.beep() // 即時音效（通知被拒絕時仍有提示）
-        #endif
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
-    }
-}
-
-/// 讓通知在 app 位於前景時也顯示橫幅（macOS 預設前景時不顯示）。
-final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
-
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
-    }
-}
-
-#if os(macOS)
-// MARK: - 浮動面板（置頂於所有 app 之上的玻璃小窗）
-
-@MainActor
-final class PomodoroPanelController {
-    private var panel: NSPanel?
-
-    func toggle(pomodoro: PomodoroModel) {
-        if let panel, panel.isVisible {
-            panel.close()
-            return
-        }
-        let hosting = NSHostingController(
-            rootView: PomodoroPanelView().environment(pomodoro))
-        let panel = NSPanel(contentViewController: hosting)
-        // 無邊框：關閉鈕做在面板內，避免透明標題列的點擊穿透問題。
-        // 不用 .utilityWindow —— 它會在 app 失焦時自動把面板藏起來,正是「切桌面後消失」的元兇。
-        panel.styleMask = [.nonactivatingPanel, .borderless]
-        panel.level = .floating
-        // 出現在所有桌面、跟著 Space 不動、全螢幕也在;切換桌面/切到別的 app 都不消失。
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        panel.hidesOnDeactivate = false   // 關鍵:app 不在前景時也保持顯示,直到使用者自己關
-        panel.isMovableByWindowBackground = true
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = true
-        panel.isReleasedWhenClosed = false
-        self.panel = panel
-        panel.orderFrontRegardless()
-    }
-
-    func close() {
-        panel?.close()
-    }
-}
-
-/// 按住就能拖動所在視窗的區域（無邊框面板用）
-struct WindowDragArea: NSViewRepresentable {
-    final class DragView: NSView {
-        override var mouseDownCanMoveWindow: Bool { true }
-        override func mouseDown(with event: NSEvent) {
-            window?.performDrag(with: event)
-        }
-    }
-    func makeNSView(context: Context) -> DragView { DragView() }
-    func updateNSView(_ nsView: DragView, context: Context) {}
-}
-
-struct PomodoroPanelView: View {
-    @Environment(PomodoroModel.self) private var pomodoro
-    @State private var hovering = false
-
-    var body: some View {
-        VStack(spacing: 8) {
-            PomodoroCountdownText(clock: pomodoro.clock)
-                .font(.system(size: 36, weight: .medium, design: .monospaced))
-            Text(pomodoro.phase.label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            PomodoroPlanRow()
-                .frame(maxWidth: 200)
-            HStack(spacing: 18) {
-                Button {
-                    pomodoro.toggle()
-                } label: {
-                    Image(systemName: pomodoro.isRunning ? "pause.fill" : "play.fill")
-                        .font(.title3)
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                Button {
-                    pomodoro.reset()
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.title3)
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            HStack(spacing: 4) {
-                ForEach(0..<pomodoro.cycleLength, id: \.self) { i in
-                    Capsule()
-                        .fill(i < pomodoro.cyclePosition
-                              ? Color.accentColor : Color.primary.opacity(0.15))
-                        .frame(height: 4)
-                }
-            }
-            .frame(width: 120)
-        }
-        .padding(22)
-        // 面板內容全是 SwiftUI，NSHostingView 會吃掉滑鼠，isMovableByWindowBackground 不會生效 →
-        // 背景鋪一層：按下就請視窗跟著拖。按鈕、計畫欄蓋在上面，照樣能點。
-        .background(WindowDragArea())
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
-        .overlay(alignment: .topTrailing) {
-            // 滑過面板時顯示關閉鈕
-            Button {
-                AppContainer.shared.pomodoroPanel.close()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.secondary)
-                    .padding(6)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .opacity(hovering ? 1 : 0)
-        }
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.15), value: hovering)
-        .padding(8)
-    }
-}
-
-// MARK: - 「這顆要做什麼」計畫列（計時器上顯示 / 點擊編輯）
-
-/// work 階段顯示目前這顆的計畫;點一下用 popover 編輯。其他階段不顯示。
-struct PomodoroPlanRow: View {
-    @Environment(PomodoroModel.self) private var pomodoro
-    @State private var editing = false
-    @State private var draft = ""
-
-    var body: some View {
-        if pomodoro.phase == .work {
-            Button {
-                draft = pomodoro.currentPlan
-                editing = true
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "target").font(.caption2)
-                    Group {
-                        if pomodoro.currentPlan.isEmpty {
-                            Text("這顆要做什麼？")
-                        } else {
-                            Text(pomodoro.currentPlan)
-                        }
-                    }
-                        .font(.caption2)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 0)
-                }
-                .foregroundStyle(pomodoro.currentPlan.isEmpty ? .tertiary : .secondary)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $editing) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("這顆蕃茄鐘要做什麼").font(.headline)
-                    TextField("例如：推導 crossing equation", text: $draft, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                        .frame(width: 260)
-                        .onSubmit(commit)
-                    HStack {
-                        Spacer()
-                        Button("完成", action: commit).keyboardShortcut(.defaultAction)
-                    }
-                }
-                .padding(14)
-            }
-        }
-    }
-
-    private func commit() {
-        pomodoro.currentPlan = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        editing = false
-    }
-}
-
-// MARK: - Sidebar mini view
-
-struct PomodoroMiniView: View {
-    @Environment(PomodoroModel.self) private var pomodoro
-
-    var body: some View {
-        VStack(spacing: 6) {
-            PomodoroCountdownText(clock: pomodoro.clock)
-                .font(.system(size: 20, weight: .medium, design: .monospaced))
-            Text(LocalizedStringKey(pomodoro.phase.label))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            PomodoroPlanRow()
-
-            HStack(spacing: 14) {
-                Button {
-                    pomodoro.toggle()
-                } label: {
-                    Image(systemName: pomodoro.isRunning ? "pause.fill" : "play.fill")
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                Button {
-                    pomodoro.reset()
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                .help("重設目前這顆；右鍵可將整個循環歸零")
-                .contextMenu {
-                    Button("整個循環歸零") { pomodoro.resetCycle() }
-                }
-                Button {
-                    AppContainer.shared.pomodoroPanel.toggle(pomodoro: pomodoro)
-                } label: {
-                    Image(systemName: "arrow.up.right.square")
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                .help("浮動面板（置頂於其他視窗）")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-
-            // 循環進度條
-            HStack(spacing: 3) {
-                ForEach(0..<pomodoro.cycleLength, id: \.self) { i in
-                    Capsule()
-                        .fill(segmentColor(i))
-                        .frame(height: 4)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 2)
-
-            Text("第 \(min(pomodoro.cyclePosition + 1, pomodoro.cycleLength)) / \(pomodoro.cycleLength) 顆 · 今日 \(pomodoro.todayCount)")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
-    }
-
-    private func segmentColor(_ index: Int) -> Color {
-        if index < pomodoro.cyclePosition {
-            return .accentColor
-        }
-        if index == pomodoro.cyclePosition && pomodoro.phase == .work && pomodoro.isRunning {
-            return .accentColor.opacity(0.4)
-        }
-        return .primary.opacity(0.15)
-    }
-}
-#endif
-
-// MARK: - 每秒倒數（隔離出來的觀察對象）
-
-/// 只裝每秒會變的倒數。觀察它的只有 PomodoroCountdownText，
-/// 所以每秒重畫的範圍就是那一行數字。
-@MainActor
-final class PomodoroClock: ObservableObject {
-    @Published var remaining: Int = 25 * 60
-
-    var timeString: String {
-        String(format: "%02d:%02d", remaining / 60, remaining % 60)
-    }
-}
-
-/// 顯示倒數的唯一元件：外觀（字體等）由呼叫端加 modifier。
-struct PomodoroCountdownText: View {
-    @ObservedObject var clock: PomodoroClock
-
-    var body: some View {
-        Text(clock.timeString)
+        system.notify(title: title, body: body)
     }
 }

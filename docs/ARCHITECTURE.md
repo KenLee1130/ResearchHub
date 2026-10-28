@@ -237,8 +237,14 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      這些導覽「請求」留在 store 當純資料，由頁面消化）、`NoteLinkIndex`。
      資料契約版本：`DataContract`（HubCore）＋ `.hub/contract-version`，開資料夾時沒有就寫、
      比 app 新就警告照開（第 7 節的未決事項暫定如此）。`NSLog` 已全部換成 OSLog（`AppLog`，hub.app）。
-   - HubStore 待做：`.hub/*.json` 的 `EventStore`／`GeneralTodoStore`（用了 SwiftUI `Color`）、
-     `PomodoroModel`（1174 行，含 AppKit 面板）。
+   - HubStore 第三批（已搬，2026-10-28）：`EventStore`（標籤顏色只存 hex 字串，SwiftUI `Color` 的換算
+     搬到 app 的 `ColorHex.swift`）、`GeneralTodoStore`、`PomodoroModel`＋`PomodoroClock`（推播、提示音、
+     帶到前景、app 結束通知抽成 `PomodoroSystem` protocol，由 app 的 `AppPomodoroSystem` 實作注入；
+     浮動面板與 SwiftUI 小元件留在 app 的 `PomodoroPanel.swift`／`PomodoroCountdown.swift`）。
+     三個 store 都改建構子注入 `LibrarySync`。`Calendar.startOfMonth` 搬到 HubCore。
+     至此第 1 節表格裡列的 HubStore 內容全部進套件；app 的 `Services/` 只剩 composition root、
+     系統服務實作（推播、@remind 排程、本地化）與 `PDFExporter`／`LatexCompiler`／`PaperChat` 這些
+     還依賴 AppKit／PDFKit／小幫手的檔案。
    - HubEditor 第一批（已搬，2026-10-23）：沒有 app 相依的橋接——`CompletionPopup`、
      `PDFViewerController`／`PDFKitView`、`PageFind`（尋找列與三種 `FindEngine`）、
      `PersistentSplitView`、`WindowAccessor`（視窗探針、`SidebarSplitControl`）、`LatexPDFView`、
