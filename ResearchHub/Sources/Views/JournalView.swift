@@ -32,6 +32,8 @@ struct JournalView: View {
     @State private var eventSheet: EventSheetConfig?
     /// 「規劃」：一個目標拆成多段時段
     @State private var showPlanSheet = false
+    /// 日記檔變動的計數：讓月曆上的刪除線（勾掉的規劃待辦）跟著更新
+    @State private var journalRevision = 0
     /// /list 任務總覽（開著時暫時卸下編輯器：先存檔，讓總覽能安全改檔案）
     @State private var showTaskManager = false
     /// 回顧頁（5.2）：開著時佔用編輯器的位置
@@ -88,6 +90,7 @@ struct JournalView: View {
         .onReceive(AppContainer.shared.librarySync.changes) { change in
             if change.affects(store.journalURL) || change.affects(store.notesURL) {
                 refreshMonthData()
+                journalRevision += 1
             }
         }
         .sheet(item: $eventSheet) { config in
@@ -174,6 +177,7 @@ struct JournalView: View {
             // 日期格：隨欄寬長大——窄是色點與細線，拖寬就連續長成帶標題的色塊（MacMonthGrid）
             MacMonthGrid(
                 displayedMonth: displayedMonth, selectedDay: selectedDay,
+                revision: journalRevision,
                 journalDays: journalDays, noteDays: Set(noteUpdates.keys),
                 onSelect: { date in
                     seedBeforeShowing(date)
@@ -500,6 +504,8 @@ struct JournalView: View {
 
     private func eventRow(_ event: CalendarEvent) -> some View {
         let tag = eventStore.tag(for: event.tagID)
+        let done = store.isPlannedEventDone(event)
+        _ = journalRevision   // 日記變了要重算 done
         return HStack(alignment: .top, spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(tag?.color ?? .gray)
@@ -508,6 +514,8 @@ struct JournalView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(event.title)
                     .font(.callout)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? Color.secondary : Color.primary)
                     .lineLimit(2)
                 if let planTitle = event.planTitle {
                     PlanBadge(title: planTitle, color: tag?.color ?? .gray)

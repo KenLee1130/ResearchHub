@@ -280,7 +280,8 @@ struct MobileTodayView: View {
                 Button {
                     eventSheet = MobileEventSheet(draft: event, isNew: false)
                 } label: {
-                    MobileEventRow(event: event, tag: eventStore.tag(for: event.tagID))
+                    MobileEventRow(event: event, tag: eventStore.tag(for: event.tagID),
+                                   done: store.isPlannedEventDone(event))
                 }
                 .buttonStyle(.plain)
             }

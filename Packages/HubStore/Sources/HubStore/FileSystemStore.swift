@@ -582,13 +582,30 @@ public final class FileSystemStore {
 
     /// 一個時段在日記裡的那一行。
     public static func plannedLine(for event: CalendarEvent) -> String {
+        if event.isAllDay { return "- [ ] \(event.title)" }
+        let minutes = Int(event.end.timeIntervalSince(event.start) / 60)
+        let est = minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes)m"
+        return "- [ ] \(plannedCleanText(for: event)) @est(\(est))"
+    }
+
+    /// 規劃行去掉 `- [ ]` 與標記後的文字（「10:00–12:00 標題」）：拿來跟日記裡勾掉的待辦比對。
+    public static func plannedCleanText(for event: CalendarEvent) -> String {
+        if event.isAllDay { return event.title }
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "HH:mm"
-        let minutes = Int(event.end.timeIntervalSince(event.start) / 60)
-        let est = minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes)m"
-        if event.isAllDay { return "- [ ] \(event.title)" }
-        return "- [ ] \(f.string(from: event.start))–\(f.string(from: event.end)) \(event.title) @est(\(est))"
+        return "\(f.string(from: event.start))–\(f.string(from: event.end)) \(event.title)"
+    }
+
+    /// 某天日記裡已勾掉（`- [x]`）的待辦，去掉標記後的文字。
+    public func doneTodoTexts(on day: Date) -> Set<String> {
+        guard let url = journalURL(for: day), let lines = LibraryIndex.shared.todoLines(in: url) else { return [] }
+        return Set(lines.filter(\.done).map { $0.meta.cleanText })
+    }
+
+    /// 這個事件（含重複事件的實例）在當天日記裡對應的那行是否已勾掉 → 行事曆上畫刪除線。
+    public func isPlannedEventDone(_ event: CalendarEvent, calendar: Calendar = .current) -> Bool {
+        doneTodoTexts(on: calendar.startOfDay(for: event.start)).contains(Self.plannedCleanText(for: event))
     }
 
     /// 日記最上面的「規劃」段：從檔首到第一條 `---` 之間全是待辦行（或空行）。

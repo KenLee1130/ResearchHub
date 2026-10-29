@@ -68,5 +68,13 @@ final class PlanJournalTests: XCTestCase {
         let todos = LibraryIndex.shared.todoLines(in: d1) ?? []
         XCTAssertEqual(todos.map(\.meta.cleanText), ["10:00–12:00 期中考 複習 1/2", "讀 CFT"])
         XCTAssertEqual(todos.first?.meta.estMinutes, 120)
+
+        // 勾掉日記裡那一行 → 對應的事件算「完成」（行事曆畫刪除線）；另一天的不受影響
+        XCTAssertFalse(store.isPlannedEventDone(events[0], calendar: calendar))
+        try t1.replacingOccurrences(of: "- [ ] 10:00–12:00", with: "- [x] 10:00–12:00")
+            .write(to: d1, atomically: true, encoding: .utf8)
+        XCTAssertTrue(store.isPlannedEventDone(events[0], calendar: calendar))
+        XCTAssertFalse(store.isPlannedEventDone(events[1], calendar: calendar))
+        XCTAssertEqual(FileSystemStore.plannedCleanText(for: events[0]), "10:00–12:00 期中考 複習 1/2")
     }
 }
