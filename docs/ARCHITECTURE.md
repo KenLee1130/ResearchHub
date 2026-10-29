@@ -264,6 +264,14 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
      （`EditorWebVersion` 比對支援區間，不相容就在編輯器位置報錯）。
      undo 不需要合併：af8c472 已讓每個 `SourceTextView` 自己擁有 UndoManager。
    - `Mobile/` 剩下的重複是畫面層（筆記清單、番茄鐘、設定）各寫一份，第 4 步再看要不要合。
+   - iPhone 畫面重做（2026-10-29）：手機不再把網頁編輯器塞進捲動頁。
+     「今天」分頁是原生 `List`（`MobileTodayView`）：當天待辦直接從日記檔讀（`LibraryIndex.todoLines`）、
+     打勾／放棄／搬到明天／快速新增都走 `FileSystemStore`（`toggleTodo`、新增的 `abandonTodo`、`appendTodoLine`），
+     完整編輯器推成獨立一頁（`MobileJournalEditorView`）。新增「行事曆」分頁（`MobileCalendarView`：
+     月曆、左右滑換月、當天事件增刪改、.ics 分享），一般待辦改從「今天」推進去。
+     事件表單欄位抽成 `Views/EventFormFields.swift` 給 Mac `EventEditorSheet` 與 `MobileEventEditor` 共用。
+     分頁間跳轉走 `MobileNavigation`（@Observable，環境注入），不借 `store.pendingJournalDate`。
+     DEBUG 啟動參數 `-HubRoot <path>` 可直接指定根資料夾（模擬器實測用，免走檔案選擇器）。
 4. **HubStore 與 HubEditor 邊界。** singleton 收進 `AppContainer`；OSLog subsystem；
    三個產物的版本契約。
    - HubStore 第一批（已搬，2026-10-23）：`FileWatcher`／`DirectoryWatcher`、`LatexHistory`、

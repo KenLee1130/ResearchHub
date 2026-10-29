@@ -88,6 +88,16 @@
         }
       }
     },
+    "%lld 件待辦": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tasks"
+          }
+        }
+      }
+    },
     "%lld 篇筆記": {
       "localizations": {
         "en": {
@@ -422,6 +432,16 @@
         }
       }
     },
+    "今天要做的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To do today"
+          }
+        }
+      }
+    },
     "今年": {
       "extractionState": "stale",
       "localizations": {
@@ -668,6 +688,16 @@
         }
       }
     },
+    "刪除事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete event"
+          }
+        }
+      }
+    },
     "刪除區塊": {
       "localizations": {
         "en": {
@@ -684,6 +714,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete line"
+          }
+        }
+      }
+    },
+    "刪除這個事件？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this event?"
+          }
+        }
+      }
+    },
+    "到期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Due"
           }
         }
       }
@@ -1094,6 +1144,16 @@
         }
       }
     },
+    "待辦與事件在上面直接改；長一點的內容進日記寫。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit tasks and events above; write longer entries in the journal."
+          }
+        }
+      }
+    },
     "後一天（⌘⌥→）": {
       "localizations": {
         "en": {
@@ -1130,6 +1190,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Something on your mind, not yet scheduled…"
+          }
+        }
+      }
+    },
+    "想到但還沒排時間的事放這裡，不綁日期。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Things you thought of but haven't scheduled — not tied to a date."
           }
         }
       }
@@ -1437,6 +1507,16 @@
         }
       }
     },
+    "新增待辦…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a task…"
+          }
+        }
+      }
+    },
     "新增待辦（可帶 @ 標記）": {
       "localizations": {
         "en": {
@@ -1503,6 +1583,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Good morning"
+          }
+        }
+      }
+    },
+    "明天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomorrow"
           }
         }
       }
@@ -1886,6 +1976,26 @@
         }
       }
     },
+    "當日事件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Events that day"
+          }
+        }
+      }
+    },
+    "當日日記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Journal for that day"
+          }
+        }
+      }
+    },
     "當日筆記更新：%@": {
       "localizations": {
         "en": {
@@ -2212,6 +2322,16 @@
         }
       }
     },
+    "行事曆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar"
+          }
+        }
+      }
+    },
     "行內公式": {
       "localizations": {
         "en": {
@@ -2268,6 +2388,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Note what you did, then decide what’s next."
+          }
+        }
+      }
+    },
+    "記帳": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger"
           }
         }
       }
@@ -2595,6 +2725,16 @@
         }
       }
     },
+    "選擇日期…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a date…"
+          }
+        }
+      }
+    },
     "選擇資料夾…": {
       "localizations": {
         "en": {
@@ -2665,6 +2805,16 @@
         }
       }
     },
+    "還沒有待辦。打一句就加進這天的日記。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tasks yet. Type one and it goes into this day's journal."
+          }
+        }
+      }
+    },
     "還沒有筆記": {
       "localizations": {
         "en": {
@@ -2695,6 +2845,16 @@
         }
       }
     },
+    "那天要做的": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To do that day"
+          }
+        }
+      }
+    },
     "重新命名": {
       "localizations": {
         "en": {
@@ -2711,6 +2871,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Refresh"
+          }
+        }
+      }
+    },
+    "重要": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Important"
           }
         }
       }
@@ -2919,6 +3089,16 @@
         }
       }
     },
+    "點一下開始寫…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to start writing…"
+          }
+        }
+      }
+    },
     "點擊編輯公式": {
       "localizations": {
         "en": {
@@ -2956,16 +3136,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "🍅 Pomodoro complete"
-          }
-        }
-      }
-    },
-    "記帳": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ledger"
           }
         }
       }
