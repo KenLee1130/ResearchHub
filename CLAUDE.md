@@ -21,6 +21,7 @@ Claude 可以直接讀寫下列檔案來參與工作流程。
 | `Notes/**/*.md` | 筆記（資料夾 = 分類，`assets/` 是圖片附件） | 讀取；可餵給 Claude project 當知識庫 |
 | `.hub/events.json` | 行事曆事件與標籤（`title`、`notes`、`start`、`end` ISO8601、`isAllDay`、`tagID`） | 可代使用者新增／修改事件 |
 | `.hub/todos.json` | 首頁「一般待辦」與垃圾桶：`{ "todos": [...], "trash": [...] }` | 可新增待辦、把放棄的項目搬進 `trash` |
+| `.hub/journal-meta.json` | 日記回顧旁車檔，鍵是 `yyyy-MM-dd`：`{"2026-10-11": {"kind": "log"\|"reflective", "mood": -2..2, "themes": ["…"]}}`。app 自己會把每天分成流水帳（待辦為主）或心得（散文、有感受）；檔裡的 `kind` 覆寫它，`mood`／`themes` 只來自這個檔。app 只讀不寫 | **做 insights 時順手補**：掃最近的日記，給每天 `mood`（-2…2）與 2–4 個 `themes`，心得日也可明寫 `kind`；以 key 合併寫回，不要刪別天 |
 | `.hub/claude/insights.json` | Claude 寫給使用者的觀察與鼓勵，顯示在首頁「Claude 觀察」區 | **這是 Claude 的主要輸出口**，見下方格式 |
 | `Pomodoro/pomodoro.json` | 番茄鐘紀錄 | 讀取統計 |
 
@@ -73,7 +74,8 @@ Claude 可以直接讀寫下列檔案來參與工作流程。
   之後不再列入統計。
 
 Claude 更新 insights 時的建議流程：掃 `Journal/` 統計重複未完成待辦 → 對照 `.hub/todos.json`
-的 trash（已放棄的不要再提）→ 用鼓勵、不責備的語氣寫 `message`（可點名 1–2 件最該處理的事）。
+的 trash（已放棄的不要再提）→ 用鼓勵、不責備的語氣寫 `message`（可點名 1–2 件最該處理的事）
+→ 順手把這幾天的 `mood`／`themes` 補進 `.hub/journal-meta.json`（日記分頁「回顧」會顯示）。
 
 ## 週檢討（使用者的進度追蹤機制，來源：Notes/Planning/2026~2027 計畫.md）
 

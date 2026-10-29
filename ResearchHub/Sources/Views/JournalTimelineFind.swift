@@ -15,6 +15,8 @@ final class JournalTimelineFindEngine: FindEngine {
     var jump: (Date) -> Void
     /// 那一天的編輯器目前的 NSView（原始碼 NSTextView 或區塊編輯器的 WKWebView）
     var innerTarget: () -> NSView?
+    /// 那一天是不是「心得日」（旁車檔 kind 優先，否則本地分類；5.2「只搜心得日」用）
+    var isReflective: @Sendable (Date) -> Bool
 
     private var hits: [SearchEngine.Hit] = []
     private var index = 0
@@ -28,26 +30,46 @@ final class JournalTimelineFindEngine: FindEngine {
         set { UserDefaults.standard.set(newValue, forKey: Self.newestFirstKey) }
     }
 
-    var options: [FindOption] {
-        [FindOption(id: "oldestFirst", title: "最舊在上（往下是往新）", isOn: !newestFirst) { [weak self] in
-            guard let self else { return }
-            self.newestFirst.toggle()
-            self.lastQuery = ""   // 下一次 find 會重排
-        }]
+    private static let reflectiveOnlyKey = "journal.searchReflectiveOnly"
+    private var reflectiveOnly: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.reflectiveOnlyKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.reflectiveOnlyKey) }
     }
 
-    init(root: URL?, jump: @escaping (Date) -> Void, innerTarget: @escaping () -> NSView?) {
+    var options: [FindOption] {
+        [
+            FindOption(id: "oldestFirst", title: "最舊在上（往下是往新）", isOn: !newestFirst) { [weak self] in
+                guard let self else { return }
+                self.newestFirst.toggle()
+                self.lastQuery = ""   // 下一次 find 會重排
+            },
+            FindOption(id: "reflectiveOnly", title: "只搜心得日（略過流水帳）", isOn: reflectiveOnly) { [weak self] in
+                guard let self else { return }
+                self.reflectiveOnly.toggle()
+                self.lastQuery = ""
+            },
+        ]
+    }
+
+    init(root: URL?, jump: @escaping (Date) -> Void, innerTarget: @escaping () -> NSView?,
+         isReflective: @escaping @Sendable (Date) -> Bool = { _ in true }) {
         self.root = root
         self.jump = jump
         self.innerTarget = innerTarget
+        self.isReflective = isReflective
     }
 
     func find(_ query: String, forward: Bool, restart: Bool) async -> (index: Int, total: Int) {
         if restart || query != lastQuery {
             let root = self.root
             let newestFirst = self.newestFirst
+            let reflectiveOnly = self.reflectiveOnly
+            let isReflective = self.isReflective
             hits = await Task.detached(priority: .userInitiated) {
-                let found = SearchEngine.search(query, scope: .journal, root: root)   // 引擎給的是新到舊
+                var found = SearchEngine.search(query, scope: .journal, root: root)   // 引擎給的是新到舊
+                if reflectiveOnly {
+                    found = found.filter { hit in hit.date.map(isReflective) ?? true }
+                }
                 return newestFirst ? found : found.reversed()
             }.value
             lastQuery = query

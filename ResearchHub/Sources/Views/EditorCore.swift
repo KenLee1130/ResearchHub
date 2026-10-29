@@ -71,6 +71,7 @@ struct EditorModePicker: View {
 enum JournalQuickAction {
     case go(String)   // /go 的參數原文（需要「目前顯示哪天」的脈絡，由 JournalView 解析）
     case list         // /list 開任務總覽
+    case review       // /review 開回顧頁
 }
 
 /// 貼上圖片時要插入什麼語法。
@@ -310,7 +311,7 @@ struct EditorCore: View {
 // MARK: - 底部快速命令列（日記用）
 
 /// 嚴格命令列：一定要打 / 指令才會做事，沒有對應指令會顯示錯誤。
-/// 支援 /todo /spend /sub /h1-h3 /toggle /bullet /num /move /go /list；
+/// 支援 /todo /spend /sub /h1-h3 /toggle /bullet /num /move /go /list /review；
 /// 打 / 出現提示選單（↑↓ 選、Tab 補全、Enter 執行、Esc 取消）。
 struct QuickCommandBar: View {
     @Binding var text: String
@@ -357,6 +358,7 @@ struct QuickCommandBar: View {
         .init(name: "/num", arg: "文字", desc: "加入編號清單"),
         .init(name: "/go", arg: "7/10・+3・明天", desc: "日記跳到那一天"),
         .init(name: "/list", arg: "", desc: "開任務總覽"),
+        .init(name: "/review", arg: "", desc: "開回顧（往年的今天、心得精選、心情）"),
     ]
 
     /// @ / ! 標記提示（insert 以 "(" 結尾的，補完後游標留在括號內側繼續打值）
@@ -847,6 +849,10 @@ struct QuickCommandBar: View {
         case "/list", "/tasks":
             input = ""
             _ = onJournal?(.list)
+            return
+        case "/review", "/recap":
+            input = ""
+            _ = onJournal?(.review)
             return
         default:
             errorMsg = "未知指令：\(cmd)（輸入 / 看清單）"

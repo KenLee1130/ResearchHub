@@ -120,11 +120,14 @@ public final class GeneralTodoStore {
     public private(set) var weekly: [WeeklyRecord] = []
     /// 記帳類別白名單（.hub/ledger-categories.json；沒有就寫一份預設的）
     public private(set) var ledgerCategories: LedgerCategories = .default
+    /// 日記回顧旁車檔（.hub/journal-meta.json；Claude 寫、app 只讀），鍵是 yyyy-MM-dd
+    public private(set) var journalMeta: JournalMetaFile.Contents = [:]
 
     private var fileURL: URL?
     private var insightsURL: URL?
     private var weeklyURL: URL?
     private var ledgerCategoriesURL: URL?
+    private var journalMetaURL: URL?
     /// todos.json 已確實讀到（或確定不存在）。iCloud 還沒下載完時是 false，這時不能存檔。
     private var todosReady = false
     /// 檔案還沒下載完時使用者就動了手：等檔案到了以 id 合併後再存
@@ -157,6 +160,8 @@ public final class GeneralTodoStore {
             insightsURL = nil
             weeklyURL = nil
             ledgerCategoriesURL = nil
+            journalMetaURL = nil
+            journalMeta = [:]
             todos = []
             trash = []
             insights = nil
@@ -173,6 +178,7 @@ public final class GeneralTodoStore {
         insightsURL = claudeDir.appendingPathComponent("insights.json")
         weeklyURL = hub.appendingPathComponent("weekly.json")
         ledgerCategoriesURL = hub.appendingPathComponent("ledger-categories.json")
+        journalMetaURL = hub.appendingPathComponent("journal-meta.json")
         todosReady = false
         editedWhileNotReady = false
         reload()
@@ -184,7 +190,8 @@ public final class GeneralTodoStore {
                 if change.affects(self.fileURL)
                     || change.affects(self.insightsURL)
                     || change.affects(self.weeklyURL)
-                    || change.affects(self.ledgerCategoriesURL) {
+                    || change.affects(self.ledgerCategoriesURL)
+                    || change.affects(self.journalMetaURL) {
                     self.reload()
                 }
             }
@@ -219,6 +226,17 @@ public final class GeneralTodoStore {
                 weekly = (try? decoder.decode([WeeklyRecord].self, from: data)) ?? weekly
             case .missing:
                 weekly = []
+            case .notDownloaded:
+                break
+            }
+        }
+
+        if let journalMetaURL {
+            switch LibraryFileRead.read(journalMetaURL) {
+            case .data(let data):
+                journalMeta = JournalMetaFile.decode(data) ?? journalMeta
+            case .missing:
+                journalMeta = [:]
             case .notDownloaded:
                 break
             }

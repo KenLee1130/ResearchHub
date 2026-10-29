@@ -32,6 +32,8 @@ public nonisolated final class LibraryIndex: @unchecked Sendable {
         let lines: [TodoLine]
         /// 這個檔裡的 @spend（day 先填佔位，ledgerEntries(in:day:) 回傳時換成日記那天）
         let ledger: [LedgerEntry]
+        /// 本地啟發式分類（日記回顧用；旁車檔 journal-meta.json 的 kind 會覆寫）
+        let kind: JournalKind
     }
 
     private let lock = NSLock()
@@ -48,6 +50,11 @@ public nonisolated final class LibraryIndex: @unchecked Sendable {
             LedgerEntry(day: day, amount: $0.amount, category: $0.category,
                         note: $0.note, lineIndex: $0.lineIndex)
         }
+    }
+
+    /// 這個檔（日記）是流水帳還是心得（本地啟發式；讀不到回 nil）。
+    public func journalKind(in url: URL) -> JournalKind? {
+        entry(for: url)?.kind
     }
 
     private func entry(for url: URL) -> Entry? {
@@ -70,7 +77,8 @@ public nonisolated final class LibraryIndex: @unchecked Sendable {
         guard let content = ICloudFile.safeRead(url) else { return nil }
         let entry = Entry(modified: modified, size: size, parsedDay: today,
                           lines: Self.parse(content),
-                          ledger: LedgerParser.entries(in: content, day: .distantPast))
+                          ledger: LedgerParser.entries(in: content, day: .distantPast),
+                          kind: JournalClassifier.classify(content))
         lock.lock()
         entries[path] = entry
         lock.unlock()
