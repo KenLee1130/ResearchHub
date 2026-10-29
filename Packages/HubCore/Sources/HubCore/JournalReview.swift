@@ -98,6 +98,8 @@ public nonisolated enum JournalClassifier {
             guard !line.isEmpty else { continue }
             nonEmpty += 1
             if line.hasPrefix("#") { continue }   // 標題不算散文也不算清單
+            // 分隔線（---、***、___）不是散文
+            if line.range(of: #"^([-*_])\1{2,}$"#, options: .regularExpression) != nil { continue }
             if line.range(of: #"^(?:[-*+]|\d+\.)\s+(?:\[[ xX\-]\]\s*)?"#, options: .regularExpression) != nil
                 || line.hasPrefix("> [!") {
                 listLines += 1

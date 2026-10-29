@@ -78,7 +78,7 @@ final class JournalReviewTests: XCTestCase {
     }
 
     func testExcerptPrefersProseAndTruncates() {
-        let content = "# 標題\n- [ ] 待辦\n第一段散文。\n> 引用的第二段。\n"
+        let content = "# 標題\n---\n- [ ] 待辦\n第一段散文。\n> 引用的第二段。\n***\n"
         XCTAssertEqual(JournalClassifier.excerpt(content), "第一段散文。 引用的第二段。")
         XCTAssertEqual(JournalClassifier.excerpt("- [ ] 只有待辦 @due(7/1)\n- 一個清單"), "只有待辦 @due(7/1) 一個清單")
         let long = String(repeating: "字", count: 300)
