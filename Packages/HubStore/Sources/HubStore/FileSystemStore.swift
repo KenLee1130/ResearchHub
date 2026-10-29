@@ -603,9 +603,13 @@ public final class FileSystemStore {
         return Set(lines.filter(\.done).map { $0.meta.cleanText })
     }
 
-    /// 這個事件（含重複事件的實例）在當天日記裡對應的那行是否已勾掉 → 行事曆上畫刪除線。
+    /// 這個事件（含重複事件的實例）在當天日記裡對應的待辦是否已勾掉 → 行事曆上畫刪除線。
+    /// 認兩種：規劃寫進去的「HH:mm–HH:mm 標題」，或使用者自己寫的、文字就是事件標題的待辦。
     public func isPlannedEventDone(_ event: CalendarEvent, calendar: Calendar = .current) -> Bool {
-        doneTodoTexts(on: calendar.startOfDay(for: event.start)).contains(Self.plannedCleanText(for: event))
+        let done = doneTodoTexts(on: calendar.startOfDay(for: event.start))
+        guard !done.isEmpty else { return false }
+        let title = event.title.trimmingCharacters(in: .whitespaces)
+        return done.contains(Self.plannedCleanText(for: event)) || (!title.isEmpty && done.contains(title))
     }
 
     /// 日記最上面的「規劃」段：從檔首到第一條 `---` 之間全是待辦行（或空行）。

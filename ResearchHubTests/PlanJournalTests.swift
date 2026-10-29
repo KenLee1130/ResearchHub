@@ -76,5 +76,10 @@ final class PlanJournalTests: XCTestCase {
         XCTAssertTrue(store.isPlannedEventDone(events[0], calendar: calendar))
         XCTAssertFalse(store.isPlannedEventDone(events[1], calendar: calendar))
         XCTAssertEqual(FileSystemStore.plannedCleanText(for: events[0]), "10:00–12:00 期中考 複習 1/2")
+
+        // 使用者自己寫的待辦，文字就是事件標題 → 勾掉也算
+        try (try String(contentsOf: d3, encoding: .utf8) + "\n- [x] 期中考 複習 2/2 !high\n")
+            .write(to: d3, atomically: true, encoding: .utf8)
+        XCTAssertTrue(store.isPlannedEventDone(events[1], calendar: calendar))
     }
 }
