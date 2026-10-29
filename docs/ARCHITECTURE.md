@@ -217,6 +217,16 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
 - ③ 回顧頁：「一年前的今天」、每月心得精選、心情時間軸；日記 ⌘F 多「只搜心得日」開關。
 - ④ Claude 的 insights 流程順手補 `themes`／`mood`，寫回同一個檔。
 
+落地（2026-10-29）：
+- ① 旁車檔 **app 只讀不寫**：分類結果即時算（快取在 `LibraryIndex`，跟待辦同一次讀檔），
+  檔裡的 `kind` 覆寫它；`mood`／`themes` 只來自檔案。這樣 Claude 的覆寫不會被 app 重算蓋掉。
+  `GeneralTodoStore.journalMeta` 讀檔並跟著 iCloud 變動重讀。
+- ② `JournalClassifier.analyze`：清單行比例、散文字數、中英情緒詞／第一人稱命中數；
+  `reflective` ＝ 散文 ≥ 120 字 且（有情緒詞 或 散文 ≥ 400 字）且 清單行 < 70%。`excerpt` 給回顧頁摘錄。
+- ③ `JournalReviewView` 佔日記分頁編輯器的位置（標題列「回顧」鈕或 `/review`）：往年的今天、
+  心情時間軸（最近 90 筆有 mood 的天）、每月心得精選（最近 12 個月、每月 ≤ 3 天，Claude 標過的優先）；
+  資料由 `LibraryScan.journalReview` 背景算。⌘F 尋找列多「只搜心得日」（`JournalTimelineFindEngine`）。
+
 ## 6. 遷移順序
 
 每一步可單獨 ship；**搬家與改行為分開 commit**；用舊 worktree 的 diff 驗證輸出不變；

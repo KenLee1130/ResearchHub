@@ -34,6 +34,8 @@ struct JournalView: View {
     @State private var eventSheet: EventSheetConfig?
     /// /list 任務總覽（開著時暫時卸下編輯器：先存檔，讓總覽能安全改檔案）
     @State private var showTaskManager = false
+    /// 回顧頁（5.2）：開著時佔用編輯器的位置
+    @State private var showReview = false
 
     struct EventSheetConfig: Identifiable {
         let id = UUID()
@@ -118,8 +120,13 @@ struct JournalView: View {
                 jump: { day in
                     selectedDay = calendar.startOfDay(for: day)
                     displayedMonth = calendar.startOfMonth(for: day)
+                    showReview = false
                 },
-                innerTarget: { editor.findTarget() })
+                innerTarget: { editor.findTarget() },
+                isReflective: { [journal = store.journalURL, meta = generalStore.journalMeta] day in
+                    guard let url = LibraryScan.journalURL(for: day, journal: journal) else { return false }
+                    return LibraryScan.journalKind(url: url, day: day, meta: meta) == .reflective
+                })
             AppContainer.shared.pageFinder.show(in: anchor, engine: engine)
             return true
         }
@@ -341,12 +348,14 @@ struct JournalView: View {
                     journalHeaderLeading
                     Spacer(minLength: 12)
                     timeBudgetBar
+                    reviewToggle
                     EditorModePicker(mode: $mode, available: [.blocks, .source])
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 12) {
                         journalHeaderLeading
                         Spacer(minLength: 12)
+                        reviewToggle
                         EditorModePicker(mode: $mode, available: [.blocks, .source])
                     }
                     HStack {
@@ -363,6 +372,14 @@ struct JournalView: View {
             if showTaskManager {
                 // 總覽開著：編輯器卸下（onDisappear 會先存檔），總覽可安全改日記檔
                 Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if showReview {
+                JournalReviewView(
+                    onOpenDay: { day in
+                        selectedDay = calendar.startOfDay(for: day)
+                        displayedMonth = calendar.startOfMonth(for: day)
+                        showReview = false
+                    },
+                    onClose: { showReview = false })
             } else if let url = journalURL(for: selectedDay) {
                 EditorCore(
                     fileURL: url, mode: $mode,
@@ -372,6 +389,19 @@ struct JournalView: View {
                     .id(url)
             }
         }
+    }
+
+    /// 回顧頁開關（往年的今天、每月心得精選、心情時間軸）
+    private var reviewToggle: some View {
+        Button {
+            showReview.toggle()
+        } label: {
+            Label("回顧", systemImage: "clock.arrow.circlepath")
+                .labelStyle(.iconOnly)
+                .foregroundStyle(showReview ? Color.accentColor : .secondary)
+        }
+        .buttonStyle(.plain)
+        .help(showReview ? "回到日記" : "回顧：往年的今天、每月心得、心情時間軸（/review）")
     }
 
     /// 標題列左半：日期切換鍵＋標題（一列/兩列佈局共用）
@@ -520,6 +550,9 @@ struct JournalView: View {
         switch action {
         case .list:
             showTaskManager = true
+            return true
+        case .review:
+            showReview = true
             return true
         case .go(let arg):
             guard let day = parseGoTarget(arg) else { return false }
