@@ -31,6 +31,16 @@
         }
       }
     },
+    "%@ 小時": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ h"
+          }
+        }
+      }
+    },
     "%@–%@": {
       "localizations": {
         "en": {
@@ -94,6 +104,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld tasks"
+          }
+        }
+      }
+    },
+    "%lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "%lld 小時": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        }
+      }
+    },
+    "%lld 小時 %lld 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld h %2$lld min"
+          }
+        }
+      }
+    },
+    "%lld 段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessions"
           }
         }
       }
@@ -279,6 +329,16 @@
         }
       }
     },
+    "一段都排不進去。回去改目標日、每段長度或每天上限。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing fits. Go back and change the target day, session length or daily limit."
+          }
+        }
+      }
+    },
     "一般": {
       "localizations": {
         "en": {
@@ -305,6 +365,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pomodoros per cycle: %lld"
+          }
+        }
+      }
+    },
+    "上午（09:00 起）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morning (from 09:00)"
           }
         }
       }
@@ -352,6 +422,16 @@
       }
     },
     "下一顆要做什麼（繼續工作時）": {},
+    "下午（14:00 起）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afternoon (from 14:00)"
+          }
+        }
+      }
+    },
     "主線歸屬": {
       "localizations": {
         "en": {
@@ -606,6 +686,16 @@
       }
     },
     "倒數以結束時刻計算——鎖屏、切出去都不會停，時間到會推播通知。": {},
+    "偏好時段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preferred time"
+          }
+        }
+      }
+    },
     "儲存": {
       "localizations": {
         "en": {
@@ -632,6 +722,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "All day"
+          }
+        }
+      }
+    },
+    "全部刪除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete all"
           }
         }
       }
@@ -667,6 +767,16 @@
         }
       }
     },
+    "共 %lld 段，可逐段調時間或刪掉。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessions. Adjust or remove each one."
+          }
+        }
+      }
+    },
     "再休息一下": {},
     "分隔線": {
       "localizations": {
@@ -674,6 +784,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Divider"
+          }
+        }
+      }
+    },
+    "刪掉「%@」規劃排出來的全部時段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove every session scheduled by the “%@” plan"
+          }
+        }
+      }
+    },
+    "刪掉這一段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this session"
           }
         }
       }
@@ -708,6 +838,26 @@
         }
       }
     },
+    "刪除整個規劃「%@」（%lld 段）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete the whole plan “%1$@” (%2$lld sessions)"
+          }
+        }
+      }
+    },
+    "刪除整個規劃（%lld 段）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete whole plan (%lld sessions)"
+          }
+        }
+      }
+    },
     "刪除該行": {
       "localizations": {
         "en": {
@@ -724,6 +874,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete this event?"
+          }
+        }
+      }
+    },
+    "刪除這個規劃的全部 %lld 段？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete all %lld sessions of this plan?"
           }
         }
       }
@@ -774,6 +934,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add to Calendar"
+          }
+        }
+      }
+    },
+    "加入行事曆（%lld 段）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to calendar (%lld sessions)"
           }
         }
       }
@@ -1160,6 +1330,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Next day (⌘⌥→)"
+          }
+        }
+      }
+    },
+    "從今天到 %@，共 %lld 天，會排 %lld 段。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From today to %1$@: %2$lld days, %3$lld sessions."
           }
         }
       }
@@ -1640,6 +1820,26 @@
         }
       }
     },
+    "時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time"
+          }
+        }
+      }
+    },
+    "晚上（19:00 起）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evening (from 19:00)"
+          }
+        }
+      }
+    },
     "晚安": {
       "localizations": {
         "en": {
@@ -1743,12 +1943,32 @@
         }
       }
     },
+    "會避開既有事件與 23:00–08:00，每段之間至少留 15 分鐘。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Existing events and 23:00–08:00 are avoided, with at least 15 minutes between sessions."
+          }
+        }
+      }
+    },
     "有 %lld 件事在日記裡重複出現。太重要就拆小一點今天做一步；不重要就放心丟掉——丟掉也是一種完成。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld tasks keep reappearing in your journal. If one matters, break it down and take a step today; if not, let it go — dropping is also done."
+          }
+        }
+      }
+    },
+    "有 %lld 段排不進去：日期太短或行事曆太滿，可以縮短每段、提高每天上限或改目標日。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessions did not fit: too few days or a full calendar. Shorten sessions, raise the daily limit or move the target day."
           }
         }
       }
@@ -1841,6 +2061,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "View mode"
+          }
+        }
+      }
+    },
+    "每天最多": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per day at most"
+          }
+        }
+      }
+    },
+    "每段名稱（選填，例如：複習）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session label (optional, e.g. review)"
+          }
+        }
+      }
+    },
+    "每段長度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session length"
           }
         }
       }
@@ -2022,6 +2272,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing keeps getting pushed back right now — great state, keep it up!"
+          }
+        }
+      }
+    },
+    "目標日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target day"
+          }
+        }
+      }
+    },
+    "目標日已經過了，請往後選。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The target day has passed; pick a later one."
+          }
+        }
+      }
+    },
+    "目標日當天也排": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also schedule on the target day"
+          }
+        }
+      }
+    },
+    "目標（例如：期中考、約會）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goal (e.g. midterm, date night)"
           }
         }
       }
@@ -2251,6 +2541,16 @@
         }
       }
     },
+    "總時數": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total hours"
+          }
+        }
+      }
+    },
     "繁體中文": {
       "comment": "Language name — kept verbatim across locales",
       "localizations": {
@@ -2288,6 +2588,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mind clear — drop anything in here"
+          }
+        }
+      }
+    },
+    "自動（高產時段）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto (peak hours)"
+          }
+        }
+      }
+    },
+    "與「%@」重疊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overlaps “%@”"
           }
         }
       }
@@ -2352,6 +2672,26 @@
         }
       }
     },
+    "規劃": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan"
+          }
+        }
+      }
+    },
+    "規劃…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan…"
+          }
+        }
+      }
+    },
     "規劃明天": {
       "localizations": {
         "en": {
@@ -2368,6 +2708,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plan Tomorrow — %@"
+          }
+        }
+      }
+    },
+    "規劃時段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan sessions"
+          }
+        }
+      }
+    },
+    "規劃：給一個目標（期中考、約會）與目標日，把要投入的時數拆成多段排進行事曆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan: give a goal (midterm, date night) and a target day; the hours are split into sessions on the calendar"
           }
         }
       }
@@ -2493,6 +2853,16 @@
         }
       }
     },
+    "越早越好": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As early as possible"
+          }
+        }
+      }
+    },
     "跟隨系統": {
       "localizations": {
         "en": {
@@ -2549,6 +2919,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export PDF"
+          }
+        }
+      }
+    },
+    "返回修改": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back"
+          }
+        }
+      }
+    },
+    "這一段是「%@」規劃排出來的。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This session was scheduled by the “%@” plan."
           }
         }
       }
@@ -3035,6 +3425,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preview"
+          }
+        }
+      }
+    },
+    "預覽時段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview sessions"
+          }
+        }
+      }
+    },
+    "預覽：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview: %@"
           }
         }
       }
