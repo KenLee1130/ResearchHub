@@ -756,7 +756,7 @@ struct HomeView: View {
         guard let monday = cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: today)
         else { return (0, 0) }
 
-        let blocks = eventStore.events.filter { event in
+        let blocks = eventStore.occurrences(from: monday, to: today).filter { event in
             guard let tag = eventStore.tag(for: event.tagID),
                   Self.blockTagNames.contains(tag.name) else { return false }
             return event.start >= monday && event.start <= now

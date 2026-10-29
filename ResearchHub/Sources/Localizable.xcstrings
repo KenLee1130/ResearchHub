@@ -452,6 +452,16 @@
         }
       }
     },
+    "不重複": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never"
+          }
+        }
+      }
+    },
     "主線歸屬": {
       "localizations": {
         "en": {
@@ -690,6 +700,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "e.g. finished the IRCFT part of the free boson"
+          }
+        }
+      }
+    },
+    "修改或刪除會套用整個系列。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes and deletion apply to the whole series."
           }
         }
       }
@@ -938,6 +958,16 @@
         }
       }
     },
+    "前一天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous day"
+          }
+        }
+      }
+    },
     "前一天（⌘⌥←）": {
       "localizations": {
         "en": {
@@ -1140,6 +1170,16 @@
         }
       }
     },
+    "天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "days"
+          }
+        }
+      }
+    },
     "好": {
       "localizations": {
         "en": {
@@ -1273,6 +1313,16 @@
         }
       }
     },
+    "年": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "years"
+          }
+        }
+      }
+    },
     "幾分鐘": {
       "localizations": {
         "en": {
@@ -1360,6 +1410,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit tasks and events above; write longer entries in the journal."
+          }
+        }
+      }
+    },
+    "後一天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next day"
           }
         }
       }
@@ -1972,6 +2032,16 @@
         }
       }
     },
+    "最後一次不晚於": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last occurrence no later than"
+          }
+        }
+      }
+    },
     "最近 60 天 · %lld 顆（依開始時刻統計）": {
       "localizations": {
         "en": {
@@ -2023,6 +2093,16 @@
         }
       }
     },
+    "月": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "months"
+          }
+        }
+      }
+    },
     "有 %lld 件事在日記裡重複出現。太重要就拆小一點今天做一步；不重要就放心丟掉——丟掉也是一種完成。": {
       "localizations": {
         "en": {
@@ -2039,6 +2119,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld sessions did not fit: too few days or a full calendar. Shorten sessions, raise the daily limit or move the target day."
+          }
+        }
+      }
+    },
+    "有結束日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ends on a date"
           }
         }
       }
@@ -2135,12 +2225,32 @@
         }
       }
     },
+    "每 %lld %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %1$lld %2$@"
+          }
+        }
+      }
+    },
     "每一段的名稱在預覽裡改；沒改的用「目標 1/5」這種編號。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Rename each session in the preview; unchanged ones are numbered like “Goal 1/5”."
+          }
+        }
+      }
+    },
+    "每天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every day"
           }
         }
       }
@@ -2155,12 +2265,42 @@
         }
       }
     },
+    "每年": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every year"
+          }
+        }
+      }
+    },
+    "每月": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every month"
+          }
+        }
+      }
+    },
     "每段長度": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Session length"
+          }
+        }
+      }
+    },
+    "每週": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every week"
           }
         }
       }
@@ -3175,6 +3315,16 @@
         }
       }
     },
+    "週": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weeks"
+          }
+        }
+      }
+    },
     "過期 {n} 天": {
       "localizations": {
         "en": {
@@ -3395,6 +3545,16 @@
         }
       }
     },
+    "重複": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat"
+          }
+        }
+      }
+    },
     "重要": {
       "localizations": {
         "en": {
@@ -3493,6 +3653,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Planned before starting"
+          }
+        }
+      }
+    },
+    "間隔": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval"
           }
         }
       }
@@ -3675,6 +3845,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "(no details recorded)"
+          }
+        }
+      }
+    },
+    "，到 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", until %@"
           }
         }
       }

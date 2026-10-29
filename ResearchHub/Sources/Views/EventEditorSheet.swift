@@ -50,7 +50,7 @@ struct EventEditorSheet: View {
                     if isNew {
                         eventStore.add(event)
                     } else {
-                        eventStore.update(event)
+                        eventStore.update(eventStore.applyingSeriesDates(event))
                     }
                     dismiss()
                 }

@@ -337,24 +337,44 @@ struct PlanSessionRow: View {
                     DatePicker("開始", selection: startBinding, displayedComponents: [.hourAndMinute])
                         .labelsHidden()
                     Text(verbatim: "–").foregroundStyle(.secondary)
-                    DatePicker("結束", selection: endBinding, in: minimumEnd..., displayedComponents: [.hourAndMinute])
+                    DatePicker("結束", selection: endBinding, displayedComponents: [.hourAndMinute])
                         .labelsHidden()
                     Spacer(minLength: 0)
                 }
                 #else
                 HStack(spacing: 6) {
+                    // Mac 的日期欄位年在最前面，上下箭頭會先動到「年」；改成 ‹ › 一天一天調，欄位本身仍可打字
+                    Button { shiftDay(-1) } label: { Image(systemName: "chevron.left") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help("前一天")
                     DatePicker("日期", selection: startBinding, displayedComponents: [.date])
                         .labelsHidden()
+                        .datePickerStyle(.field)
+                    Button { shiftDay(1) } label: { Image(systemName: "chevron.right") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help("後一天")
                     DatePicker("開始", selection: startBinding, displayedComponents: [.hourAndMinute])
                         .labelsHidden()
                     Text(verbatim: "–").foregroundStyle(.secondary)
-                    DatePicker("結束", selection: endBinding, in: minimumEnd..., displayedComponents: [.hourAndMinute])
+                    // 結束不設 in: 下限：AppKit 會把顯示值夾到下限卻不回報，畫面和模型會對不上；由 setter 擋
+                    DatePicker("結束", selection: endBinding, displayedComponents: [.hourAndMinute])
                         .labelsHidden()
                 }
                 .font(.caption)
                 #endif
                 HStack(spacing: 8) {
                     Text(verbatim: summary)
+                    Picker(selection: repeatBinding) {
+                        Text("不重複").tag(EventRepeat.Frequency?.none)
+                        ForEach(EventRepeat.Frequency.allCases, id: \.self) { f in
+                            Text(f.everyLabel).tag(Optional(f))
+                        }
+                    } label: {
+                        Label(event.repeatRule?.label ?? L("不重複"), systemImage: "repeat")
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .fixedSize()
                     if let conflict {
                         Label("與「\(conflict.title)」重疊", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -376,6 +396,18 @@ struct PlanSessionRow: View {
     }
 
     private var minimumEnd: Date { event.start.addingTimeInterval(15 * 60) }
+
+    /// 每段各自的重複：不重複／每天／每週／每月／每年（間隔 1、不設結束日；細節在事件編輯器改）
+    private var repeatBinding: Binding<EventRepeat.Frequency?> {
+        Binding(
+            get: { event.repeatRule?.frequency },
+            set: { f in event.repeatRule = f.map { EventRepeat(frequency: $0) } })
+    }
+
+    private func shiftDay(_ delta: Int) {
+        guard let new = Calendar.current.date(byAdding: .day, value: delta, to: event.start) else { return }
+        startBinding.wrappedValue = new
+    }
 
     /// 改開始：結束跟著平移、長度不變。
     private var startBinding: Binding<Date> {

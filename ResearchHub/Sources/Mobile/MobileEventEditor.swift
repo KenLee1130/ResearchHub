@@ -92,7 +92,7 @@ struct MobileEventEditor: View {
         var event = draft
         event.title = event.title.trimmingCharacters(in: .whitespaces)
         if event.end < event.start { event.end = event.start }
-        if isNew { eventStore.add(event) } else { eventStore.update(event) }
+        if isNew { eventStore.add(event) } else { eventStore.update(eventStore.applyingSeriesDates(event)) }
         dismiss()
     }
 }
@@ -121,6 +121,10 @@ struct MobileEventRow: View {
                 }
                 HStack(spacing: 6) {
                     Text(verbatim: timeString)
+                    if let rule = event.repeatRule {
+                        Label(rule.label, systemImage: "repeat")
+                            .labelStyle(.titleAndIcon)
+                    }
                     if let tag {
                         Text(verbatim: "· \(tag.name)")
                     }

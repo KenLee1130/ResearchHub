@@ -620,6 +620,9 @@ struct JournalView: View {
                 }
                 HStack(spacing: 6) {
                     Text(timeString(for: event))
+                    if let rule = event.repeatRule {
+                        Label(rule.label, systemImage: "repeat")
+                    }
                     if let tag {
                         Text(tag.name)
                             .foregroundStyle(tag.color)
@@ -800,7 +803,7 @@ struct JournalView: View {
 
         var laneEnds: [Date] = []
 
-        for event in eventStore.events.sorted(by: { $0.start < $1.start }) {
+        for event in eventStore.occurrences(from: monthStart, to: monthEnd) {
             let s = calendar.startOfDay(for: event.start)
             let e = calendar.startOfDay(for: event.end)
             guard e >= monthStart, s <= monthEnd else { continue }

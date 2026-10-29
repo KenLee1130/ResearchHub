@@ -262,6 +262,12 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   `PlanScheduler.firstSlot`）。每段可填「要做什麼」，寫進行事曆時放在 `notes` 第一行、
   自動的「第 i 段，共 n 段」那行留在後面（`PlanDraft.finalize`）。
 
+- 重複事件（2026-10-29 補）：`CalendarEvent.repeatRule`（檔案鍵 `repeat`：`frequency` daily/weekly/monthly/yearly、
+  `interval`、`until`），檔案只存第一次，`occurrence(on:)`／`occurrences(from:to:)` 展開實例（id 相同、時間平移；
+  31 號的每月在小月跳過；`until` 含當天）。`EventStore.events(on:)`、`occurrences(from:to:)` 都已展開，月曆標記、
+  首頁執行率照用。編輯某一次的實例存回去走 `applyingSeriesDates`：沿用系列第一天、只套用新時間與長度；
+  刪除刪整個系列。事件表單多「重複」區；規劃預覽每段可各自設重複；.ics 寫 RRULE。
+
 ## 6. 遷移順序
 
 每一步可單獨 ship；**搬家與改行為分開 commit**；用舊 worktree 的 diff 驗證輸出不變；
