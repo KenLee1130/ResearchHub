@@ -14,6 +14,8 @@ struct MobileCalendarView: View {
     @State private var displayedMonth = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
     @State private var eventSheet: MobileEventSheet?
+    /// 「規劃」sheet：一個目標拆成多段時段
+    @State private var showPlanSheet = false
     /// 當天日記的未完成待辦數（讓使用者知道那天「要做的事」不只事件）
     @State private var openTodoCount = 0
     @State private var icsFile: URL?
@@ -53,6 +55,12 @@ struct MobileCalendarView: View {
                         }
                     }
                     Button {
+                        showPlanSheet = true
+                    } label: {
+                        Image(systemName: "calendar.badge.clock")
+                    }
+                    .accessibilityLabel("規劃")
+                    Button {
                         eventSheet = .new(on: selectedDay, tag: eventStore.tags.first)
                     } label: {
                         Image(systemName: "plus")
@@ -61,6 +69,9 @@ struct MobileCalendarView: View {
             }
             .sheet(item: $eventSheet) { config in
                 MobileEventEditor(draft: config.draft, isNew: config.isNew)
+            }
+            .sheet(isPresented: $showPlanSheet) {
+                MobilePlanSheet(draft: PlanDraft.initial(near: selectedDay, tag: eventStore.tags.first))
             }
             .onAppear {
                 reloadTodoCount()
@@ -196,10 +207,17 @@ struct MobileCalendarView: View {
                     Text("沒有事件")
                         .font(.callout)
                         .foregroundStyle(.tertiary)
-                    Button {
-                        eventSheet = .new(on: selectedDay, tag: eventStore.tags.first)
-                    } label: {
-                        Label("新增事件", systemImage: "plus")
+                    HStack(spacing: 10) {
+                        Button {
+                            eventSheet = .new(on: selectedDay, tag: eventStore.tags.first)
+                        } label: {
+                            Label("新增事件", systemImage: "plus")
+                        }
+                        Button {
+                            showPlanSheet = true
+                        } label: {
+                            Label("規劃…", systemImage: "calendar.badge.clock")
+                        }
                     }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.capsule)

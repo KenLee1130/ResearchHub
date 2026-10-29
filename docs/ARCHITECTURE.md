@@ -230,6 +230,33 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   心情時間軸（最近 90 筆有 mood 的天）、每月心得精選（最近 12 個月、每月 ≤ 3 天，Claude 標過的優先）；
   資料由 `LibraryScan.journalReview` 背景算。⌘F 尋找列多「只搜心得日」（`JournalTimelineFindEngine`）。
 
+### 5.3 行事曆規劃（一個目標拆成多段時段）
+
+痛點：TimeTree／Apple 行事曆一次只能丟一個事件，沒辦法「提前規劃」——期中考要在考前排好幾段複習、
+約會要預先把時間空下來。
+
+- ① `events.json` 的事件多兩個**可選**欄位：`planID`（同一目標排出的時段共用一個 UUID）與
+  `planTitle`（目標名，如「期中考」；事件改名後仍看得出歸屬）。一般事件沒有這兩個欄位，
+  nil 時不寫進檔案，所以沒用到規劃的 events.json 跟舊版一模一樣；解碼容錯，`DataContract` 不升。
+  資料型別 `CalendarEvent`／`EventTag` 從 HubStore 搬到 HubCore（`CalendarEvent.swift`），
+  因為排程器要直接產出事件；HubStore 的 `EventStore` 只管讀寫。
+- ② `PlanScheduler`（HubCore，Foundation only）：`PlanRequest`（目標、每段稱呼、首日／末日、總分鐘、
+  每段分鐘）＋ `PlanRules`（08:00–23:00、每天上限、偏好開始時刻、15 分鐘緩衝與對齊、全天事件不擋）
+  → `PlanResult`（事件清單＋排不進去的段數）。做法：先算每天的空檔（扣掉既有事件、夜間、今天已過的
+  時間），同一天裡挑離偏好時刻最近的開始；再把 n 段分到有空的日子——段數 ≤ 天數就等距挑（頭尾各一段），
+  段數 > 天數就每天輪流加一段，多的先堆在靠近目標日那幾天（`distribute`）。標題「期中考 複習 1/5」、
+  `notes` 寫第幾段／共幾段／合計時數。偏好時刻由呼叫端給
+  `PomodoroModel.productivityProfile(days: 60).peakWindowStart`，樣本不足（< 10 顆）是 nil → 取最早可用。
+  `EventStore` 多 `add(contentsOf:)`（一次存檔）、`events(inPlan:)`、`deletePlan(_:)`。
+  測試在 `ResearchHubTests/PlanSchedulerTests.swift`。
+- ③ 表單與預覽列共用 `Views/PlanFormFields.swift`（`PlanDraft`：目標日、是否含目標日、總時數、每段長度、
+  每天上限、偏好時段 自動／上午／下午／晚上／越早越好；`PlanSessionRow` 可調開始時間、顯示與既有事件的重疊；
+  刪掉一段後 `renumber` 重編「i/n」）。外殼：Mac `Views/PlanSheet.swift`（日記分頁 calendarPane「＋」旁的「規劃」）、
+  iPhone `Mobile/MobilePlanSheet.swift`（行事曆分頁工具列的 `calendar.badge.clock`，預覽推成第二頁、左滑刪除）。
+  事件列上帶 `PlanBadge`「規劃 · 期中考」小標；事件編輯器多「刪除整個規劃（n 段）」。
+- ④ Claude 可直接照同一格式代排：自取一個 `planID`、每段標題「目標 i/n」、避開既有事件與夜間
+  （`CLAUDE.md`、`.hub/README.md` 已寫）。
+
 ## 6. 遷移順序
 
 每一步可單獨 ship；**搬家與改行為分開 commit**；用舊 worktree 的 diff 驗證輸出不變；
