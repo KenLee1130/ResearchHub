@@ -199,6 +199,15 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
 - ③ 先做首頁一張卡（本月支出、前三類別、月趨勢）；資料格式定好後再決定要不要獨立分頁。
 - ④ Claude 可在 insights 裡提醒異常支出；不自動改數字。
 
+落地（2026-10-29）：
+- ① `@spend(金額, 類別)` 日記任一行、一行可多個；類別省略＝「未分類」；金額不含千分位逗號
+  （逗號是分隔符）。`TodoMeta.parse` 只把它從顯示文字剝掉，不解析。契約版本不升（純新增標記，
+  舊版 app 當普通文字）。`.hub/ledger-categories.json` 由 `GeneralTodoStore` 讀，沒有就寫預設清單。
+- ② `LedgerParser`（行→條目）、`LedgerCategories`（白名單、大小寫不分比對，對不上保留原名）、
+  `LedgerStats.summarize`（本月總額／筆數／類別排行／上月比／N 個月趨勢／清單外類別）。
+  `LibraryIndex` 跟待辦共用同一次讀檔快取（`ledgerEntries(in:day:)`），`HomeSnapshot.ledger` 帶全部條目。
+- ③ 首頁左欄「本月支出」卡；`QuickCommandBar` 多 `/spend 金額 類別 說明`。獨立分頁仍未決。
+
 ### 5.2 日記回顧
 
 - ① 旁車檔 `.hub/journal-meta.json`，每天一筆：
@@ -299,6 +308,6 @@ URL scheme `researchhub-dev://`、橘色 AccentColor），不碰、不關正式�
 ## 7. 未決事項
 
 - 日記時間軸預設方向（暫定最新在上）。
-- 記帳是否需要獨立分頁（暫定首頁卡片）。
+- 記帳是否需要獨立分頁（暫定首頁卡片；2026-10-29 卡片已落地，明細清單／編輯仍只在日記裡）。
 - `.hub/contract-version` 的升級策略：舊版 app 遇到新契約是拒開還是唯讀。
   （2026-10-23 暫定：警告但照開，`errorMessage` 顯示一次；真的要拒開時改 `FileSystemStore.checkContractVersion`。）

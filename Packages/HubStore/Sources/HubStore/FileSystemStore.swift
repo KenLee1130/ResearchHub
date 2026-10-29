@@ -172,10 +172,11 @@ public final class FileSystemStore {
     | `events.json` | Calendar events + tags: `{tags: [{id,name,colorHex}], events: [{id,title,notes,isAllDay,start,end,tagID}]}` |
     | `todos.json` | Inbox tasks + trash: `{todos: [{id,text,createdAt,done,completedAt}], trash: [{id,text,occurrences,trashedAt,reason}]}` |
     | `claude/insights.json` | AI-written note shown on the home screen: `{updatedAt, message, schedule}`. `schedule` lines in the form `HH:MM–HH:MM task` can be turned into calendar events by the user with one click. |
+    | `ledger-categories.json` | Spending categories: `{categories: ["餐費", …]}`. The app writes a default list once; edit freely. Journal `@spend` categories are matched against it case-insensitively; unknown ones are still counted under their own name. |
     | `claude/reading_gate.json` | Question bank for the iPhone reading gate: `{updatedAt, papers: [{id, title, authors, year, abstract, zoteroKey, questions: [{q, options, answer, explain}]}]}`. `answer` is the 0-based index of the correct option — vary its position across questions. Generate from the user's Zotero library; refresh when it runs low. |
     | `claude/reading_gate_log.json` | Written by the app: `{passedAt: {paperID: date}, totalPasses}`. Used to rotate papers (least-recently-passed first). Read-only for Claude. |
     | `focus_state.json` | Written by the Mac app's pomodoro: `{pomodoroActive, phase, phaseEndAt, manualGate, plan, pomoIndex, pomoTotal, updatedAt}`. The iPhone reads it to decide whether the reading gate is armed, and shows `plan` so the user is reminded what this pomodoro was for. Read-only for Claude. |
-    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Items with `@due`/`@every` are seeded as an independent copy into each applicable day's journal — checking one day only records that day. Markers: `!high`/`!low`, `@due(M/d)`, `@from(M/d)`, `@every(mon,thu)`, `@on(M/d,M/d)` (exact dates only), `@remind(M/d HH:mm)`, `@est(3h)`, `@line(name)`. |
+    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Items with `@due`/`@every` are seeded as an independent copy into each applicable day's journal — checking one day only records that day. Markers: `!high`/`!low`, `@due(M/d)`, `@from(M/d)`, `@every(mon,thu)`, `@on(M/d,M/d)` (exact dates only), `@remind(M/d HH:mm)`, `@est(3h)`, `@line(name)`. Spending: any line may carry `@spend(amount, category)` (category optional; amount is a plain number without thousands separators; several per line allowed) — the home screen sums them per month and category. |
     | `../Notes/**/*.md` | Notes (plain Markdown, `[[wikilinks]]`, `$…$` math, `\\cite{…}` Zotero keys). `assets/` folders hold images. |
     | `../Pomodoro/pomodoro.json` | Focus sessions: `[{date,minutes,plan,done,startedAt?}]`. Legacy entries have no `startedAt`, empty plan/done, and a 12:00:00 timestamp — exclude them from time-of-day analytics. |
 
@@ -185,6 +186,8 @@ public final class FileSystemStore {
       after 3 unfinished appearances the app suggests dropping it to trash.
     - Do not rewrite historical journal entries; append or edit today/tomorrow only.
     - Write `claude/insights.json` in the user's interface language.
+    - Spending (`@spend`) is summed from journals; mention unusual spending in
+      `claude/insights.json` if useful, but never edit the amounts.
 
     ## URL scheme
 

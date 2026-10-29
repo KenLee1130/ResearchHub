@@ -310,7 +310,7 @@ struct EditorCore: View {
 // MARK: - 底部快速命令列（日記用）
 
 /// 嚴格命令列：一定要打 / 指令才會做事，沒有對應指令會顯示錯誤。
-/// 支援 /todo /sub /h1-h3 /toggle /bullet /num /move /go /list；
+/// 支援 /todo /spend /sub /h1-h3 /toggle /bullet /num /move /go /list；
 /// 打 / 出現提示選單（↑↓ 選、Tab 補全、Enter 執行、Esc 取消）。
 struct QuickCommandBar: View {
     @Binding var text: String
@@ -347,6 +347,7 @@ struct QuickCommandBar: View {
 
     private static let commands: [Cmd] = [
         .init(name: "/todo", arg: "文字 @due(7/20) @est(2h)", desc: "新增待辦"),
+        .init(name: "/spend", arg: "120 餐費 午餐", desc: "記一筆支出（金額 類別 說明）"),
         .init(name: "/block", arg: "→ 選區塊", desc: "選區塊後：移動／加子項目／改內容"),
         .init(name: "/h1", arg: "標題", desc: "加入標題 1"),
         .init(name: "/h2", arg: "標題", desc: "加入標題 2"),
@@ -477,7 +478,7 @@ struct QuickCommandBar: View {
 
     private var prompt: String {
         switch stage {
-        case .command: return "指令：/todo /block /go …（輸入 / 看清單，⇧↩ 或 ⌘J 聚焦）"
+        case .command: return "指令：/todo /spend /block /go …（輸入 / 看清單，⇧↩ 或 ⌘J 聚焦）"
         case .pickBlock: return "選擇區塊（↑↓ 選、Enter 確定、Esc 取消，可打字過濾）"
         case .pickAction: return "要做什麼？（↑↓ 選、Enter 確定、Esc 返回）"
         case .subContent: return "子項目內容（Enter 送出可連續輸入，空行或 Esc 結束）"
@@ -792,6 +793,19 @@ struct QuickCommandBar: View {
         case "/todo":
             guard !arg.isEmpty else { errorMsg = "用法：/todo 內容"; return }
             append("- [ ] \(arg)")
+        case "/spend":
+            // /spend 120 餐費 午餐 → - 午餐 @spend(120, 餐費)；類別與說明都可省略
+            let tokens = arg.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            guard let first = tokens.first,
+                  let amount = Double(first.replacingOccurrences(of: ",", with: "")) else {
+                errorMsg = "用法：/spend 金額 類別 說明（例：/spend 120 餐費 午餐）"
+                return
+            }
+            let amountText = amount.rounded() == amount ? String(Int(amount)) : String(amount)
+            let category = tokens.count > 1 ? tokens[1] : nil
+            let note = tokens.dropFirst(2).joined(separator: " ")
+            let marker = category.map { "@spend(\(amountText), \($0))" } ?? "@spend(\(amountText))"
+            append(note.isEmpty ? "- \(marker)" : "- \(note) \(marker)")
         case "/h1", "/h2", "/h3":
             guard !arg.isEmpty else { errorMsg = "用法：\(cmd) 標題文字"; return }
             let level = Int(String(cmd.dropFirst(2))) ?? 1

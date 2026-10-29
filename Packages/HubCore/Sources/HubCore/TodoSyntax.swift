@@ -12,6 +12,7 @@ import Foundation
 ///   @est(3h / 45m / 90)     預估時長（純數字 = 分鐘），排時段時參考；日記裡渲染成蕃茄進度條
 ///   @pomo(2)                任務自己的進度（已投入幾顆），進度條 ＋/− 改的就是它，不動蕃茄鐘統計
 ///   @line(名字)             主線歸屬（如 A、B），週檢討分線統計用
+///   @spend(120, 餐費)       記帳（LedgerParser 負責解析；這裡只從顯示文字拿掉）
 public nonisolated enum TodoPriority: Int, Comparable, Hashable, Sendable {
     case low = 0, normal = 1, high = 2
     public static func < (a: TodoPriority, b: TodoPriority) -> Bool { a.rawValue < b.rawValue }
@@ -149,6 +150,9 @@ public nonisolated struct TodoMeta: Hashable, Sendable {
             line = inner.isEmpty ? nil : inner
             text.removeSubrange(r)
         }
+
+        // @spend(…)：記帳標記，金額由 LedgerParser 彙總；待辦顯示文字不帶它
+        text = LedgerParser.strippingSpends(text)
 
         let clean = text
             .replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
