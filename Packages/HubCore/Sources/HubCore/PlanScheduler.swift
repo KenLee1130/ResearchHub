@@ -34,6 +34,14 @@ public struct PlanRules: Hashable, Sendable {
     }
 }
 
+/// 時段怎麼分布在日期範圍裡。
+public enum PlanSpacing: Hashable, Sendable {
+    /// 平均分配：段數少就等距挑日子，多就往目標日堆（預設）。
+    case auto
+    /// 每隔 n 天一段（n = 1 就是每天）；那天排不進就順延到下一個有空的日子。
+    case everyDays(Int)
+}
+
 /// 一次規劃的輸入。
 public struct PlanRequest: Hashable, Sendable {
     /// 目標名稱，例如「期中考」。
@@ -49,10 +57,11 @@ public struct PlanRequest: Hashable, Sendable {
     public var totalMinutes: Int
     public var sessionMinutes: Int
     public var rules: PlanRules = PlanRules()
+    public var spacing: PlanSpacing = .auto
 
     public init(goal: String, sessionLabel: String = "", planID: UUID = UUID(), tagID: UUID? = nil,
                 firstDay: Date, lastDay: Date, totalMinutes: Int, sessionMinutes: Int,
-                rules: PlanRules = PlanRules()) {
+                rules: PlanRules = PlanRules(), spacing: PlanSpacing = .auto) {
         self.goal = goal
         self.sessionLabel = sessionLabel
         self.planID = planID
@@ -62,6 +71,7 @@ public struct PlanRequest: Hashable, Sendable {
         self.totalMinutes = totalMinutes
         self.sessionMinutes = sessionMinutes
         self.rules = rules
+        self.spacing = spacing
     }
 
     /// 要排幾段：總時數 ÷ 每段，不整除就多一段（最後一段比較短）。
@@ -111,12 +121,17 @@ public enum PlanScheduler {
         }
         guard !days.isEmpty else { return PlanResult(events: [], totalSessions: total) }
 
-        // 每天分到幾段
-        let quota = distribute(total, over: days.map(\.slots.count))
-
         var picked: [DateInterval] = []
-        for (i, day) in days.enumerated() {
-            picked.append(contentsOf: day.slots.prefix(quota[i]))
+        switch request.spacing {
+        case .auto:
+            // 每天分到幾段
+            let quota = distribute(total, over: days.map(\.slots.count))
+            for (i, day) in days.enumerated() {
+                picked.append(contentsOf: day.slots.prefix(quota[i]))
+            }
+        case .everyDays(let step):
+            picked = everyDays(max(step, 1), total: total, firstDay: firstDay, lastDay: lastDay,
+                               days: days, calendar: calendar)
         }
         picked.sort { $0.start < $1.start }
 
@@ -159,7 +174,29 @@ public enum PlanScheduler {
         return "\(h) 小時 \(m) 分鐘"
     }
 
+    /// 排一段時間裡的第一個可用時段（「自己指定」模式加一段時用）。
+    public static func firstSlot(on day: Date, request: PlanRequest, existing: [CalendarEvent],
+                                 now: Date = .now, calendar: Calendar = .current) -> DateInterval? {
+        daySlots(on: day, request: request, existing: existing, now: now, calendar: calendar).first
+    }
+
     // MARK: - 分配
+
+    /// 每隔 `step` 天一段：第一天、第一天＋step、…；那天沒空就往後找，但不越過下一個節拍。
+    static func everyDays(_ step: Int, total: Int, firstDay: Date, lastDay: Date,
+                          days: [DaySlots], calendar: Calendar) -> [DateInterval] {
+        var picked: [DateInterval] = []
+        var beat = firstDay
+        while picked.count < total, beat <= lastDay {
+            let nextBeat = calendar.date(byAdding: .day, value: step, to: beat) ?? lastDay.addingTimeInterval(1)
+            if let day = days.first(where: { $0.day >= beat && $0.day < nextBeat }),
+               let slot = day.slots.first {
+                picked.append(slot)
+            }
+            beat = nextBeat
+        }
+        return picked
+    }
 
     /// 把 `total` 段分到各天，`capacity[i]` 是第 i 天最多能排幾段。
     /// 段數 ≤ 天數：等距挑日子（含頭尾）；段數 > 天數：先每天一段，再把多的從最後一天往前堆。

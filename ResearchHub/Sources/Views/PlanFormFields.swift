@@ -20,6 +20,22 @@ struct PlanDraft {
     var sessionMinutes = 120
     var maxPerDay = 2
     var preferred: PreferredTime = .auto
+    /// 時段怎麼排：自動分配、每隔幾天一段、或自己一段段指定。
+    var mode: Mode = .auto
+    /// `.every` 用：每隔幾天一段。
+    var repeatDays = 2
+
+    enum Mode: String, CaseIterable, Identifiable {
+        case auto, every, custom
+        var id: Self { self }
+        var title: LocalizedStringKey {
+            switch self {
+            case .auto: "自動分配"
+            case .every: "每隔幾天一段"
+            case .custom: "自己指定"
+            }
+        }
+    }
 
     enum PreferredTime: String, CaseIterable, Identifiable {
         case auto, morning, afternoon, evening, earliest
@@ -79,7 +95,9 @@ struct PlanDraft {
     }
 
     var isValid: Bool {
-        !goal.trimmingCharacters(in: .whitespaces).isEmpty && sessionCount > 0 && dayCount() > 0
+        let hasGoal = !goal.trimmingCharacters(in: .whitespaces).isEmpty
+        if mode == .custom { return hasGoal && sessionMinutes > 0 && dayCount() > 0 }
+        return hasGoal && sessionCount > 0 && dayCount() > 0
     }
 
     func request(peakHour: Int?, planID: UUID = UUID(), calendar: Calendar = .current) -> PlanRequest {
@@ -95,14 +113,59 @@ struct PlanDraft {
             lastDay: lastDay(calendar: calendar),
             totalMinutes: totalMinutes,
             sessionMinutes: sessionMinutes,
-            rules: rules)
+            rules: rules,
+            spacing: mode == .every ? .everyDays(max(repeatDays, 1)) : .auto)
     }
 
     /// 跑排程：避開行事曆上已有的事件，偏好蕃茄鐘統計出的高產時段。
     @MainActor
     func schedule(eventStore: EventStore, pomodoro: PomodoroModel) -> PlanResult {
         let peak = pomodoro.productivityProfile(days: 60).peakWindowStart
+        if mode == .custom {
+            // 自己指定：先給一段當起點，之後用「加一段」逐段加
+            var events: [CalendarEvent] = []
+            events.append(newSession(after: events, existing: eventStore.events, peakHour: peak))
+            return PlanResult(events: events, totalSessions: events.count)
+        }
         return PlanScheduler.schedule(request(peakHour: peak), existing: eventStore.events)
+    }
+
+    /// 「加一段」：放在目前最後一段的隔天（沒有就今天），挑那天第一個空檔；
+    /// 一路到目標日都沒空就放在隔天的偏好時刻，讓使用者自己調。
+    func newSession(after events: [CalendarEvent], existing: [CalendarEvent], peakHour: Int?,
+                    calendar: Calendar = .current) -> CalendarEvent {
+        let request = request(peakHour: peakHour, planID: events.first?.planID ?? UUID(), calendar: calendar)
+        let lastDay = request.lastDay
+        var day = events.map(\.start).max().map { calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: $0)) ?? $0 }
+            ?? request.firstDay
+        if day > lastDay { day = lastDay }
+        var cursor = day
+        var slot: DateInterval?
+        while slot == nil, cursor <= lastDay {
+            slot = PlanScheduler.firstSlot(on: cursor, request: request, existing: existing + events, calendar: calendar)
+            if slot == nil, let next = calendar.date(byAdding: .day, value: 1, to: cursor) { cursor = next } else { break }
+        }
+        let start = slot?.start
+            ?? calendar.date(bySettingHour: request.rules.preferredStartHour ?? 9, minute: 0, second: 0, of: day) ?? day
+        let end = start.addingTimeInterval(Double(sessionMinutes) * 60)
+        let number = events.count + 1
+        return CalendarEvent(
+            title: PlanScheduler.title(for: request, number: number, total: number),
+            notes: PlanScheduler.notes(for: request, number: number, total: number),
+            isAllDay: false, start: start, end: end, tagID: tagID,
+            planID: request.planID, planTitle: request.goal)
+    }
+
+    /// 寫進行事曆前：依時間排序、重編「目標 i/n」，有自己取名字的那段用自己的名字。
+    static func finalize(_ events: [CalendarEvent], titles: [UUID: String], draft: PlanDraft) -> [CalendarEvent] {
+        var sorted = events
+        renumber(&sorted, draft: draft)
+        return sorted.map { event in
+            var e = event
+            let custom = (titles[event.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !custom.isEmpty { e.title = custom }
+            return e
+        }
     }
 
     /// 使用者在預覽裡刪掉幾段後，剩下的重新編號（標題「3/5」→「3/4」、說明裡的合計跟著改）。
@@ -137,7 +200,8 @@ struct PlanFormFields: View {
     var body: some View {
         Section {
             TextField("目標", text: $draft.goal)
-            TextField("每段名稱（選填）", text: $draft.sessionLabel)
+        } footer: {
+            Text("每一段的名稱在預覽裡改；沒改的用「目標 1/5」這種編號。")
         }
 
         Section {
@@ -147,14 +211,32 @@ struct PlanFormFields: View {
             Text(rangeSummary)
         }
 
-        Section("時間") {
-            Stepper(value: $draft.totalHours, in: 0.5...300, step: 0.5) {
-                HStack {
-                    Text("總時數")
-                    Spacer()
-                    Text(verbatim: hoursText(draft.totalHours))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+        Section {
+            Picker("排法", selection: $draft.mode) {
+                ForEach(PlanDraft.Mode.allCases) { m in
+                    Text(m.title).tag(m)
+                }
+            }
+            if draft.mode == .every {
+                Stepper(value: $draft.repeatDays, in: 1...30) {
+                    HStack {
+                        Text("每隔")
+                        Spacer()
+                        Text("\(draft.repeatDays) 天一段")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+            }
+            if draft.mode != .custom {
+                Stepper(value: $draft.totalHours, in: 0.5...300, step: 0.5) {
+                    HStack {
+                        Text("總時數")
+                        Spacer()
+                        Text(verbatim: hoursText(draft.totalHours))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
             }
             Picker("每段長度", selection: $draft.sessionMinutes) {
@@ -162,19 +244,27 @@ struct PlanFormFields: View {
                     Text(verbatim: minutesText(m)).tag(m)
                 }
             }
-            Stepper(value: $draft.maxPerDay, in: 1...6) {
-                HStack {
-                    Text("每天最多")
-                    Spacer()
-                    Text("\(draft.maxPerDay) 段")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+            if draft.mode == .auto {
+                Stepper(value: $draft.maxPerDay, in: 1...6) {
+                    HStack {
+                        Text("每天最多")
+                        Spacer()
+                        Text("\(draft.maxPerDay) 段")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
             }
             Picker("偏好時段", selection: $draft.preferred) {
                 ForEach(PlanDraft.PreferredTime.allCases) { p in
                     Text(p.title).tag(p)
                 }
+            }
+        } header: {
+            Text("時間")
+        } footer: {
+            if draft.mode == .custom {
+                Text("預覽裡用「加一段」逐段指定日期與時間，每段可以各自寫要做什麼。")
             }
         }
 
@@ -200,6 +290,7 @@ struct PlanFormFields: View {
         let f = DateFormatter()
         f.setLocalizedDateFormatFromTemplate("Md")
         let last = f.string(from: draft.lastDay(calendar: calendar))
+        if draft.mode == .custom { return String(localized: "從今天到 \(last)，共 \(days) 天。") }
         return String(localized: "從今天到 \(last)，共 \(days) 天，會排 \(draft.sessionCount) 段。")
     }
 
@@ -216,23 +307,69 @@ struct PlanFormFields: View {
 
 // MARK: - 預覽列
 
-/// 候選時段一列：序號、可調的開始時間（結束跟著平移）、撞到既有事件時的警告。
+/// 候選時段一列：序號、可改的名稱（空白＝用「目標 i/n」）、日期、開始／結束時間、撞到既有事件時的警告。
 struct PlanSessionRow: View {
+    let index: Int
     @Binding var event: CalendarEvent
+    /// 使用者自己取的名稱；空白時顯示 `event.title`（自動編號）當提示
+    @Binding var title: String
     let conflict: CalendarEvent?
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(event.title)
-                    .font(.body)
-                    .lineLimit(1)
-                DatePicker("開始", selection: startBinding, displayedComponents: [.date, .hourAndMinute])
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(index)")
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(Color.accentColor.opacity(0.15)))
+                .foregroundStyle(Color.accentColor)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 6) {
+                TextField(event.title, text: $title)
+                    .font(.body.weight(.medium))
+                    .textFieldStyle(.plain)
+                // 手機寬度塞不下三個選擇器：日期一行、開始–結束一行；Mac 一行排完
+                #if os(iOS)
+                DatePicker("日期", selection: startBinding, displayedComponents: [.date])
                     .labelsHidden()
-                    .font(.caption)
                 HStack(spacing: 6) {
-                    Text(verbatim: timeRange)
+                    DatePicker("開始", selection: startBinding, displayedComponents: [.hourAndMinute])
+                        .labelsHidden()
+                    Text(verbatim: "–").foregroundStyle(.secondary)
+                    DatePicker("結束", selection: endBinding, displayedComponents: [.hourAndMinute])
+                        .labelsHidden()
+                    Spacer(minLength: 0)
+                }
+                #else
+                // Mac：純文字欄、可以直接打；↑↓ 日期調一天、時間調 15 分鐘；24 小時制（SteppingDateFields.swift）
+                HStack(spacing: 6) {
+                    Button { shiftDay(-1) } label: { Image(systemName: "chevron.left") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help("前一天")
+                    DayTextField(date: startBinding)
+                    Button { shiftDay(1) } label: { Image(systemName: "chevron.right") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help("後一天")
+                    TimeTextField(date: startBinding)
+                    Text(verbatim: "–").foregroundStyle(.secondary)
+                    TimeTextField(date: endBinding)
+                }
+                .font(.caption)
+                #endif
+                HStack(spacing: 8) {
+                    Text(verbatim: summary)
+                    Picker(selection: repeatBinding) {
+                        Text("不重複").tag(EventRepeat.Frequency?.none)
+                        ForEach(EventRepeat.Frequency.allCases, id: \.self) { f in
+                            Text(f.everyLabel).tag(Optional(f))
+                        }
+                    } label: {
+                        Label(event.repeatRule?.label ?? L("不重複"), systemImage: "repeat")
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .fixedSize()
                     if let conflict {
                         Label("與「\(conflict.title)」重疊", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -250,6 +387,21 @@ struct PlanSessionRow: View {
             .foregroundStyle(.secondary)
             .help("刪掉這一段")
         }
+        .padding(.vertical, 2)
+    }
+
+    private var minimumEnd: Date { event.start.addingTimeInterval(15 * 60) }
+
+    /// 每段各自的重複：不重複／每天／每週／每月／每年（間隔 1、不設結束日；細節在事件編輯器改）
+    private var repeatBinding: Binding<EventRepeat.Frequency?> {
+        Binding(
+            get: { event.repeatRule?.frequency },
+            set: { f in event.repeatRule = f.map { EventRepeat(frequency: $0) } })
+    }
+
+    private func shiftDay(_ delta: Int) {
+        guard let new = Calendar.current.date(byAdding: .day, value: delta, to: event.start) else { return }
+        startBinding.wrappedValue = new
     }
 
     /// 改開始：結束跟著平移、長度不變。
@@ -263,12 +415,21 @@ struct PlanSessionRow: View {
             })
     }
 
-    private var timeRange: String {
+    /// 改結束：只動長度，至少 15 分鐘。
+    private var endBinding: Binding<Date> {
+        Binding(
+            get: { event.end },
+            set: { new in event.end = max(new, minimumEnd) })
+    }
+
+    private var summary: String {
         let f = DateFormatter()
-        f.dateFormat = "M/d (E) HH:mm"
-        let t = DateFormatter()
-        t.dateFormat = "HH:mm"
-        return "\(f.string(from: event.start))–\(t.string(from: event.end))"
+        f.setLocalizedDateFormatFromTemplate("MdE")
+        let minutes = Int(event.end.timeIntervalSince(event.start) / 60)
+        let h = minutes / 60, m = minutes % 60
+        let length = m == 0 ? String(localized: "\(h) 小時")
+            : h == 0 ? String(localized: "\(m) 分鐘") : String(localized: "\(h) 小時 \(m) 分鐘")
+        return "\(f.string(from: event.start)) · \(length)"
     }
 }
 
@@ -276,10 +437,12 @@ struct PlanSessionRow: View {
 struct PlanPreviewSummary: View {
     let placed: Int
     let unplaced: Int
+    var custom = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("共 \(placed) 段，可逐段調時間或刪掉。")
+            Text(custom ? "共 \(placed) 段。用「加一段」再加；每段可以改名稱、日期與時間。"
+                        : "共 \(placed) 段。每段可以改名稱、日期與時間，或刪掉；也可以再加。")
                 .font(.callout)
             if unplaced > 0 {
                 Label("有 \(unplaced) 段排不進去：日期太短或行事曆太滿，可以縮短每段、提高每天上限或改目標日。",

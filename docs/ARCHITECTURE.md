@@ -256,6 +256,22 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   事件列上帶 `PlanBadge`「規劃 · 期中考」小標；事件編輯器多「刪除整個規劃（n 段）」。
 - ④ Claude 可直接照同一格式代排：自取一個 `planID`、每段標題「目標 i/n」、避開既有事件與夜間
   （`CLAUDE.md`、`.hub/README.md` 已寫）。
+- 排法（2026-10-29 補）：`PlanRequest.spacing` 多 `.everyDays(n)`（每隔 n 天一段，那天沒空就順延、
+  不越過下一個節拍）；表單「排法」三選一：自動分配／每隔幾天一段／自己指定。「自己指定」不跑排程，
+  預覽從一段開始、用「加一段」逐段加（`PlanDraft.newSession`：前一段的隔天第一個空檔，
+  `PlanScheduler.firstSlot`）。每段可填「要做什麼」，寫進行事曆時放在 `notes` 第一行、
+  自動的「第 i 段，共 n 段」那行留在後面（`PlanDraft.finalize`）。
+
+- 重複事件（2026-10-29 補）：`CalendarEvent.repeatRule`（檔案鍵 `repeat`：`frequency` daily/weekly/monthly/yearly、
+  `interval`、`until`），檔案只存第一次，`occurrence(on:)`／`occurrences(from:to:)` 展開實例（id 相同、時間平移；
+  31 號的每月在小月跳過；`until` 含當天）。`EventStore.events(on:)`、`occurrences(from:to:)` 都已展開，月曆標記、
+  首頁執行率照用。編輯某一次的實例存回去走 `applyingSeriesDates`：沿用系列第一天、只套用新時間與長度；
+  刪除刪整個系列。事件表單多「重複」區；規劃預覽每段可各自設重複；.ics 寫 RRULE。
+
+- iPhone 月檢視（2026-10-29 補，TimeTree 式）：`MobileCalendarView` 改成整頁月格——每週一列撐滿高度，
+  事件標題直接畫成標籤色的色塊，跨日事件連成橫跨多格的一條（`WeekLayout` 依週分 lane：先排開始早、跨得長的；
+  超過格高放不下的記成「+N」），重複事件用 `occurrences(from:to:)` 展開。點一天開 `MobileDaySheet`
+  （事件、待辦數、新增），右下角「＋」新增、工具列「規劃」與 .ics 分享照舊。
 
 ## 6. 遷移順序
 

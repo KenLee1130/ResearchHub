@@ -23,6 +23,7 @@ struct MobileTodayView: View {
     @State private var showTaskManager = false
     @State private var showDatePicker = false
     @State private var eventSheet: MobileEventSheet?
+    @State private var showPlanSheet = false
     @State private var path = NavigationPath()
     @FocusState private var quickAddFocused: Bool
 
@@ -81,6 +82,9 @@ struct MobileTodayView: View {
             }
             .sheet(isPresented: $showTaskManager, onDismiss: reload) {
                 TaskManagerSheet()
+            }
+            .sheet(isPresented: $showPlanSheet) {
+                MobilePlanSheet(draft: PlanDraft.initial(near: selectedDate, tag: eventStore.tags.first))
             }
             .sheet(item: $eventSheet) { config in
                 MobileEventEditor(draft: config.draft, isNew: config.isNew)
@@ -281,9 +285,9 @@ struct MobileTodayView: View {
                 .buttonStyle(.plain)
             }
             Button {
-                eventSheet = .new(on: selectedDate, tag: eventStore.tags.first)
+                showPlanSheet = true
             } label: {
-                Label("新增事件", systemImage: "calendar.badge.plus")
+                Label("新增", systemImage: "calendar.badge.plus")
             }
         } header: {
             Text(isToday ? "今日事件" : "當日事件")

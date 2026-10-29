@@ -7,12 +7,17 @@ import HubCore
 /// 第二步預覽排出的時段（可逐段調時間或刪掉），確認後一次寫進 `.hub/events.json`。
 struct PlanSheet: View {
     @Environment(EventStore.self) private var eventStore
+    @Environment(FileSystemStore.self) private var store
     @Environment(PomodoroModel.self) private var pomodoro
     @Environment(\.dismiss) private var dismiss
+    /// 加入行事曆時同時寫進各天日記最上面
+    @AppStorage("plan.writeToJournal") private var writeToJournal = true
 
     @State var draft: PlanDraft
     @State private var preview: [CalendarEvent]?
     @State private var unplaced = 0
+    /// 每段自己取的名稱（空白＝自動編號）
+    @State private var titles: [UUID: String] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,17 +40,19 @@ struct PlanSheet: View {
                 }
                 Spacer()
                 Button("取消") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
                 if let events = preview {
+                    Toggle("也寫進日記", isOn: $writeToJournal)
+                        .toggleStyle(.checkbox)
+                        .help("每一段寫成當天日記最上面的待辦（- [ ] 10:00–12:00 …），用 --- 跟下面隔開")
                     Button("加入行事曆（\(events.count) 段）") {
-                        eventStore.add(contentsOf: events)
+                        let final = PlanDraft.finalize(events, titles: titles, draft: draft)
+                        eventStore.add(contentsOf: final)
+                        if writeToJournal { store.addPlannedEvents(final) }
                         dismiss()
                     }
-                    .keyboardShortcut(.defaultAction)
                     .disabled(events.isEmpty)
                 } else {
                     Button("預覽時段") { runSchedule() }
-                        .keyboardShortcut(.defaultAction)
                         .disabled(!draft.isValid)
                 }
             }
@@ -56,27 +63,33 @@ struct PlanSheet: View {
 
     private func previewList(_ events: [CalendarEvent]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            PlanPreviewSummary(placed: events.count, unplaced: unplaced)
+            PlanPreviewSummary(placed: events.count, unplaced: unplaced, custom: draft.mode == .custom)
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
-            if events.isEmpty {
-                Spacer()
-                Text("一段都排不進去。回去改目標日、每段長度或每天上限。")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                Spacer()
-            } else {
-                List {
-                    ForEach(events) { event in
-                        PlanSessionRow(
-                            event: binding(for: event.id),
-                            conflict: PlanDraft.conflicts(event, existing: eventStore.events),
-                            onDelete: { remove(event.id) })
-                        .padding(.vertical, 4)
-                    }
+            List {
+                if events.isEmpty && draft.mode != .custom {
+                    Text("一段都排不進去。回去改目標日、每段長度或每天上限，或直接「加一段」。")
+                        .foregroundStyle(.secondary)
                 }
-                .listStyle(.inset)
+                ForEach(Array(events.enumerated()), id: \.element.id) { i, event in
+                    PlanSessionRow(
+                        index: i + 1,
+                        event: binding(for: event.id),
+                        title: titleBinding(for: event.id),
+                        conflict: PlanDraft.conflicts(event, existing: eventStore.events),
+                        onDelete: { remove(event.id) })
+                    .padding(.vertical, 4)
+                }
+                Button {
+                    addSession()
+                } label: {
+                    Label("加一段", systemImage: "plus")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                .padding(.vertical, 6)
             }
+            .listStyle(.inset)
         }
     }
 
@@ -99,8 +112,21 @@ struct PlanSheet: View {
     private func remove(_ id: UUID) {
         guard var events = preview else { return }
         events.removeAll { $0.id == id }
+        titles[id] = nil
         PlanDraft.renumber(&events, draft: draft)
         preview = events
+    }
+
+    private func addSession() {
+        var events = preview ?? []
+        let peak = pomodoro.productivityProfile(days: 60).peakWindowStart
+        events.append(draft.newSession(after: events, existing: eventStore.events, peakHour: peak))
+        PlanDraft.renumber(&events, draft: draft)
+        preview = events
+    }
+
+    private func titleBinding(for id: UUID) -> Binding<String> {
+        Binding(get: { titles[id] ?? "" }, set: { titles[id] = $0 })
     }
 }
 #endif

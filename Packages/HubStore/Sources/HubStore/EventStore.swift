@@ -169,19 +169,36 @@ public final class EventStore {
         save()
     }
 
-    /// 某天涵蓋的事件（含跨日），全天優先、再按開始時間排序。
+    /// 某天涵蓋的事件（含跨日與重複事件的實例），全天優先、再按開始時間排序。
     public func events(on day: Date, calendar: Calendar = .current) -> [CalendarEvent] {
-        let target = calendar.startOfDay(for: day)
-        return events
-            .filter { event in
-                let s = calendar.startOfDay(for: event.start)
-                let e = calendar.startOfDay(for: event.end)
-                return s <= target && target <= e
-            }
+        events
+            .compactMap { $0.occurrence(on: day, calendar: calendar) }
             .sorted { a, b in
                 if a.isAllDay != b.isAllDay { return a.isAllDay }
                 return a.start < b.start
             }
+    }
+
+    /// `from`…`to`（含）之間的全部實例（重複事件已展開、跨日只算一次），依開始時間排序。
+    public func occurrences(from: Date, to: Date, calendar: Calendar = .current) -> [CalendarEvent] {
+        events
+            .flatMap { $0.occurrences(from: from, to: to, calendar: calendar) }
+            .sorted { $0.start < $1.start }
+    }
+
+    /// 編輯器拿到的是某一次的實例（日期已平移）。存回去時整個系列一起改：
+    /// 沿用系列原本的第一天，只套用新的時間與長度（以及其他欄位）。
+    public func applyingSeriesDates(_ draft: CalendarEvent, calendar: Calendar = .current) -> CalendarEvent {
+        guard draft.repeatRule != nil,
+              let series = events.first(where: { $0.id == draft.id }),
+              series.repeatRule != nil else { return draft }
+        var result = draft
+        let firstDay = calendar.startOfDay(for: series.start)
+        let t = calendar.dateComponents([.hour, .minute, .second], from: draft.start)
+        let start = calendar.date(bySettingHour: t.hour ?? 0, minute: t.minute ?? 0, second: t.second ?? 0, of: firstDay) ?? firstDay
+        result.start = start
+        result.end = start.addingTimeInterval(draft.end.timeIntervalSince(draft.start))
+        return result
     }
 
     /// 整月各日的事件標籤顏色（日 → 前幾個 hex 色碼），給日曆畫點用；沒標籤的用灰色。
@@ -268,6 +285,9 @@ extension EventStore {
                 lines.append("DTSTART:\(fmt(event.start, dayOnly: false))")
                 lines.append("DTEND:\(fmt(event.end, dayOnly: false))")
             }
+            if let rule = event.repeatRule {
+                lines.append("RRULE:\(rrule(rule, allDay: event.isAllDay, fmt: fmt))")
+            }
             lines.append("SUMMARY:\(esc(event.title))")
             if !event.notes.isEmpty {
                 lines.append("DESCRIPTION:\(esc(event.notes))")
@@ -279,5 +299,15 @@ extension EventStore {
         }
         lines.append("END:VCALENDAR")
         return lines.joined(separator: "\r\n") + "\r\n"
+    }
+
+    private func rrule(_ rule: EventRepeat, allDay: Bool, fmt: (Date, Bool) -> String) -> String {
+        var parts = ["FREQ=\(rule.frequency.rawValue.uppercased())"]
+        if rule.interval > 1 { parts.append("INTERVAL=\(rule.interval)") }
+        if let until = rule.until {
+            let day = Calendar.current.startOfDay(for: until)
+            parts.append(allDay ? "UNTIL=\(fmt(day, true))" : "UNTIL=\(fmt(day, true))T235959")
+        }
+        return parts.joined(separator: ";")
     }
 }

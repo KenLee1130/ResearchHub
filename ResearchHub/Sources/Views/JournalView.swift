@@ -28,8 +28,6 @@ struct JournalView: View {
     @State private var journalDays: Set<Int> = []
     /// 本月有筆記更新的日 → 筆記名稱列表
     @State private var noteUpdates: [Int: [String]] = [:]
-    /// 本月各日的事件標記（單日 = 點、跨日 = 線條）
-    @State private var dayMarks: [Int: DayMarks] = [:]
     /// 事件編輯 sheet
     @State private var eventSheet: EventSheetConfig?
     /// 「規劃」：一個目標拆成多段時段
@@ -44,25 +42,6 @@ struct JournalView: View {
         var draft: CalendarEvent
         var isNew: Bool
     }
-
-    /// 跨日事件在某一天的線段
-    struct BarSegment {
-        let color: Color
-        let isStart: Bool
-        let isEnd: Bool
-    }
-
-    struct DayMarks {
-        /// index = lane（最多 maxLanes 條），nil 表示該 lane 當天沒有線
-        var bars: [BarSegment?] = Array(repeating: nil, count: JournalView.maxLanes)
-        /// 單日事件的色點（最多 maxDots 個）
-        var dots: [Color] = []
-        /// 放不下的事件數（lane 滿的跨日 + 超過點數上限的單日）→ 顯示 +N
-        var overflow = 0
-    }
-
-    static let maxLanes = 3
-    private static let maxDots = 3
 
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     private let calendar = Calendar.current
@@ -192,17 +171,14 @@ struct JournalView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            // 日期格：先把整月格子（前置空格 + 1…末日）建成一個陣列，
-            // 用單一 ForEach 渲染，每格 id 唯一，避免互相吃掉。
-            LazyVGrid(columns: weekColumns, spacing: 6) {
-                ForEach(monthCells) { cell in
-                    if let day = cell.day {
-                        dayCell(day)
-                    } else {
-                        Color.clear.frame(height: 46)
-                    }
-                }
-            }
+            // 日期格：隨欄寬長大——窄是色點與細線，拖寬就連續長成帶標題的色塊（MacMonthGrid）
+            MacMonthGrid(
+                displayedMonth: displayedMonth, selectedDay: selectedDay,
+                journalDays: journalDays, noteDays: Set(noteUpdates.keys),
+                onSelect: { date in
+                    seedBeforeShowing(date)
+                    selectedDay = date
+                })
 
             Button("回到今天") {
                 displayedMonth = calendar.startOfMonth(for: .now)
@@ -234,7 +210,7 @@ struct JournalView: View {
                 .foregroundStyle(.secondary)
                 .help("匯出全部事件為 .ics（可匯入系統行事曆／Google 日曆）")
                 Button {
-                    eventSheet = EventSheetConfig(draft: newEventDraft(), isNew: true)
+                    showPlanSheet = true
                 } label: {
                     Image(systemName: "plus")
                         .padding(4)
@@ -242,19 +218,7 @@ struct JournalView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("新增事件")
-                Button {
-                    showPlanSheet = true
-                } label: {
-                    Text("規劃")
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("規劃：給一個目標（期中考、約會）與目標日，把要投入的時數拆成多段排進行事曆")
+                .help("新增：給一個目標與目標日，排一段或多段時段進行事曆（也會寫進日記最上面）")
             }
 
             let dayEvents = eventStore.events(on: selectedDay)
@@ -282,70 +246,6 @@ struct JournalView: View {
         let f = DateFormatter()
         f.dateFormat = "M/d"
         return f.string(from: selectedDay)
-    }
-
-    private func dayCell(_ day: Int) -> some View {
-        let date = dateFor(day: day)
-        let isSelected = calendar.isDate(date, inSameDayAs: selectedDay)
-        let isToday = calendar.isDateInToday(date)
-        let hasJournal = journalDays.contains(day)
-        let hasNotes = noteUpdates[day] != nil
-
-        let marks = dayMarks[day] ?? DayMarks()
-
-        return Button {
-            seedBeforeShowing(date)
-            selectedDay = date
-        } label: {
-            VStack(spacing: 2) {
-                Text("\(day)")
-                    .font(.callout)
-                    .monospacedDigit()
-                // 跨日事件線條（lane 對齊，相鄰日相連）
-                VStack(spacing: 1) {
-                    ForEach(0..<Self.maxLanes, id: \.self) { lane in
-                        if lane < marks.bars.count, let bar = marks.bars[lane] {
-                            RoundedRectangle(cornerRadius: 1.5)
-                                .fill(bar.color)
-                                .frame(height: 3)
-                                .padding(.leading, bar.isStart ? 3 : -5)
-                                .padding(.trailing, bar.isEnd ? 3 : -5)
-                        } else {
-                            Color.clear.frame(height: 3)
-                        }
-                    }
-                }
-                HStack(spacing: 2) {
-                    if hasJournal {
-                        Circle().fill(Color.accentColor).frame(width: 4, height: 4)
-                    } else if hasNotes {
-                        Circle().fill(Color.secondary).frame(width: 4, height: 4)
-                    }
-                    ForEach(Array(marks.dots.enumerated()), id: \.offset) { _, color in
-                        Circle().fill(color).frame(width: 4, height: 4)
-                    }
-                    // 顯示不下的事件數，不再靜默丟棄
-                    if marks.overflow > 0 {
-                        Text(verbatim: "+\(marks.overflow)")
-                            .font(.system(size: 7, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(height: 5)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 46)
-            .background(
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(isSelected ? Color.accentColor.opacity(0.25) : .clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 7)
-                    .strokeBorder(isToday ? Color.accentColor : .clear, lineWidth: 1)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private func legendDot(_ color: Color, _ label: LocalizedStringKey) -> some View {
@@ -620,6 +520,9 @@ struct JournalView: View {
                 }
                 HStack(spacing: 6) {
                     Text(timeString(for: event))
+                    if let rule = event.repeatRule {
+                        Label(rule.label, systemImage: "repeat")
+                    }
                     if let tag {
                         Text(tag.name)
                             .foregroundStyle(tag.color)
@@ -640,15 +543,6 @@ struct JournalView: View {
         .onTapGesture {
             eventSheet = EventSheetConfig(draft: event, isNew: false)
         }
-    }
-
-    private func newEventDraft() -> CalendarEvent {
-        let start = calendar.date(
-            bySettingHour: 9, minute: 0, second: 0, of: selectedDay) ?? selectedDay
-        let end = calendar.date(byAdding: .hour, value: 1, to: start) ?? start
-        return CalendarEvent(
-            title: "", isAllDay: false, start: start, end: end,
-            tagID: eventStore.tags.first?.id)
     }
 
     private func timeString(for event: CalendarEvent) -> String {
@@ -696,31 +590,6 @@ struct JournalView: View {
     private var leadingBlanks: Int {
         let weekday = calendar.component(.weekday, from: displayedMonth) // 1 = Sun
         return (weekday + 5) % 7
-    }
-
-    /// 月曆單格：day == nil 代表月初的前置空格。
-    private struct DayCell: Identifiable {
-        /// 空格用負數 id、日期用 1…31，彼此與星期標題都不會相撞。
-        let id: Int
-        let day: Int?
-    }
-
-    /// 一次建好整月格子：leadingBlanks 個空格 + 1…末日。
-    /// 用單一陣列 + 單一 ForEach 渲染，跨月切換時 diff 穩定。
-    private var monthCells: [DayCell] {
-        var cells: [DayCell] = []
-        cells.reserveCapacity(leadingBlanks + daysInMonth)
-        for i in 0..<leadingBlanks {
-            cells.append(DayCell(id: -(i + 1), day: nil))
-        }
-        for day in 1...daysInMonth {
-            cells.append(DayCell(id: day, day: day))
-        }
-        return cells
-    }
-
-    private func dateFor(day: Int) -> Date {
-        calendar.date(byAdding: .day, value: day - 1, to: displayedMonth) ?? displayedMonth
     }
 
     private func shiftMonth(_ delta: Int) {
@@ -787,72 +656,6 @@ struct JournalView: View {
     private func refreshMonthData() {
         journalDays = scanJournalDays()
         noteUpdates = scanNoteUpdates()
-        dayMarks = computeEventMarks()
-    }
-
-    /// 把本月事件整理成日曆標記：單日 → 點；跨日 → lane 線段（greedy 分配 lane 保持跨日對齊）。
-    private func computeEventMarks() -> [Int: DayMarks] {
-        var marks: [Int: DayMarks] = [:]
-        let monthStart = calendar.startOfMonth(for: displayedMonth)
-        guard let dayCount = calendar.range(of: .day, in: .month, for: monthStart)?.count,
-              let monthEnd = calendar.date(byAdding: .day, value: dayCount - 1, to: monthStart)
-        else { return [:] }
-
-        var laneEnds: [Date] = []
-
-        for event in eventStore.events.sorted(by: { $0.start < $1.start }) {
-            let s = calendar.startOfDay(for: event.start)
-            let e = calendar.startOfDay(for: event.end)
-            guard e >= monthStart, s <= monthEnd else { continue }
-            let color = eventStore.tag(for: event.tagID)?.color ?? .gray
-
-            // 單日 → 點；超過上限計入 +N
-            if s == e {
-                let day = calendar.component(.day, from: s)
-                if marks[day, default: DayMarks()].dots.count < Self.maxDots {
-                    marks[day, default: DayMarks()].dots.append(color)
-                } else {
-                    marks[day, default: DayMarks()].overflow += 1
-                }
-                continue
-            }
-
-            // 跨日 → 分配 lane；lane 滿了改記 +N（涵蓋的每一天都要算）
-            var lane: Int
-            if let free = laneEnds.firstIndex(where: { $0 < s }) {
-                lane = free
-            } else if laneEnds.count < Self.maxLanes {
-                laneEnds.append(.distantPast)
-                lane = laneEnds.count - 1
-            } else {
-                var d = max(s, monthStart)
-                let last = min(e, monthEnd)
-                while d <= last {
-                    marks[calendar.component(.day, from: d), default: DayMarks()].overflow += 1
-                    guard let next = calendar.date(byAdding: .day, value: 1, to: d) else { break }
-                    d = next
-                }
-                continue
-            }
-            laneEnds[lane] = e
-
-            var d = max(s, monthStart)
-            let last = min(e, monthEnd)
-            while d <= last {
-                let day = calendar.component(.day, from: d)
-                var m = marks[day, default: DayMarks()]
-                while m.bars.count < Self.maxLanes { m.bars.append(nil) }
-                m.bars[lane] = BarSegment(
-                    color: color,
-                    isStart: calendar.isDate(d, inSameDayAs: s),
-                    isEnd: calendar.isDate(d, inSameDayAs: e)
-                )
-                marks[day] = m
-                guard let next = calendar.date(byAdding: .day, value: 1, to: d) else { break }
-                d = next
-            }
-        }
-        return marks
     }
 
     /// 本月有日記檔的日

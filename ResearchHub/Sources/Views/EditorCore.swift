@@ -371,6 +371,7 @@ struct QuickCommandBar: View {
         ("@remind(", "@remind(7/20 09:00)", "提醒推播"),
         ("@line(", "@line(A)", "主線歸屬"),
         ("@pomo(", "@pomo(2)", "已投入蕃茄數"),
+        ("@spend(", "@spend(120, 餐費)", "記一筆支出（金額, 類別）"),
         ("!high", "!high", "高優先"),
         ("!low", "!low", "低優先"),
     ]

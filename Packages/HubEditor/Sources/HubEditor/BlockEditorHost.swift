@@ -218,6 +218,9 @@ public final class BlockEditorHost: NSObject, ObservableObject, WKScriptMessageH
             return
         }
         lastPushed = text
+        // 推了新內容進去，網頁上次回報的那份就不再是網頁的現況；不清掉的話，
+        // 同一天的編輯器重建時（先推空字串、再讀到檔案內容）會因「跟上次回報的一樣」被跳過，畫面留白。
+        lastTextFromJS = nil
         pushAssets(for: text)
         guard let json = encode(text) else { return }
         // 先告訴編輯器這份日記哪些待辦是收起來的，再載入內容

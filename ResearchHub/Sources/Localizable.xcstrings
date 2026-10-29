@@ -118,6 +118,16 @@
         }
       }
     },
+    "%lld 天一段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days per session"
+          }
+        }
+      }
+    },
     "%lld 小時": {
       "localizations": {
         "en": {
@@ -214,6 +224,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "**Journal**"
+          }
+        }
+      }
+    },
+    "24 小時制，可以直接打 13:30 或 1330；↑↓ 每次 15 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "24-hour; type 13:30 or 1330; ↑↓ moves 15 minutes"
           }
         }
       }
@@ -339,6 +359,16 @@
         }
       }
     },
+    "一段都排不進去。回去改目標日、每段長度或每天上限，或直接「加一段」。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing fits. Go back and change the target day, session length or daily limit, or just “Add session”."
+          }
+        }
+      }
+    },
     "一般": {
       "localizations": {
         "en": {
@@ -432,12 +462,42 @@
         }
       }
     },
+    "不重複": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never"
+          }
+        }
+      }
+    },
     "主線歸屬": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Track"
+          }
+        }
+      }
+    },
+    "也寫進日記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also add to journal"
+          }
+        }
+      }
+    },
+    "也寫進日記最上面": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also add to the top of the journal"
           }
         }
       }
@@ -674,6 +734,16 @@
         }
       }
     },
+    "修改或刪除會套用整個系列。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes and deletion apply to the whole series."
+          }
+        }
+      }
+    },
     "個人": {
       "extractionState": "stale",
       "localizations": {
@@ -767,12 +837,22 @@
         }
       }
     },
-    "共 %lld 段，可逐段調時間或刪掉。": {
+    "共 %lld 段。每段可以改名稱、日期與時間，或刪掉；也可以再加。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld sessions. Adjust or remove each one."
+            "value": "%lld sessions. Rename each one, change its date and time, remove it, or add more."
+          }
+        }
+      }
+    },
+    "共 %lld 段。用「加一段」再加；每段可以改名稱、日期與時間。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessions. Use “Add session” for more; rename each one or change its date and time."
           }
         }
       }
@@ -908,12 +988,32 @@
         }
       }
     },
+    "前一天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous day"
+          }
+        }
+      }
+    },
     "前一天（⌘⌥←）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Previous day (⌘⌥←)"
+          }
+        }
+      }
+    },
+    "加一段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add session"
           }
         }
       }
@@ -995,6 +1095,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        }
+      }
+    },
+    "可以直接打 2026/11/5 或 11/5；↑↓ 一天一天調": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type 2026/11/5 or 11/5; ↑↓ moves one day"
           }
         }
       }
@@ -1096,6 +1206,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "External tools can open this app via researchhub://note?path=… or researchhub://journal?date=YYYY-MM-DD; the data contract lives in .hub/README.md inside your library folder."
+          }
+        }
+      }
+    },
+    "天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "days"
           }
         }
       }
@@ -1233,6 +1353,16 @@
         }
       }
     },
+    "年": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "years"
+          }
+        }
+      }
+    },
     "幾分鐘": {
       "localizations": {
         "en": {
@@ -1324,12 +1454,32 @@
         }
       }
     },
+    "後一天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next day"
+          }
+        }
+      }
+    },
     "後一天（⌘⌥→）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Next day (⌘⌥→)"
+          }
+        }
+      }
+    },
+    "從今天到 %@，共 %lld 天。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From today to %1$@: %2$lld days."
           }
         }
       }
@@ -1461,6 +1611,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Authorize"
+          }
+        }
+      }
+    },
+    "排法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layout"
           }
         }
       }
@@ -1727,12 +1887,32 @@
         }
       }
     },
+    "新增：給一個目標與目標日，排一段或多段時段進行事曆（也會寫進日記最上面）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add: give a goal and a target day, schedule one or more sessions (also written to the top of the journal)"
+          }
+        }
+      }
+    },
     "新標籤名稱": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "New tag name"
+          }
+        }
+      }
+    },
+    "日期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date"
           }
         }
       }
@@ -1902,6 +2082,16 @@
         }
       }
     },
+    "最後一次不晚於": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last occurrence no later than"
+          }
+        }
+      }
+    },
     "最近 60 天 · %lld 顆（依開始時刻統計）": {
       "localizations": {
         "en": {
@@ -1953,6 +2143,16 @@
         }
       }
     },
+    "月": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "months"
+          }
+        }
+      }
+    },
     "有 %lld 件事在日記裡重複出現。太重要就拆小一點今天做一步；不重要就放心丟掉——丟掉也是一種完成。": {
       "localizations": {
         "en": {
@@ -1969,6 +2169,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld sessions did not fit: too few days or a full calendar. Shorten sessions, raise the daily limit or move the target day."
+          }
+        }
+      }
+    },
+    "有結束日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ends on a date"
           }
         }
       }
@@ -2065,6 +2275,46 @@
         }
       }
     },
+    "每 %lld %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %1$lld %2$@"
+          }
+        }
+      }
+    },
+    "每一段寫成當天日記最上面的待辦（- [ ] 10:00–12:00 …），用 --- 跟下面隔開": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each session becomes a todo at the top of that day's journal (- [ ] 10:00–12:00 …), separated by ---"
+          }
+        }
+      }
+    },
+    "每一段的名稱在預覽裡改；沒改的用「目標 1/5」這種編號。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename each session in the preview; unchanged ones are numbered like “Goal 1/5”."
+          }
+        }
+      }
+    },
+    "每天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every day"
+          }
+        }
+      }
+    },
     "每天最多": {
       "localizations": {
         "en": {
@@ -2075,12 +2325,22 @@
         }
       }
     },
-    "每段名稱（選填）": {
+    "每年": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Session label (optional)"
+            "value": "Every year"
+          }
+        }
+      }
+    },
+    "每月": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every month"
           }
         }
       }
@@ -2095,12 +2355,42 @@
         }
       }
     },
+    "每週": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every week"
+          }
+        }
+      }
+    },
     "每週日 21:00 Claude 做完整週檢討（四個數字 + R1–R5），寫進計畫檔與這裡。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Every Sunday 21:00 Claude runs the full weekly review (four numbers + R1–R5) and writes it to your plan note and here."
+          }
+        }
+      }
+    },
+    "每隔": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every"
+          }
+        }
+      }
+    },
+    "每隔幾天一段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every N days"
           }
         }
       }
@@ -2592,12 +2882,32 @@
         }
       }
     },
+    "自動分配": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spread evenly"
+          }
+        }
+      }
+    },
     "自動（高產時段）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Auto (peak hours)"
+          }
+        }
+      }
+    },
+    "自己指定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick myself"
           }
         }
       }
@@ -2748,6 +3058,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Note what you did, then decide what’s next."
+          }
+        }
+      }
+    },
+    "記一筆支出": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log an expense"
+          }
+        }
+      }
+    },
+    "記一筆支出（金額, 類別）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log an expense (amount, category)"
           }
         }
       }
@@ -3045,6 +3375,16 @@
         }
       }
     },
+    "週": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weeks"
+          }
+        }
+      }
+    },
     "過期 {n} 天": {
       "localizations": {
         "en": {
@@ -3265,6 +3605,16 @@
         }
       }
     },
+    "重複": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat"
+          }
+        }
+      }
+    },
     "重要": {
       "localizations": {
         "en": {
@@ -3367,6 +3717,16 @@
         }
       }
     },
+    "間隔": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval"
+          }
+        }
+      }
+    },
     "關閉": {
       "localizations": {
         "en": {
@@ -3435,6 +3795,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preview sessions"
+          }
+        }
+      }
+    },
+    "預覽裡用「加一段」逐段指定日期與時間，每段可以各自寫要做什麼。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the preview, use “Add session” to set each date and time; each session can have its own note."
           }
         }
       }
@@ -3535,6 +3905,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "(no details recorded)"
+          }
+        }
+      }
+    },
+    "，到 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", until %@"
           }
         }
       }
