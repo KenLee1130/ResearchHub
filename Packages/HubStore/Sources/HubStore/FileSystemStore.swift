@@ -74,6 +74,9 @@ public final class FileSystemStore {
 
     public func setRoot(_ url: URL) {
         _ = url.startAccessingSecurityScopedResource()
+        // 測試 host 就是正式 app（同一個 bundle id、同一份 UserDefaults）：
+        // 測試裡的暫存資料夾絕不能寫成書籤，否則使用者下次開 app 會找不到自己的資料夾。
+        guard !Self.isRunningTests else { adopt(root: url); return }
         do {
             let data = try url.bookmarkData(
                 options: Self.bookmarkCreationOptions,
