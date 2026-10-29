@@ -171,61 +171,18 @@ struct MobileCalendarView: View {
         .accessibilityLabel("新增事件")
     }
 
-    // MARK: - 版面：每週的事件色塊分 lane
+    // MARK: - 版面（MonthLayout 共用）
 
-    /// 整月的週（每週 7 天，含上下月補齊的日子），週一開頭。
-    private var monthWeeks: [[Date]] {
-        let first = calendar.startOfMonth(for: displayedMonth)
-        let weekday = calendar.component(.weekday, from: first) // 1 = Sun
-        let lead = (weekday + 5) % 7
-        guard let gridStart = calendar.date(byAdding: .day, value: -lead, to: first),
-              let dayCount = calendar.range(of: .day, in: .month, for: first)?.count else { return [] }
-        let rows = Int(ceil(Double(lead + dayCount) / 7))
-        return (0..<rows).map { r in
-            (0..<7).compactMap { c in calendar.date(byAdding: .day, value: r * 7 + c, to: gridStart) }
-        }
-    }
+    private var monthWeeks: [[Date]] { MonthLayout.weeks(for: displayedMonth, calendar: calendar) }
 
     private func weekLayout(_ week: [Date], rowHeight: CGFloat) -> WeekLayout {
-        guard let first = week.first, let last = week.last else { return WeekLayout(items: [], hiddenPerDay: Array(repeating: 0, count: 7), maxLanes: 0) }
+        guard let first = week.first, let last = week.last else { return .empty }
         let maxLanes = max(1, Int((rowHeight - MonthWeekRow.numberHeight - 4) / (MonthWeekRow.pillHeight + MonthWeekRow.pillSpacing)))
-        let events = eventStore.occurrences(from: first, to: last)
-            .sorted { a, b in
-                let ca = column(of: a.start, in: week), cb = column(of: b.start, in: week)
-                if ca != cb { return ca < cb }
-                let sa = column(of: a.end, in: week) - ca, sb = column(of: b.end, in: week) - cb
-                if sa != sb { return sa > sb }           // 跨得長的先
-                if a.isAllDay != b.isAllDay { return a.isAllDay }
-                return a.start < b.start
-            }
-        var laneEnds: [Int] = []
-        var items: [WeekLayout.Item] = []
-        var hidden = Array(repeating: 0, count: 7)
-        for event in events {
-            let startCol = max(0, column(of: event.start, in: week))
-            let endCol = min(6, column(of: event.end, in: week))
-            guard startCol <= endCol else { continue }
-            var lane = laneEnds.firstIndex { $0 < startCol } ?? laneEnds.count
-            if lane == laneEnds.count { laneEnds.append(endCol) } else { laneEnds[lane] = endCol }
-            if lane >= maxLanes {
-                for c in startCol...endCol { hidden[c] += 1 }
-                lane = -1
-            }
-            guard lane >= 0 else { continue }
-            let dayStart = calendar.startOfDay(for: event.start)
-            let dayEnd = calendar.startOfDay(for: event.end)
-            items.append(WeekLayout.Item(
-                event: event, lane: lane, startCol: startCol, endCol: endCol,
-                isStart: dayStart >= first, isEnd: dayEnd <= last,
-                color: eventStore.tag(for: event.tagID).map { Color(hex: $0.colorHex) } ?? .gray))
-        }
-        return WeekLayout(items: items, hiddenPerDay: hidden, maxLanes: maxLanes)
-    }
-
-    /// 日期落在這週的第幾欄（可能 < 0 或 > 6：跨週的事件）
-    private func column(of date: Date, in week: [Date]) -> Int {
-        guard let first = week.first else { return 0 }
-        return calendar.dateComponents([.day], from: first, to: calendar.startOfDay(for: date)).day ?? 0
+        return MonthLayout.layout(
+            week: week,
+            events: eventStore.occurrences(from: first, to: last),
+            color: { eventStore.tag(for: $0.tagID).map { Color(hex: $0.colorHex) } ?? .gray },
+            maxLanes: maxLanes, calendar: calendar)
     }
 
     // MARK: - Helpers
@@ -268,25 +225,6 @@ struct MobileCalendarView: View {
 }
 
 // MARK: - 一週一列
-
-/// 一週裡事件色塊的位置：第幾條 lane、從第幾欄到第幾欄。
-struct WeekLayout {
-    struct Item: Identifiable {
-        let event: CalendarEvent
-        let lane: Int
-        let startCol: Int
-        let endCol: Int
-        /// 這一格是不是事件真正的開始／結束（不是就把那一側的圓角抹平，表示延續到上一週／下一週）
-        let isStart: Bool
-        let isEnd: Bool
-        let color: Color
-        var id: String { "\(event.id)-\(startCol)" }
-    }
-    let items: [Item]
-    /// 放不下的事件數（每天）→「+N」
-    let hiddenPerDay: [Int]
-    let maxLanes: Int
-}
 
 struct MonthWeekRow: View {
     static let numberHeight: CGFloat = 22
