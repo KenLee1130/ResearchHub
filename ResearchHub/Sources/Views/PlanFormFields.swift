@@ -342,23 +342,18 @@ struct PlanSessionRow: View {
                     Spacer(minLength: 0)
                 }
                 #else
+                // Mac：純文字欄、可以直接打；↑↓ 日期調一天、時間調 15 分鐘；24 小時制（SteppingDateFields.swift）
                 HStack(spacing: 6) {
-                    // Mac 的日期欄位年在最前面，上下箭頭會先動到「年」；改成 ‹ › 一天一天調，欄位本身仍可打字
                     Button { shiftDay(-1) } label: { Image(systemName: "chevron.left") }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
                         .help("前一天")
-                    DatePicker("日期", selection: startBinding, displayedComponents: [.date])
-                        .labelsHidden()
-                        .datePickerStyle(.field)
+                    DayTextField(date: startBinding)
                     Button { shiftDay(1) } label: { Image(systemName: "chevron.right") }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
                         .help("後一天")
-                    DatePicker("開始", selection: startBinding, displayedComponents: [.hourAndMinute])
-                        .labelsHidden()
+                    TimeTextField(date: startBinding)
                     Text(verbatim: "–").foregroundStyle(.secondary)
-                    // 結束不設 in: 下限：AppKit 會把顯示值夾到下限卻不回報，畫面和模型會對不上；由 setter 擋
-                    DatePicker("結束", selection: endBinding, displayedComponents: [.hourAndMinute])
-                        .labelsHidden()
+                    TimeTextField(date: endBinding)
                 }
                 .font(.caption)
                 #endif

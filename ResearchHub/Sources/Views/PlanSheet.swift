@@ -40,7 +40,6 @@ struct PlanSheet: View {
                 }
                 Spacer()
                 Button("取消") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
                 if let events = preview {
                     Toggle("也寫進日記", isOn: $writeToJournal)
                         .toggleStyle(.checkbox)
@@ -51,11 +50,9 @@ struct PlanSheet: View {
                         if writeToJournal { store.addPlannedEvents(final) }
                         dismiss()
                     }
-                    .keyboardShortcut(.defaultAction)
                     .disabled(events.isEmpty)
                 } else {
                     Button("預覽時段") { runSchedule() }
-                        .keyboardShortcut(.defaultAction)
                         .disabled(!draft.isValid)
                 }
             }

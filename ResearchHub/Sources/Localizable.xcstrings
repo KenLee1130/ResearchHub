@@ -228,6 +228,16 @@
         }
       }
     },
+    "24 小時制，可以直接打 13:30 或 1330；↑↓ 每次 15 分鐘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "24-hour; type 13:30 or 1330; ↑↓ moves 15 minutes"
+          }
+        }
+      }
+    },
     "Claude 建議": {
       "localizations": {
         "en": {
@@ -1085,6 +1095,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        }
+      }
+    },
+    "可以直接打 2026/11/5 或 11/5；↑↓ 一天一天調": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type 2026/11/5 or 11/5; ↑↓ moves one day"
           }
         }
       }
