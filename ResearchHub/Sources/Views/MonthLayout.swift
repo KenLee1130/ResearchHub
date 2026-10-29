@@ -15,6 +15,8 @@ struct WeekLayout {
         let isStart: Bool
         let isEnd: Bool
         let color: Color
+        /// 日記裡對應的那行已勾掉 → 畫刪除線
+        var isDone = false
         var id: String { "\(event.id)-\(startCol)" }
         var span: Int { endCol - startCol + 1 }
         /// 跨日或全天 → 實心色塊；單日有時間的 → 淡底色＋彩色字
@@ -44,6 +46,7 @@ enum MonthLayout {
 
     /// 把這週涵蓋的事件實例分 lane：同一欄先放開始早、跨得長、全天的；lane 用完的記進 hiddenPerDay。
     static func layout(week: [Date], events: [CalendarEvent], color: (CalendarEvent) -> Color,
+                       done: (CalendarEvent) -> Bool = { _ in false },
                        maxLanes: Int, calendar: Calendar = .current) -> WeekLayout {
         guard let first = week.first, let last = week.last else { return .empty }
         func column(_ date: Date) -> Int {
@@ -74,7 +77,8 @@ enum MonthLayout {
                 event: event, lane: lane, startCol: startCol, endCol: endCol,
                 isStart: calendar.startOfDay(for: event.start) >= first,
                 isEnd: calendar.startOfDay(for: event.end) <= last,
-                color: color(event)))
+                color: color(event),
+                isDone: done(event)))
         }
         return WeekLayout(items: items, hiddenPerDay: hidden, maxLanes: maxLanes)
     }

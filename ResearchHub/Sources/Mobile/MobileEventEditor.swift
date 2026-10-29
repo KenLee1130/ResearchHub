@@ -104,6 +104,8 @@ struct MobileEventRow: View {
     let event: CalendarEvent
     let tag: EventTag?
     var showNotes = false
+    /// 日記裡對應的規劃待辦已勾掉 → 刪除線
+    var done = false
 
     private var calendar: Calendar { .current }
 
@@ -116,6 +118,8 @@ struct MobileEventRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
                     .font(.body)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? Color.secondary : Color.primary)
                 if let planTitle = event.planTitle {
                     PlanBadge(title: planTitle, color: tag?.color ?? .gray)
                 }

@@ -8,9 +8,12 @@ import HubCore
 /// 同一個元件、一個 0…1 的參數 `t`，不是兩種版面切換。
 struct MacMonthGrid: View {
     @Environment(EventStore.self) private var eventStore
+    @Environment(FileSystemStore.self) private var store
 
     let displayedMonth: Date
     let selectedDay: Date
+    /// 日記檔變了就 +1，讓勾掉的待辦即時反映成刪除線
+    var revision = 0
     /// 本月有日記／筆記更新的日（day number）
     let journalDays: Set<Int>
     let noteDays: Set<Int>
@@ -58,6 +61,7 @@ struct MacMonthGrid: View {
             week: week,
             events: eventStore.occurrences(from: first, to: last),
             color: { eventStore.tag(for: $0.tagID)?.color ?? .gray },
+            done: { store.isPlannedEventDone($0, calendar: calendar) },
             maxLanes: Self.maxLanes, calendar: calendar)
         // 窄版的色點列：每天的單日事件照 lane 順序排成一排
         var dotIndex: [String: (index: Int, count: Int)] = [:]
@@ -123,6 +127,7 @@ struct MacMonthGrid: View {
             .overlay(alignment: .leading) {
                 Text(item.event.title)
                     .font(.system(size: 10, weight: .semibold))
+                    .strikethrough(item.isDone)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundStyle(item.isSolid ? Color.white : item.color)
@@ -130,6 +135,7 @@ struct MacMonthGrid: View {
                     .padding(.horizontal, 4)
             }
             .clipShape(shape)
+            .opacity(item.isDone ? 0.45 : 1)
     }
 
     private func dayCell(_ date: Date, hidden: Int) -> some View {

@@ -25,6 +25,8 @@ struct MobileCalendarView: View {
     @State private var daySheet: DaySheet?
     @State private var showPlanSheet = false
     @State private var icsFile: URL?
+    /// 日記檔變動的計數：勾掉的規劃待辦要即時變成刪除線
+    @State private var journalRevision = 0
 
     private let calendar = Calendar.current
 
@@ -60,6 +62,9 @@ struct MobileCalendarView: View {
             }
             .onAppear { refreshICS() }
             .onChange(of: eventStore.events) { refreshICS() }
+            .onReceive(AppContainer.shared.librarySync.changes) { change in
+                if change.affects(store.journalURL) { journalRevision += 1 }
+            }
             .refreshable { AppContainer.shared.librarySync.syncNow() }
         }
     }
@@ -124,7 +129,7 @@ struct MobileCalendarView: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(months, id: \.self) { month in
-                    monthPage(month)
+                    monthPage(month, revision: journalRevision)
                         .containerRelativeFrame(.horizontal)
                         .id(month)
                 }
@@ -143,7 +148,7 @@ struct MobileCalendarView: View {
         }
     }
 
-    private func monthPage(_ month: Date) -> some View {
+    private func monthPage(_ month: Date, revision: Int) -> some View {
         GeometryReader { geo in
             let weeks = MonthLayout.weeks(for: month, calendar: calendar)
             let rowHeight = geo.size.height / CGFloat(max(weeks.count, 1))
@@ -192,6 +197,7 @@ struct MobileCalendarView: View {
             week: week,
             events: eventStore.occurrences(from: first, to: last),
             color: { eventStore.tag(for: $0.tagID).map { Color(hex: $0.colorHex) } ?? .gray },
+            done: { store.isPlannedEventDone($0, calendar: calendar) },
             maxLanes: maxLanes, calendar: calendar)
     }
 
@@ -318,6 +324,7 @@ struct MonthWeekRow: View {
         let solid = item.event.isAllDay || item.endCol > item.startCol
         return Text(item.event.title)
             .font(.system(size: 10, weight: .semibold))
+            .strikethrough(item.isDone)
             .lineLimit(1)
             .truncationMode(.tail)
             .foregroundStyle(solid ? Color.white : item.color)
@@ -325,6 +332,7 @@ struct MonthWeekRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: Self.pillHeight)
             .background(shape.fill(solid ? item.color : item.color.opacity(0.18)))
+            .opacity(item.isDone ? 0.45 : 1)
     }
 }
 
@@ -357,7 +365,8 @@ struct MobileDaySheet: View {
                         Button {
                             eventSheet = MobileEventSheet(draft: event, isNew: false)
                         } label: {
-                            MobileEventRow(event: event, tag: eventStore.tag(for: event.tagID), showNotes: true)
+                            MobileEventRow(event: event, tag: eventStore.tag(for: event.tagID), showNotes: true,
+                                           done: store.isPlannedEventDone(event))
                         }
                         .buttonStyle(.plain)
                     }
