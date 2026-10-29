@@ -372,6 +372,7 @@ struct RootView: View {
                         }
                 case .papers: PapersView()
                 case .journal: JournalView()
+                case .ledger: LedgerView()
                 }
             }
             // 最右邊：開新分頁（跟分頁列右端系統的「＋」同一個動作——

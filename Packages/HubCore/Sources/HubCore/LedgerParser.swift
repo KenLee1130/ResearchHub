@@ -191,6 +191,28 @@ public nonisolated enum LedgerStats {
             unknownCategories: unknown.sorted())
     }
 
+    /// 只留 `month` 那個月的條目（舊→新、同一天照行號）
+    public static func entries(_ entries: [LedgerEntry], in month: Date,
+                               calendar: Calendar = .current) -> [LedgerEntry] {
+        let m = startOfMonth(month, calendar)
+        return entries
+            .filter { startOfMonth($0.day, calendar) == m }
+            .sorted { a, b in a.day != b.day ? a.day < b.day : a.lineIndex < b.lineIndex }
+    }
+
+    public struct DayGroup: Hashable, Sendable {
+        public let day: Date
+        public let entries: [LedgerEntry]
+        public var total: Double { entries.reduce(0) { $0 + $1.amount } }
+    }
+
+    /// 依天分組（新的一天在前；天內照行號）——記帳分頁的明細用
+    public static func groupedByDay(_ entries: [LedgerEntry]) -> [DayGroup] {
+        Dictionary(grouping: entries, by: \.day)
+            .map { DayGroup(day: $0.key, entries: $0.value.sorted { $0.lineIndex < $1.lineIndex }) }
+            .sorted { $0.day > $1.day }
+    }
+
     static func startOfMonth(_ date: Date, _ calendar: Calendar) -> Date {
         let c = calendar.dateComponents([.year, .month], from: date)
         return calendar.date(from: c) ?? date
