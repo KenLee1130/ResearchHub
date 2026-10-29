@@ -136,8 +136,8 @@ struct PlanFormFields: View {
 
     var body: some View {
         Section {
-            TextField("目標（例如：期中考、約會）", text: $draft.goal)
-            TextField("每段名稱（選填，例如：複習）", text: $draft.sessionLabel)
+            TextField("目標", text: $draft.goal)
+            TextField("每段名稱（選填）", text: $draft.sessionLabel)
         }
 
         Section {
