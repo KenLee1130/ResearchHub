@@ -92,6 +92,22 @@ final class LedgerTests: XCTestCase {
         XCTAssertEqual(s.unknownCategories, ["交通"])
     }
 
+    func testMonthEntriesAndDayGroupsForLedgerTab() {
+        let entries: [LedgerEntry] = [
+            .init(day: day(2026, 10, 3), amount: 30, category: "交通", note: "捷運", lineIndex: 7),
+            .init(day: day(2026, 10, 3), amount: 120, category: "餐費", note: "午餐", lineIndex: 2),
+            .init(day: day(2026, 10, 1), amount: 500, category: "書籍", note: "書", lineIndex: 0),
+            .init(day: day(2026, 9, 30), amount: 999, category: "餐費", note: "上月", lineIndex: 0),
+        ]
+        let inMonth = LedgerStats.entries(entries, in: day(2026, 10, 15), calendar: calendar)
+        XCTAssertEqual(inMonth.map(\.note), ["書", "午餐", "捷運"])
+        let groups = LedgerStats.groupedByDay(inMonth)
+        XCTAssertEqual(groups.map { calendar.component(.day, from: $0.day) }, [3, 1])
+        XCTAssertEqual(groups[0].entries.map(\.note), ["午餐", "捷運"])
+        XCTAssertEqual(groups[0].total, 150)
+        XCTAssertEqual(groups[1].total, 500)
+    }
+
     func testEmptyMonthHasNoChangeRatio() {
         let s = LedgerStats.summarize([], month: day(2026, 10, 1), calendar: calendar)
         XCTAssertEqual(s.total, 0)

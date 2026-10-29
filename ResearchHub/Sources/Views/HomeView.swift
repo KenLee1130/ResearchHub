@@ -277,6 +277,15 @@ struct HomeView: View {
         let summary = LedgerStats.summarize(
             ledger, month: .now, categories: generalStore.ledgerCategories)
         return card("creditcard", "本月支出") {
+            if summary.count > 0 || summary.previousTotal > 0 {
+                Button {
+                    store.requestedTab = .ledger
+                } label: {
+                    Label("打開記帳分頁（明細、類別、12 個月趨勢）", systemImage: "arrow.right.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.link)
+            }
             if summary.count == 0 && summary.previousTotal == 0 {
                 VStack(alignment: .leading, spacing: 4) {
                     emptyHint("在日記任一行寫 @spend(金額, 類別)，這裡就會按月、按類別彙總。")

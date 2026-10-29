@@ -206,7 +206,10 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
 - ② `LedgerParser`（行→條目）、`LedgerCategories`（白名單、大小寫不分比對，對不上保留原名）、
   `LedgerStats.summarize`（本月總額／筆數／類別排行／上月比／N 個月趨勢／清單外類別）。
   `LibraryIndex` 跟待辦共用同一次讀檔快取（`ledgerEntries(in:day:)`），`HomeSnapshot.ledger` 帶全部條目。
-- ③ 首頁左欄「本月支出」卡；`QuickCommandBar` 多 `/spend 金額 類別 說明`。獨立分頁仍未決。
+- ③ 首頁左欄「本月支出」卡；`QuickCommandBar` 多 `/spend 金額 類別 說明`。
+  **獨立分頁**（2026-10-29 定案）：`AppTab.ledger`／`LedgerView`——按月切換、總額／筆數／上月比／日均、
+  類別排行（點了過濾明細）、12 個月趨勢（點了切月）、明細依天分組（點了跳到那天的日記）。
+  這頁只讀不寫檔；首頁卡保留並連到分頁。
 
 ### 5.2 日記回顧
 
@@ -318,6 +321,6 @@ URL scheme `researchhub-dev://`、橘色 AccentColor），不碰、不關正式�
 ## 7. 未決事項
 
 - 日記時間軸預設方向（暫定最新在上）。
-- 記帳是否需要獨立分頁（暫定首頁卡片；2026-10-29 卡片已落地，明細清單／編輯仍只在日記裡）。
+- ~~記帳是否需要獨立分頁~~（2026-10-29 定案：獨立分頁＋首頁卡；編輯仍只在日記裡）。
 - `.hub/contract-version` 的升級策略：舊版 app 遇到新契約是拒開還是唯讀。
   （2026-10-23 暫定：警告但照開，`errorMessage` 顯示一次；真的要拒開時改 `FileSystemStore.checkContractVersion`。）
