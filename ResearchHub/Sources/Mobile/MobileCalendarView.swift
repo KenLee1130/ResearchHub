@@ -83,14 +83,6 @@ struct MobileCalendarView: View {
                         .buttonBorderShape(.capsule)
                         .controlSize(.small)
                 }
-                Button {
-                    showPlanSheet = true
-                } label: {
-                    Image(systemName: "calendar.badge.clock")
-                        .frame(width: 36, height: 36)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("規劃")
                 if let icsFile {
                     ShareLink(item: icsFile) {
                         Image(systemName: "square.and.arrow.up")
@@ -154,10 +146,10 @@ struct MobileCalendarView: View {
         .transition(.opacity)
     }
 
-    /// 右下角「＋」：在選到的那天（預設今天）新增事件
+    /// 右下角「＋」：開規劃（一段或多段都從這裡來；單一事件就用「自己指定」一段）
     private var addButton: some View {
         Button {
-            eventSheet = .new(on: selectedDay, tag: eventStore.tags.first)
+            showPlanSheet = true
         } label: {
             Image(systemName: "plus")
                 .font(.title2.weight(.semibold))
@@ -331,6 +323,7 @@ struct MobileDaySheet: View {
 
     let day: Date
     @State private var eventSheet: MobileEventSheet?
+    @State private var showPlanSheet = false
     @State private var openTodoCount = 0
 
     private let calendar = Calendar.current
@@ -354,9 +347,9 @@ struct MobileDaySheet: View {
                 }
                 Section {
                     Button {
-                        eventSheet = .new(on: day, tag: eventStore.tags.first)
+                        showPlanSheet = true
                     } label: {
-                        Label("新增事件", systemImage: "plus")
+                        Label("新增", systemImage: "plus")
                     }
                     if openTodoCount > 0 {
                         Button {
@@ -372,6 +365,9 @@ struct MobileDaySheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $eventSheet) { config in
                 MobileEventEditor(draft: config.draft, isNew: config.isNew)
+            }
+            .sheet(isPresented: $showPlanSheet) {
+                MobilePlanSheet(draft: PlanDraft.initial(near: day, tag: eventStore.tags.first))
             }
             .onAppear { reloadTodoCount() }
         }

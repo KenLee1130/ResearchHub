@@ -562,6 +562,56 @@ public final class FileSystemStore {
     }
 
     /// 把一行待辦加到某天的日記（任務總覽「新增」用；呼叫端需確定該天編輯器沒開著）。
+    // MARK: - 規劃時段 → 日記最上面
+
+    /// 把規劃好的時段寫進各天日記的最上面（一段待辦，用 `---` 跟下面隔開）：
+    /// `- [ ] 10:00–12:00 期中考 複習 1/5 @est(2h)`。已經有這一段就接在它後面；同一行已存在就不重複。
+    /// 重複事件只寫第一次那天（之後每天的副本由使用者自己決定要不要再排）。
+    public func addPlannedEvents(_ events: [CalendarEvent], calendar: Calendar = .current) {
+        let byDay = Dictionary(grouping: events) { calendar.startOfDay(for: $0.start) }
+        for (day, items) in byDay {
+            guard let url = journalURL(for: day) else { continue }
+            let lines = items.sorted { $0.start < $1.start }.map { Self.plannedLine(for: $0) }
+            let content = Self.safeRead(url) ?? ""
+            let updated = Self.insertingPlannedLines(lines, into: content)
+            guard updated != content else { continue }
+            try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? updated.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
+    /// 一個時段在日記裡的那一行。
+    public static func plannedLine(for event: CalendarEvent) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm"
+        let minutes = Int(event.end.timeIntervalSince(event.start) / 60)
+        let est = minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes)m"
+        if event.isAllDay { return "- [ ] \(event.title)" }
+        return "- [ ] \(f.string(from: event.start))–\(f.string(from: event.end)) \(event.title) @est(\(est))"
+    }
+
+    /// 日記最上面的「規劃」段：從檔首到第一條 `---` 之間全是待辦行（或空行）。
+    /// 有這一段就把新行接在它最後一行後面；沒有就在檔首建一段並用 `---` 隔開。
+    static func insertingPlannedLines(_ lines: [String], into content: String) -> String {
+        var all = content.components(separatedBy: "\n")
+        // 找既有的規劃段
+        if let rule = all.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }),
+           all[..<rule].allSatisfy({ $0.hasPrefix("- [") || $0.trimmingCharacters(in: .whitespaces).isEmpty }),
+           all[..<rule].contains(where: { $0.hasPrefix("- [") }) {
+            let existing = Set(all[..<rule])
+            let fresh = lines.filter { !existing.contains($0) }
+            guard !fresh.isEmpty else { return content }
+            var insertAt = rule
+            while insertAt > 0, all[insertAt - 1].trimmingCharacters(in: .whitespaces).isEmpty { insertAt -= 1 }
+            all.insert(contentsOf: fresh, at: insertAt)
+            return all.joined(separator: "\n")
+        }
+        let head = lines.joined(separator: "\n")
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? head + "\n\n---\n" : head + "\n\n---\n\n" + content
+    }
+
     public func appendTodoLine(_ text: String, on date: Date) {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty, let url = journalURL(for: date) else { return }

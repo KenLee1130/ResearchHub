@@ -7,8 +7,11 @@ import HubCore
 /// 第二步預覽排出的時段（可逐段調時間或刪掉），確認後一次寫進 `.hub/events.json`。
 struct PlanSheet: View {
     @Environment(EventStore.self) private var eventStore
+    @Environment(FileSystemStore.self) private var store
     @Environment(PomodoroModel.self) private var pomodoro
     @Environment(\.dismiss) private var dismiss
+    /// 加入行事曆時同時寫進各天日記最上面
+    @AppStorage("plan.writeToJournal") private var writeToJournal = true
 
     @State var draft: PlanDraft
     @State private var preview: [CalendarEvent]?
@@ -39,8 +42,13 @@ struct PlanSheet: View {
                 Button("取消") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 if let events = preview {
+                    Toggle("也寫進日記", isOn: $writeToJournal)
+                        .toggleStyle(.checkbox)
+                        .help("每一段寫成當天日記最上面的待辦（- [ ] 10:00–12:00 …），用 --- 跟下面隔開")
                     Button("加入行事曆（\(events.count) 段）") {
-                        eventStore.add(contentsOf: PlanDraft.finalize(events, titles: titles, draft: draft))
+                        let final = PlanDraft.finalize(events, titles: titles, draft: draft)
+                        eventStore.add(contentsOf: final)
+                        if writeToJournal { store.addPlannedEvents(final) }
                         dismiss()
                     }
                     .keyboardShortcut(.defaultAction)

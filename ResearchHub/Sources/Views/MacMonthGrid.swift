@@ -20,8 +20,8 @@ struct MacMonthGrid: View {
     private let calendar = Calendar.current
 
     /// 格寬 ≤ narrow：全是點；≥ wide：全是色塊；中間線性過渡
-    static let narrowCell: CGFloat = 42
-    static let wideCell: CGFloat = 78
+    static let narrowCell: CGFloat = 36
+    static let wideCell: CGFloat = 54
     static let maxLanes = 3
     private static let numberHeight: CGFloat = 20
     private static let rowSpacing: CGFloat = 4
@@ -113,8 +113,8 @@ struct MacMonthGrid: View {
         let shape = UnevenRoundedRectangle(
             topLeadingRadius: item.isStart ? radius : 0, bottomLeadingRadius: item.isStart ? radius : 0,
             bottomTrailingRadius: item.isEnd ? radius : 0, topTrailingRadius: item.isEnd ? radius : 0)
-        // 文字在過半之後才浮現，免得擠在還很短的膠囊裡
-        let textOpacity = max(0, (t - 0.55) / 0.45)
+        // 膠囊長到三成就開始浮現文字，七成全亮
+        let textOpacity = min(max((t - 0.3) / 0.4, 0), 1)
         // 單日有時間的：點是實心，長成色塊後變淡底色＋彩色字
         let fillOpacity = item.isSolid ? 1 : lerp(1, 0.18, t)
         // 以形狀為主體（沒有固有尺寸，剛好填滿給它的框），文字疊上去再用形狀裁切；

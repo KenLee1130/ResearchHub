@@ -210,7 +210,7 @@ struct JournalView: View {
                 .foregroundStyle(.secondary)
                 .help("匯出全部事件為 .ics（可匯入系統行事曆／Google 日曆）")
                 Button {
-                    eventSheet = EventSheetConfig(draft: newEventDraft(), isNew: true)
+                    showPlanSheet = true
                 } label: {
                     Image(systemName: "plus")
                         .padding(4)
@@ -218,19 +218,7 @@ struct JournalView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("新增事件")
-                Button {
-                    showPlanSheet = true
-                } label: {
-                    Text("規劃")
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("規劃：給一個目標（期中考、約會）與目標日，把要投入的時數拆成多段排進行事曆")
+                .help("新增：給一個目標與目標日，排一段或多段時段進行事曆（也會寫進日記最上面）")
             }
 
             let dayEvents = eventStore.events(on: selectedDay)
@@ -555,15 +543,6 @@ struct JournalView: View {
         .onTapGesture {
             eventSheet = EventSheetConfig(draft: event, isNew: false)
         }
-    }
-
-    private func newEventDraft() -> CalendarEvent {
-        let start = calendar.date(
-            bySettingHour: 9, minute: 0, second: 0, of: selectedDay) ?? selectedDay
-        let end = calendar.date(byAdding: .hour, value: 1, to: start) ?? start
-        return CalendarEvent(
-            title: "", isAllDay: false, start: start, end: end,
-            tagID: eventStore.tags.first?.id)
     }
 
     private func timeString(for event: CalendarEvent) -> String {

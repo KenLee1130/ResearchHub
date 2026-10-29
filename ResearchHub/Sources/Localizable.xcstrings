@@ -472,6 +472,26 @@
         }
       }
     },
+    "也寫進日記": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also add to journal"
+          }
+        }
+      }
+    },
+    "也寫進日記最上面": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also add to the top of the journal"
+          }
+        }
+      }
+    },
     "事件名稱": {
       "localizations": {
         "en": {
@@ -1847,6 +1867,16 @@
         }
       }
     },
+    "新增：給一個目標與目標日，排一段或多段時段進行事曆（也會寫進日記最上面）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add: give a goal and a target day, schedule one or more sessions (also written to the top of the journal)"
+          }
+        }
+      }
+    },
     "新標籤名稱": {
       "localizations": {
         "en": {
@@ -2231,6 +2261,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Every %1$lld %2$@"
+          }
+        }
+      }
+    },
+    "每一段寫成當天日記最上面的待辦（- [ ] 10:00–12:00 …），用 --- 跟下面隔開": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each session becomes a todo at the top of that day's journal (- [ ] 10:00–12:00 …), separated by ---"
           }
         }
       }
