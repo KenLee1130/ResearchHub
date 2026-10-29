@@ -2075,12 +2075,12 @@
         }
       }
     },
-    "每段名稱（選填，例如：複習）": {
+    "每段名稱（選填）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Session label (optional, e.g. review)"
+            "value": "Session label (optional)"
           }
         }
       }
@@ -2276,6 +2276,16 @@
         }
       }
     },
+    "目標": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goal"
+          }
+        }
+      }
+    },
     "目標日": {
       "localizations": {
         "en": {
@@ -2302,16 +2312,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Also schedule on the target day"
-          }
-        }
-      }
-    },
-    "目標（例如：期中考、約會）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Goal (e.g. midterm, date night)"
           }
         }
       }
