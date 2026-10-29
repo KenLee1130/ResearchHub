@@ -435,6 +435,19 @@ public final class FileSystemStore {
             .write(to: item.noteURL, atomically: true, encoding: .utf8)
     }
 
+    /// 放棄一行待辦（只動這一行）：「- [ ]」→「- [-]」（已放棄，不再列入待辦與重複統計）。
+    /// iPhone 的待辦列滑動「放棄」用；要連同其他天的副本一起放棄用 discardJournalTodos(matching:)。
+    @discardableResult
+    public func abandonTodo(_ item: TodoItem) -> Bool {
+        guard let content = Self.safeRead(item.noteURL) else { return false }
+        var lines = content.components(separatedBy: "\n")
+        guard item.lineIndex < lines.count,
+              let range = lines[item.lineIndex].range(of: "- [ ]") else { return false }
+        lines[item.lineIndex].replaceSubrange(range, with: "- [-]")
+        try? lines.joined(separator: "\n").write(to: item.noteURL, atomically: true, encoding: .utf8)
+        return true
+    }
+
     // MARK: - 每日播種：@due/@from/@every 的獨立日副本 + @remind 通知
 
     /// 冪等播種：把「這一天該出現」的待辦以獨立副本補進該天的日記（只限今天以後）。

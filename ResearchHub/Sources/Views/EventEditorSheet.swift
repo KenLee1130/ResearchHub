@@ -2,17 +2,13 @@
 import SwiftUI
 import HubStore
 
-/// 新增 / 編輯事件的表單，含標籤管理（增刪、調色）。
+/// 新增 / 編輯事件的視窗，含標籤管理（增刪、調色）。欄位本體在 `EventFormFields`（與 iPhone 共用）。
 struct EventEditorSheet: View {
     @Environment(EventStore.self) private var eventStore
     @Environment(\.dismiss) private var dismiss
 
     @State var draft: CalendarEvent
     let isNew: Bool
-
-    @State private var newTagName = ""
-    @State private var newTagColor = Color(hex: "#378ADD")
-    @State private var showTagManager = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,77 +17,7 @@ struct EventEditorSheet: View {
                 .padding(.top, 14)
 
             Form {
-                TextField("事件名稱", text: $draft.title)
-
-                Section("內容") {
-                    TextEditor(text: $draft.notes)
-                        .font(.body)
-                        .frame(minHeight: 140)
-                        .scrollContentBackground(.hidden)
-                        .overlay(alignment: .topLeading) {
-                            if draft.notes.isEmpty {
-                                Text("這件事具體要做什麼？")
-                                    .foregroundStyle(.tertiary)
-                                    .padding(.top, 8)
-                                    .padding(.leading, 5)
-                                    .allowsHitTesting(false)
-                            }
-                        }
-                }
-
-                Toggle("全天", isOn: $draft.isAllDay)
-
-                DatePicker(
-                    "開始",
-                    selection: $draft.start,
-                    displayedComponents: draft.isAllDay ? [.date] : [.date, .hourAndMinute]
-                )
-                DatePicker(
-                    "結束",
-                    selection: $draft.end,
-                    in: draft.start...,
-                    displayedComponents: draft.isAllDay ? [.date] : [.date, .hourAndMinute]
-                )
-
-                Picker("標籤", selection: $draft.tagID) {
-                    Text("無").tag(UUID?.none)
-                    ForEach(eventStore.tags) { tag in
-                        HStack {
-                            Circle().fill(tag.color).frame(width: 8, height: 8)
-                            Text(tag.name)
-                        }
-                        .tag(Optional(tag.id))
-                    }
-                }
-
-                DisclosureGroup("管理標籤", isExpanded: $showTagManager) {
-                    ForEach(Bindable(eventStore).tags) { $tag in
-                        HStack {
-                            ColorPicker("", selection: colorBinding($tag))
-                                .labelsHidden()
-                                .frame(width: 36)
-                            TextField("名稱", text: $tag.name)
-                            Button(role: .destructive) {
-                                eventStore.deleteTag(tag)
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                    HStack {
-                        ColorPicker("", selection: $newTagColor)
-                            .labelsHidden()
-                            .frame(width: 36)
-                        TextField("新標籤名稱", text: $newTagName)
-                        Button("新增") {
-                            eventStore.addTag(name: newTagName, color: newTagColor)
-                            newTagName = ""
-                        }
-                        .disabled(newTagName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                }
+                EventFormFields(draft: $draft)
             }
             .formStyle(.grouped)
 
@@ -123,14 +49,6 @@ struct EventEditorSheet: View {
             .padding(14)
         }
         .frame(width: 440, height: 620)
-    }
-
-    /// EventTag.colorHex ↔ ColorPicker 的 Color 轉接
-    private func colorBinding(_ tag: Binding<EventTag>) -> Binding<Color> {
-        Binding(
-            get: { Color(hex: tag.wrappedValue.colorHex) },
-            set: { tag.wrappedValue.colorHex = $0.hexString }
-        )
     }
 }
 #endif

@@ -22,7 +22,7 @@ public nonisolated struct TodoLine: Sendable {
 /// 可以從任何執行緒呼叫（內部用鎖保護）。
 public nonisolated final class LibraryIndex: @unchecked Sendable {
     /// 模組內部的快取（LibraryScan 的靜態函式共用），不對外；不是可注入的相依。
-    static let shared = LibraryIndex()
+    public static let shared = LibraryIndex()
 
     private struct Entry {
         let modified: Date
