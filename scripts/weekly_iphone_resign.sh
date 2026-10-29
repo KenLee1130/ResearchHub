@@ -74,6 +74,9 @@ for dir in "${PROFILES_DIRS[@]}"; do
 done
 
 # ---- 3. 建置（不需要手機在線）------------------------------------------------
+# 上面剛刪掉描述檔，但增量建置的建置描述還記著舊那張的路徑，會報
+# 「Build input file cannot be found: …mobileprovision」→ 每次都從乾淨的 Build 開始。
+rm -rf "$DERIVED/Build"
 BUILD_OUT=$(mktemp)
 xcodebuild -project "$PROJECT" -scheme ResearchHubMobile \
   -destination "generic/platform=iOS" \
