@@ -349,6 +349,16 @@
         }
       }
     },
+    "一段都排不進去。回去改目標日、每段長度或每天上限，或直接「加一段」。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing fits. Go back and change the target day, session length or daily limit, or just “Add session”."
+          }
+        }
+      }
+    },
     "一般": {
       "localizations": {
         "en": {
@@ -777,22 +787,22 @@
         }
       }
     },
-    "共 %lld 段。用「加一段」再加，每段可調時間、寫要做什麼。": {
+    "共 %lld 段。每段可以改名稱、日期與時間，或刪掉；也可以再加。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld sessions. Use “Add session” for more; adjust the time or add a note to each."
+            "value": "%lld sessions. Rename each one, change its date and time, remove it, or add more."
           }
         }
       }
     },
-    "共 %lld 段，可逐段調時間、寫要做什麼，或刪掉。": {
+    "共 %lld 段。用「加一段」再加；每段可以改名稱、日期與時間。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld sessions. Adjust the time, add a note, or remove each one."
+            "value": "%lld sessions. Use “Add session” for more; rename each one or change its date and time."
           }
         }
       }
@@ -1787,6 +1797,16 @@
         }
       }
     },
+    "日期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date"
+          }
+        }
+      }
+    },
     "日記": {
       "localizations": {
         "en": {
@@ -2115,22 +2135,22 @@
         }
       }
     },
+    "每一段的名稱在預覽裡改；沒改的用「目標 1/5」這種編號。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename each session in the preview; unchanged ones are numbered like “Goal 1/5”."
+          }
+        }
+      }
+    },
     "每天最多": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Per day at most"
-          }
-        }
-      }
-    },
-    "每段名稱（選填）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Session label (optional)"
           }
         }
       }
@@ -3059,16 +3079,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "What exactly needs to be done?"
-          }
-        }
-      }
-    },
-    "這段要做什麼（選填）": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What to do in this session (optional)"
           }
         }
       }

@@ -13,8 +13,8 @@ struct PlanSheet: View {
     @State var draft: PlanDraft
     @State private var preview: [CalendarEvent]?
     @State private var unplaced = 0
-    /// 每段自己寫的「要做什麼」
-    @State private var details: [UUID: String] = [:]
+    /// 每段自己取的名稱（空白＝自動編號）
+    @State private var titles: [UUID: String] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,11 +39,8 @@ struct PlanSheet: View {
                 Button("取消") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 if let events = preview {
-                    if draft.mode == .custom {
-                        Button("加一段") { addSession() }
-                    }
                     Button("加入行事曆（\(events.count) 段）") {
-                        eventStore.add(contentsOf: PlanDraft.finalize(events, details: details))
+                        eventStore.add(contentsOf: PlanDraft.finalize(events, titles: titles, draft: draft))
                         dismiss()
                     }
                     .keyboardShortcut(.defaultAction)
@@ -64,25 +61,30 @@ struct PlanSheet: View {
             PlanPreviewSummary(placed: events.count, unplaced: unplaced, custom: draft.mode == .custom)
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
-            if events.isEmpty {
-                Spacer()
-                Text("一段都排不進去。回去改目標日、每段長度或每天上限。")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                Spacer()
-            } else {
-                List {
-                    ForEach(events) { event in
-                        PlanSessionRow(
-                            event: binding(for: event.id),
-                            detail: detailBinding(for: event.id),
-                            conflict: PlanDraft.conflicts(event, existing: eventStore.events),
-                            onDelete: { remove(event.id) })
-                        .padding(.vertical, 4)
-                    }
+            List {
+                if events.isEmpty && draft.mode != .custom {
+                    Text("一段都排不進去。回去改目標日、每段長度或每天上限，或直接「加一段」。")
+                        .foregroundStyle(.secondary)
                 }
-                .listStyle(.inset)
+                ForEach(Array(events.enumerated()), id: \.element.id) { i, event in
+                    PlanSessionRow(
+                        index: i + 1,
+                        event: binding(for: event.id),
+                        title: titleBinding(for: event.id),
+                        conflict: PlanDraft.conflicts(event, existing: eventStore.events),
+                        onDelete: { remove(event.id) })
+                    .padding(.vertical, 4)
+                }
+                Button {
+                    addSession()
+                } label: {
+                    Label("加一段", systemImage: "plus")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                .padding(.vertical, 6)
             }
+            .listStyle(.inset)
         }
     }
 
@@ -105,7 +107,7 @@ struct PlanSheet: View {
     private func remove(_ id: UUID) {
         guard var events = preview else { return }
         events.removeAll { $0.id == id }
-        details[id] = nil
+        titles[id] = nil
         PlanDraft.renumber(&events, draft: draft)
         preview = events
     }
@@ -118,8 +120,8 @@ struct PlanSheet: View {
         preview = events
     }
 
-    private func detailBinding(for id: UUID) -> Binding<String> {
-        Binding(get: { details[id] ?? "" }, set: { details[id] = $0 })
+    private func titleBinding(for id: UUID) -> Binding<String> {
+        Binding(get: { titles[id] ?? "" }, set: { titles[id] = $0 })
     }
 }
 #endif

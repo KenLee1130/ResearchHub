@@ -156,12 +156,14 @@ struct PlanDraft {
             planID: request.planID, planTitle: request.goal)
     }
 
-    /// 寫進行事曆前，把每段自己填的「要做什麼」放在說明的第一行。
-    static func finalize(_ events: [CalendarEvent], details: [UUID: String]) -> [CalendarEvent] {
-        events.map { event in
+    /// 寫進行事曆前：依時間排序、重編「目標 i/n」，有自己取名字的那段用自己的名字。
+    static func finalize(_ events: [CalendarEvent], titles: [UUID: String], draft: PlanDraft) -> [CalendarEvent] {
+        var sorted = events
+        renumber(&sorted, draft: draft)
+        return sorted.map { event in
             var e = event
-            let detail = (details[event.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            if !detail.isEmpty { e.notes = detail + "\n" + event.notes }
+            let custom = (titles[event.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !custom.isEmpty { e.title = custom }
             return e
         }
     }
@@ -198,7 +200,8 @@ struct PlanFormFields: View {
     var body: some View {
         Section {
             TextField("目標", text: $draft.goal)
-            TextField("每段名稱（選填）", text: $draft.sessionLabel)
+        } footer: {
+            Text("每一段的名稱在預覽裡改；沒改的用「目標 1/5」這種編號。")
         }
 
         Section {
@@ -304,28 +307,54 @@ struct PlanFormFields: View {
 
 // MARK: - 預覽列
 
-/// 候選時段一列：序號、可調的開始時間（結束跟著平移）、撞到既有事件時的警告。
+/// 候選時段一列：序號、可改的名稱（空白＝用「目標 i/n」）、日期、開始／結束時間、撞到既有事件時的警告。
 struct PlanSessionRow: View {
+    let index: Int
     @Binding var event: CalendarEvent
-    /// 這一段要做什麼（寫進事件說明的第一行）
-    @Binding var detail: String
+    /// 使用者自己取的名稱；空白時顯示 `event.title`（自動編號）當提示
+    @Binding var title: String
     let conflict: CalendarEvent?
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(event.title)
-                    .font(.body)
-                    .lineLimit(1)
-                DatePicker("開始", selection: startBinding, displayedComponents: [.date, .hourAndMinute])
-                    .labelsHidden()
-                    .font(.caption)
-                TextField("這段要做什麼（選填）", text: $detail)
-                    .font(.callout)
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(index)")
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(Color.accentColor.opacity(0.15)))
+                .foregroundStyle(Color.accentColor)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 6) {
+                TextField(event.title, text: $title)
+                    .font(.body.weight(.medium))
                     .textFieldStyle(.plain)
+                // 手機寬度塞不下三個選擇器：日期一行、開始–結束一行；Mac 一行排完
+                #if os(iOS)
+                DatePicker("日期", selection: startBinding, displayedComponents: [.date])
+                    .labelsHidden()
                 HStack(spacing: 6) {
-                    Text(verbatim: timeRange)
+                    DatePicker("開始", selection: startBinding, displayedComponents: [.hourAndMinute])
+                        .labelsHidden()
+                    Text(verbatim: "–").foregroundStyle(.secondary)
+                    DatePicker("結束", selection: endBinding, in: minimumEnd..., displayedComponents: [.hourAndMinute])
+                        .labelsHidden()
+                    Spacer(minLength: 0)
+                }
+                #else
+                HStack(spacing: 6) {
+                    DatePicker("日期", selection: startBinding, displayedComponents: [.date])
+                        .labelsHidden()
+                    DatePicker("開始", selection: startBinding, displayedComponents: [.hourAndMinute])
+                        .labelsHidden()
+                    Text(verbatim: "–").foregroundStyle(.secondary)
+                    DatePicker("結束", selection: endBinding, in: minimumEnd..., displayedComponents: [.hourAndMinute])
+                        .labelsHidden()
+                }
+                .font(.caption)
+                #endif
+                HStack(spacing: 8) {
+                    Text(verbatim: summary)
                     if let conflict {
                         Label("與「\(conflict.title)」重疊", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -343,7 +372,10 @@ struct PlanSessionRow: View {
             .foregroundStyle(.secondary)
             .help("刪掉這一段")
         }
+        .padding(.vertical, 2)
     }
+
+    private var minimumEnd: Date { event.start.addingTimeInterval(15 * 60) }
 
     /// 改開始：結束跟著平移、長度不變。
     private var startBinding: Binding<Date> {
@@ -356,12 +388,21 @@ struct PlanSessionRow: View {
             })
     }
 
-    private var timeRange: String {
+    /// 改結束：只動長度，至少 15 分鐘。
+    private var endBinding: Binding<Date> {
+        Binding(
+            get: { event.end },
+            set: { new in event.end = max(new, minimumEnd) })
+    }
+
+    private var summary: String {
         let f = DateFormatter()
-        f.dateFormat = "M/d (E) HH:mm"
-        let t = DateFormatter()
-        t.dateFormat = "HH:mm"
-        return "\(f.string(from: event.start))–\(t.string(from: event.end))"
+        f.setLocalizedDateFormatFromTemplate("MdE")
+        let minutes = Int(event.end.timeIntervalSince(event.start) / 60)
+        let h = minutes / 60, m = minutes % 60
+        let length = m == 0 ? String(localized: "\(h) 小時")
+            : h == 0 ? String(localized: "\(m) 分鐘") : String(localized: "\(h) 小時 \(m) 分鐘")
+        return "\(f.string(from: event.start)) · \(length)"
     }
 }
 
@@ -373,8 +414,8 @@ struct PlanPreviewSummary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(custom ? "共 \(placed) 段。用「加一段」再加，每段可調時間、寫要做什麼。"
-                        : "共 \(placed) 段，可逐段調時間、寫要做什麼，或刪掉。")
+            Text(custom ? "共 \(placed) 段。用「加一段」再加；每段可以改名稱、日期與時間。"
+                        : "共 \(placed) 段。每段可以改名稱、日期與時間，或刪掉；也可以再加。")
                 .font(.callout)
             if unplaced > 0 {
                 Label("有 \(unplaced) 段排不進去：日期太短或行事曆太滿，可以縮短每段、提高每天上限或改目標日。",
