@@ -1,6 +1,7 @@
 #if os(macOS)
 import SwiftUI
 import HubStore
+import HubCore
 
 /// 新增 / 編輯事件的視窗，含標籤管理（增刪、調色）。欄位本體在 `EventFormFields`（與 iPhone 共用）。
 struct EventEditorSheet: View {
@@ -28,6 +29,16 @@ struct EventEditorSheet: View {
                         dismiss()
                     } label: {
                         Text("刪除")
+                    }
+                    if let planID = draft.planID, let planTitle = draft.planTitle,
+                       eventStore.events(inPlan: planID).count > 1 {
+                        Button(role: .destructive) {
+                            eventStore.deletePlan(planID)
+                            dismiss()
+                        } label: {
+                            Text("刪除整個規劃（\(eventStore.events(inPlan: planID).count) 段）")
+                        }
+                        .help("刪掉「\(planTitle)」規劃排出來的全部時段")
                     }
                 }
                 Spacer()

@@ -1,6 +1,7 @@
 #if os(iOS)
 import SwiftUI
 import HubStore
+import HubCore
 
 /// 一次 sheet 的設定（sheet(item:) 需要 Identifiable）。
 struct MobileEventSheet: Identifiable {
@@ -32,6 +33,12 @@ struct MobileEventEditor: View {
     @State var draft: CalendarEvent
     let isNew: Bool
     @State private var confirmDelete = false
+    @State private var confirmDeletePlan = false
+
+    /// 這個事件所屬規劃的全部時段（含自己）
+    private var planEvents: [CalendarEvent] {
+        draft.planID.map { eventStore.events(inPlan: $0) } ?? []
+    }
 
     var body: some View {
         NavigationStack {
@@ -41,6 +48,16 @@ struct MobileEventEditor: View {
                     Section {
                         Button("刪除事件", role: .destructive) { confirmDelete = true }
                             .frame(maxWidth: .infinity)
+                        if let planTitle = draft.planTitle, planEvents.count > 1 {
+                            Button("刪除整個規劃「\(planTitle)」（\(planEvents.count) 段）", role: .destructive) {
+                                confirmDeletePlan = true
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    } footer: {
+                        if let planTitle = draft.planTitle {
+                            Text("這一段是「\(planTitle)」規劃排出來的。")
+                        }
                     }
                 }
             }
@@ -58,6 +75,13 @@ struct MobileEventEditor: View {
             .confirmationDialog("刪除這個事件？", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("刪除", role: .destructive) {
                     eventStore.delete(draft)
+                    dismiss()
+                }
+            }
+            .confirmationDialog("刪除這個規劃的全部 \(planEvents.count) 段？", isPresented: $confirmDeletePlan,
+                                titleVisibility: .visible) {
+                Button("全部刪除", role: .destructive) {
+                    if let planID = draft.planID { eventStore.deletePlan(planID) }
                     dismiss()
                 }
             }
@@ -92,6 +116,9 @@ struct MobileEventRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
                     .font(.body)
+                if let planTitle = event.planTitle {
+                    PlanBadge(title: planTitle, color: tag?.color ?? .gray)
+                }
                 HStack(spacing: 6) {
                     Text(verbatim: timeString)
                     if let tag {

@@ -32,6 +32,8 @@ struct JournalView: View {
     @State private var dayMarks: [Int: DayMarks] = [:]
     /// 事件編輯 sheet
     @State private var eventSheet: EventSheetConfig?
+    /// 「規劃」：一個目標拆成多段時段
+    @State private var showPlanSheet = false
     /// /list 任務總覽（開著時暫時卸下編輯器：先存檔，讓總覽能安全改檔案）
     @State private var showTaskManager = false
     /// 回顧頁（5.2）：開著時佔用編輯器的位置
@@ -111,6 +113,9 @@ struct JournalView: View {
         }
         .sheet(item: $eventSheet) { config in
             EventEditorSheet(draft: config.draft, isNew: config.isNew)
+        }
+        .sheet(isPresented: $showPlanSheet) {
+            PlanSheet(draft: PlanDraft.initial(near: selectedDay, tag: eventStore.tags.first))
         }
         .pageCommands(commands) { cmd in
             // ⌘F：時間軸模式——跨所有日記找，上下鍵在天與天之間跳（第 4 節）
@@ -238,6 +243,18 @@ struct JournalView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .help("新增事件")
+                Button {
+                    showPlanSheet = true
+                } label: {
+                    Text("規劃")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("規劃：給一個目標（期中考、約會）與目標日，把要投入的時數拆成多段排進行事曆")
             }
 
             let dayEvents = eventStore.events(on: selectedDay)
@@ -592,6 +609,9 @@ struct JournalView: View {
                 Text(event.title)
                     .font(.callout)
                     .lineLimit(2)
+                if let planTitle = event.planTitle {
+                    PlanBadge(title: planTitle, color: tag?.color ?? .gray)
+                }
                 if !event.notes.isEmpty {
                     Text(event.notes)
                         .font(.caption)

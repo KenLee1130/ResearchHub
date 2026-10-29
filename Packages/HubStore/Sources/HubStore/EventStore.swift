@@ -4,51 +4,7 @@ import Observation
 import Combine
 
 // MARK: - Models
-
-public struct EventTag: Codable, Identifiable, Hashable {
-    public var id = UUID()
-    public var name: String
-    public var colorHex: String
-
-    public init(id: UUID = UUID(), name: String, colorHex: String) {
-        self.id = id; self.name = name; self.colorHex = colorHex
-    }
-}
-
-public struct CalendarEvent: Codable, Identifiable, Hashable {
-    public var id = UUID()
-    public var title: String
-    /// 詳細內容：這件事具體要做什麼。
-    public var notes: String = ""
-    public var isAllDay: Bool
-    public var start: Date
-    public var end: Date
-    public var tagID: UUID?
-
-    public init(id: UUID = UUID(), title: String, notes: String = "", isAllDay: Bool,
-                start: Date, end: Date, tagID: UUID? = nil) {
-        self.id = id; self.title = title; self.notes = notes; self.isAllDay = isAllDay
-        self.start = start; self.end = end; self.tagID = tagID
-    }
-}
-
-extension CalendarEvent {
-    private enum CodingKeys: String, CodingKey {
-        case id, title, notes, isAllDay, start, end, tagID
-    }
-
-    /// 舊版 events.json 沒有 notes 欄位 → 解碼時補空字串。
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(UUID.self, forKey: .id)
-        title = try c.decode(String.self, forKey: .title)
-        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
-        isAllDay = try c.decode(Bool.self, forKey: .isAllDay)
-        start = try c.decode(Date.self, forKey: .start)
-        end = try c.decode(Date.self, forKey: .end)
-        tagID = try c.decodeIfPresent(UUID.self, forKey: .tagID)
-    }
-}
+// `EventTag`／`CalendarEvent` 的型別在 HubCore（CalendarEvent.swift），這裡只管讀寫。
 
 // MARK: - Store
 
@@ -188,6 +144,28 @@ public final class EventStore {
     public func delete(_ event: CalendarEvent) {
         load()
         events.removeAll { $0.id == event.id }
+        save()
+    }
+
+    /// 一次加入多個事件（規劃排出來的時段），只存檔一次。
+    public func add(contentsOf newEvents: [CalendarEvent]) {
+        guard !newEvents.isEmpty else { return }
+        load()
+        events.append(contentsOf: newEvents)
+        save()
+    }
+
+    // MARK: - 規劃（同一個目標排出的多段時段）
+
+    /// 屬於某個規劃的全部時段，依開始時間排序。
+    public func events(inPlan planID: UUID) -> [CalendarEvent] {
+        events.filter { $0.planID == planID }.sorted { $0.start < $1.start }
+    }
+
+    /// 刪掉某個規劃的全部時段。
+    public func deletePlan(_ planID: UUID) {
+        load()
+        events.removeAll { $0.planID == planID }
         save()
     }
 

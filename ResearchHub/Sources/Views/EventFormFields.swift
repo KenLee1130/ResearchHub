@@ -1,5 +1,6 @@
 import SwiftUI
 import HubStore
+import HubCore
 
 /// 事件表單的欄位（名稱、內容、全天、起訖、標籤、標籤管理）。
 /// Mac 的 `EventEditorSheet` 與 iPhone 的 `MobileEventEditor` 共用；
