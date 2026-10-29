@@ -91,6 +91,18 @@ public final class ZoteroStore {
         return nil
     }
 
+    // MARK: - 全文（搜尋用；文字來自 Zotero 自己的索引）
+
+    /// 這個附件的全文：先讀 storage/<key>/.zotero-ft-cache（已授權資料夾時），再問本地 API。
+    /// 兩邊都沒有（Zotero 還沒索引、或沒開）就 nil。
+    public func fulltext(attachmentKey: String) async -> String? {
+        if let dir = zoteroDir {
+            let cache = dir.appendingPathComponent("storage/\(attachmentKey)/.zotero-ft-cache")
+            if let text = try? String(contentsOf: cache, encoding: .utf8), !text.isEmpty { return text }
+        }
+        return await client.fulltext(attachmentKey: attachmentKey)?.content
+    }
+
     // MARK: - Zotero 資料夾授權（讀取 storage/ 裡的 PDF）
 
     private static let dirBookmarkKey = "zotero.dirBookmark"

@@ -84,6 +84,35 @@ public nonisolated struct ZoteroClient: Sendable {
         return Attachment(key: pdf.key, filename: pdf.data.filename)
     }
 
+    // MARK: - 全文
+
+    /// Zotero 自己索引好的 PDF 全文（/items/<附件 key>/fulltext）
+    public struct Fulltext: Sendable, Hashable {
+        public let content: String
+        public let indexedPages: Int
+        public let totalPages: Int
+        public init(content: String, indexedPages: Int, totalPages: Int) {
+            self.content = content; self.indexedPages = indexedPages; self.totalPages = totalPages
+        }
+    }
+
+    /// 這個附件的全文。Zotero 沒索引過（或沒開）就回 nil。
+    public func fulltext(attachmentKey: String) async -> Fulltext? {
+        let url = base.appendingPathComponent("items/\(attachmentKey)/fulltext")
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return Self.decodeFulltext(data)
+    }
+
+    public static func decodeFulltext(_ data: Data) -> Fulltext? {
+        struct Raw: Decodable { var content: String; var indexedPages: Int?; var totalPages: Int? }
+        guard let raw = try? JSONDecoder().decode(Raw.self, from: data) else { return nil }
+        return Fulltext(content: raw.content, indexedPages: raw.indexedPages ?? 0,
+                        totalPages: raw.totalPages ?? 0)
+    }
+
     /// 透過 HTTP 拿附件的檔案內容（本地 storage/ 讀不到時的備援）。
     public func fileData(attachmentKey: String) async -> Data? {
         let url = base.appendingPathComponent("items/\(attachmentKey)/file")

@@ -13,6 +13,8 @@ final class AppContainer {
     let librarySync = LibrarySync()
     /// Zotero 文獻快取（論文頁、\cite 補全共用）
     let zotero = ZoteroStore()
+    /// 論文 PDF 全文索引（論文頁搜尋、⌘K 共用；文字來自 Zotero 的索引）
+    let paperFulltext: PaperFulltextIndex
     /// 閱讀關卡（iPhone 用；Mac 端寫 focus state 給它讀）
     let readingGate: ReadingGateStore
     /// [[筆記]] 互相引用的索引
@@ -36,6 +38,14 @@ final class AppContainer {
 
     private init() {
         readingGate = ReadingGateStore(librarySync: librarySync)
+        let zotero = zotero
+        paperFulltext = PaperFulltextIndex(
+            resolve: { item in
+                // 一篇有多個附件時 API 不給捷徑，得問 children
+                if let key = item.pdfAttachmentKey { return key }
+                return await zotero.pdfAttachment(for: item)?.key
+            },
+            fetch: { key in await zotero.fulltext(attachmentKey: key) })
         // @est 進度條一格 = 一顆蕃茄的分鐘數（蕃茄鐘設定）
         blockEditor.pomoMinutesProvider = {
             let v = UserDefaults.standard.integer(forKey: PomodoroModel.SettingsKey.workMinutes)

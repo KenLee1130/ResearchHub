@@ -61,7 +61,11 @@ struct SearchPaletteView: View {
             }
         }
         .frame(width: 640, height: 460)
-        .onAppear { fieldFocused = true }
+        .onAppear {
+            fieldFocused = true
+            // 論文清單已經載過的話順便把全文補齊（已索引的直接略過）
+            AppContainer.shared.paperFulltext.ensureIndexed(AppContainer.shared.zotero.items)
+        }
         // 論文清單只有開過論文頁才會載入：還沒載就在這裡載，載好後重搜一次
         .task {
             let zotero = AppContainer.shared.zotero
@@ -117,10 +121,11 @@ struct SearchPaletteView: View {
                 Text(hit.title)
                     .font(.callout.weight(.medium))
                     .lineLimit(1)
-                // 筆記範圍：標出命中的是檔名還是內文（兩者都中就兩個標籤）
-                if scope == .notes {
+                // 筆記範圍：標出命中的是檔名還是內文（兩者都中就兩個標籤）；
+                // 論文只在 PDF 全文命中時標「全文」（書目資料命中不用標）
+                if scope == .notes || hit.field == .fullText {
                     ForEach(hit.fields.sorted { $0 == .fileName && $1 != .fileName }, id: \.self) { field in
-                        Text(field == .fileName ? "檔名" : "內文")
+                        Text(fieldLabel(field))
                             .font(.caption2)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
@@ -145,6 +150,14 @@ struct SearchPaletteView: View {
         )
     }
 
+    private func fieldLabel(_ field: SearchEngine.Hit.Field) -> String {
+        switch field {
+        case .fileName: return "檔名"
+        case .fullText: return "全文"
+        case .title, .body: return "內文"
+        }
+    }
+
     // MARK: - 搜尋
 
     private func scheduleSearch() {
@@ -155,12 +168,13 @@ struct SearchPaletteView: View {
             searching = false
             return
         }
-        // 論文、待辦在主執行緒先抽成純資料，再丟到背景
+        // 論文、待辦在主執行緒先抽成純資料（論文含已索引的 PDF 全文），再丟到背景
+        let texts = AppContainer.shared.paperFulltext.texts
         let papers = AppContainer.shared.zotero.items.map {
             SearchEngine.PaperEntry(
                 key: $0.key, title: $0.data.title ?? "", authors: $0.authors, year: $0.year,
                 venue: $0.data.publicationTitle ?? "", abstract: $0.data.abstractNote ?? "",
-                tags: ($0.data.tags ?? []).map(\.tag))
+                tags: ($0.data.tags ?? []).map(\.tag), fullText: texts[$0.key])
         }
         let todos = generalTodos.todos.filter { !$0.done }.map(\.text)
         let root = store.rootURL
