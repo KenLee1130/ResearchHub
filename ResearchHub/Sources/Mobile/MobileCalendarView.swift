@@ -13,6 +13,14 @@ struct MobileCalendarView: View {
 
     @State private var displayedMonth = Calendar.current.startOfMonth(for: .now)
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
+    /// 水平分頁目前停在哪個月（跟 displayedMonth 同步；拖動翻頁時由它帶動）
+    @State private var pagedMonth: Date? = Calendar.current.startOfMonth(for: .now)
+    /// 可翻到的月份：以開 app 時的月份為中心前後各 36 個月
+    private let months: [Date] = {
+        let cal = Calendar.current
+        let base = cal.startOfMonth(for: .now)
+        return (-36...36).compactMap { cal.date(byAdding: .month, value: $0, to: base) }
+    }()
     @State private var eventSheet: MobileEventSheet?
     @State private var daySheet: DaySheet?
     @State private var showPlanSheet = false
@@ -110,18 +118,41 @@ struct MobileCalendarView: View {
         .padding(.vertical, 4)
     }
 
-    // MARK: - 月格
+    // MARK: - 月格（水平分頁：拖到哪頁就翻到哪個月）
 
     private var monthGrid: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: 0) {
+                ForEach(months, id: \.self) { month in
+                    monthPage(month)
+                        .containerRelativeFrame(.horizontal)
+                        .id(month)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.paging)
+        .scrollIndicators(.hidden)
+        .scrollPosition(id: $pagedMonth)
+        // 拖動翻頁 → 標題跟著換；按 ‹ › 或「今天」→ 滑過去
+        .onChange(of: pagedMonth) { _, new in
+            if let new, new != displayedMonth { displayedMonth = new }
+        }
+        .onChange(of: displayedMonth) { _, new in
+            if pagedMonth != new { withAnimation(.easeInOut(duration: 0.3)) { pagedMonth = new } }
+        }
+    }
+
+    private func monthPage(_ month: Date) -> some View {
         GeometryReader { geo in
-            let weeks = monthWeeks
-            let rowHeight = geo.size.height / CGFloat(weeks.count)
+            let weeks = MonthLayout.weeks(for: month, calendar: calendar)
+            let rowHeight = geo.size.height / CGFloat(max(weeks.count, 1))
             VStack(spacing: 0) {
                 ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
                     MonthWeekRow(
                         days: week,
                         height: rowHeight,
-                        displayedMonth: displayedMonth,
+                        displayedMonth: month,
                         selectedDay: selectedDay,
                         layout: weekLayout(week, rowHeight: rowHeight),
                         onTap: { day in
@@ -133,17 +164,6 @@ struct MobileCalendarView: View {
                 }
             }
         }
-        .contentShape(Rectangle())
-        // 左右滑換月
-        .gesture(
-            DragGesture(minimumDistance: 24)
-                .onEnded { v in
-                    guard abs(v.translation.width) > abs(v.translation.height) * 1.5 else { return }
-                    shiftMonth(v.translation.width < 0 ? 1 : -1)
-                }
-        )
-        .id(displayedMonth)
-        .transition(.opacity)
     }
 
     /// 右下角「＋」：開規劃（一段或多段都從這裡來；單一事件就用「自己指定」一段）
@@ -164,8 +184,6 @@ struct MobileCalendarView: View {
     }
 
     // MARK: - 版面（MonthLayout 共用）
-
-    private var monthWeeks: [[Date]] { MonthLayout.weeks(for: displayedMonth, calendar: calendar) }
 
     private func weekLayout(_ week: [Date], rowHeight: CGFloat) -> WeekLayout {
         guard let first = week.first, let last = week.last else { return .empty }
@@ -195,15 +213,14 @@ struct MobileCalendarView: View {
     }
 
     private func shiftMonth(_ delta: Int) {
-        guard let m = calendar.date(byAdding: .month, value: delta, to: displayedMonth) else { return }
-        withAnimation(.easeInOut(duration: 0.2)) { displayedMonth = m }
+        guard let m = calendar.date(byAdding: .month, value: delta, to: displayedMonth),
+              months.contains(m) else { return }
+        displayedMonth = m   // onChange 會帶動分頁滑過去
     }
 
     private func goToday() {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            displayedMonth = calendar.startOfMonth(for: .now)
-            selectedDay = calendar.startOfDay(for: .now)
-        }
+        displayedMonth = calendar.startOfMonth(for: .now)
+        selectedDay = calendar.startOfDay(for: .now)
     }
 
     /// 匯出用的 .ics 先寫到暫存檔，ShareLink 才能分享成檔案
