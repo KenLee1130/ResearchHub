@@ -118,10 +118,13 @@ public final class GeneralTodoStore {
     public private(set) var insights: ClaudeInsights?
     /// 週檢討歷史（新到舊排在後面；由 Claude 寫入）
     public private(set) var weekly: [WeeklyRecord] = []
+    /// 記帳類別白名單（.hub/ledger-categories.json；沒有就寫一份預設的）
+    public private(set) var ledgerCategories: LedgerCategories = .default
 
     private var fileURL: URL?
     private var insightsURL: URL?
     private var weeklyURL: URL?
+    private var ledgerCategoriesURL: URL?
     /// todos.json 已確實讀到（或確定不存在）。iCloud 還沒下載完時是 false，這時不能存檔。
     private var todosReady = false
     /// 檔案還沒下載完時使用者就動了手：等檔案到了以 id 合併後再存
@@ -153,10 +156,12 @@ public final class GeneralTodoStore {
             fileURL = nil
             insightsURL = nil
             weeklyURL = nil
+            ledgerCategoriesURL = nil
             todos = []
             trash = []
             insights = nil
             weekly = []
+            ledgerCategories = .default
             return
         }
         let hub = rootURL.appendingPathComponent(".hub", isDirectory: true)
@@ -167,6 +172,7 @@ public final class GeneralTodoStore {
         fileURL = hub.appendingPathComponent("todos.json")
         insightsURL = claudeDir.appendingPathComponent("insights.json")
         weeklyURL = hub.appendingPathComponent("weekly.json")
+        ledgerCategoriesURL = hub.appendingPathComponent("ledger-categories.json")
         todosReady = false
         editedWhileNotReady = false
         reload()
@@ -177,7 +183,8 @@ public final class GeneralTodoStore {
                 guard let self else { return }
                 if change.affects(self.fileURL)
                     || change.affects(self.insightsURL)
-                    || change.affects(self.weeklyURL) {
+                    || change.affects(self.weeklyURL)
+                    || change.affects(self.ledgerCategoriesURL) {
                     self.reload()
                 }
             }
@@ -212,6 +219,26 @@ public final class GeneralTodoStore {
                 weekly = (try? decoder.decode([WeeklyRecord].self, from: data)) ?? weekly
             case .missing:
                 weekly = []
+            case .notDownloaded:
+                break
+            }
+        }
+
+        if let ledgerCategoriesURL {
+            switch LibraryFileRead.read(ledgerCategoriesURL) {
+            case .data(let data):
+                if let loaded = try? decoder.decode(LedgerCategories.self, from: data),
+                   !loaded.categories.isEmpty {
+                    ledgerCategories = loaded
+                }
+            case .missing:
+                // 第一次：寫預設清單，使用者（或 Claude）之後直接改檔
+                ledgerCategories = .default
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+                if let data = try? encoder.encode(LedgerCategories.default) {
+                    try? data.write(to: ledgerCategoriesURL, options: .atomic)
+                }
             case .notDownloaded:
                 break
             }

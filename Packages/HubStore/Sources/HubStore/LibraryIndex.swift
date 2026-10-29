@@ -30,6 +30,8 @@ public nonisolated final class LibraryIndex: @unchecked Sendable {
         /// 解析當天：@due(7/10)、@remind(09:00) 這類標記是相對「今天」解讀的，隔天要重算
         let parsedDay: Date
         let lines: [TodoLine]
+        /// 這個檔裡的 @spend（day 先填佔位，ledgerEntries(in:day:) 回傳時換成日記那天）
+        let ledger: [LedgerEntry]
     }
 
     private let lock = NSLock()
@@ -37,6 +39,18 @@ public nonisolated final class LibraryIndex: @unchecked Sendable {
 
     /// 這個檔裡的待辦行。檔案讀不到（例如還在 iCloud 上沒下載）回 nil。
     public func todoLines(in url: URL) -> [TodoLine]? {
+        entry(for: url)?.lines
+    }
+
+    /// 這個檔（日記）裡的記帳條目，`day` 是日記那天。讀不到回 nil。
+    public func ledgerEntries(in url: URL, day: Date) -> [LedgerEntry]? {
+        entry(for: url)?.ledger.map {
+            LedgerEntry(day: day, amount: $0.amount, category: $0.category,
+                        note: $0.note, lineIndex: $0.lineIndex)
+        }
+    }
+
+    private func entry(for url: URL) -> Entry? {
         let path = url.path
         var probe = url
         probe.removeAllCachedResourceValues()
@@ -49,16 +63,18 @@ public nonisolated final class LibraryIndex: @unchecked Sendable {
         if let hit = entries[path], hit.modified == modified, hit.size == size,
            hit.parsedDay == today {
             lock.unlock()
-            return hit.lines
+            return hit
         }
         lock.unlock()
 
         guard let content = ICloudFile.safeRead(url) else { return nil }
-        let lines = Self.parse(content)
+        let entry = Entry(modified: modified, size: size, parsedDay: today,
+                          lines: Self.parse(content),
+                          ledger: LedgerParser.entries(in: content, day: .distantPast))
         lock.lock()
-        entries[path] = Entry(modified: modified, size: size, parsedDay: today, lines: lines)
+        entries[path] = entry
         lock.unlock()
-        return lines
+        return entry
     }
 
     public static func parse(_ content: String) -> [TodoLine] {
@@ -368,6 +384,15 @@ public nonisolated enum LibraryScan {
         public var repeatedTodos: [RepeatedTodo] = []
         public var noteCount = 0
         public var journalPreview: String?
+        /// 全部日記的 @spend 條目（首頁記帳卡再按月彙總）
+        public var ledger: [LedgerEntry] = []
+    }
+
+    /// 全部日記的記帳條目（舊→新、同一天照行號）。
+    public static func ledgerEntries(journal: URL?) -> [LedgerEntry] {
+        journalFiles(journal: journal)
+            .sorted { $0.1 < $1.1 }
+            .flatMap { LibraryIndex.shared.ledgerEntries(in: $0.0, day: $0.1) ?? [] }
     }
 
     public static func homeSnapshot(notes: URL?, journal: URL?, generalTexts: [String]) -> HomeSnapshot {
@@ -378,6 +403,7 @@ public nonisolated enum LibraryScan {
         snap.todos = noteTodos(notes: notes, includeDone: false)
         snap.noteCount = noteURLs(notes: notes).count
         snap.repeatedTodos = repeatedJournalTodos(journal: journal, minCount: 2)
+        snap.ledger = ledgerEntries(journal: journal)
         if let url = journalURL(for: .now, journal: journal),
            let content = ICloudFile.safeRead(url) {
             let preview = content

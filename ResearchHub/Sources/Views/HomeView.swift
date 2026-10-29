@@ -28,6 +28,8 @@ struct HomeView: View {
     @State private var pomoLogTo = Calendar.current.startOfDay(for: .now)
     @State private var newGeneralTodo = ""
     @State private var repeatedTodos: [RepeatedTodo] = []
+    /// 全部日記的 @spend（記帳卡按月彙總）
+    @State private var ledger: [LedgerEntry] = []
     @State private var showTrash = false
     @State private var scheduleFeedback: String?
     @State private var showPlanning = false
@@ -81,6 +83,7 @@ struct HomeView: View {
                         generalTodoCard
                         recentCard
                         journalCard
+                        ledgerCard
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -266,6 +269,116 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .modifier(HoverRow())
         }
+    }
+
+    // MARK: - 記帳（日記裡的 @spend，見 docs/ARCHITECTURE.md 5.1）
+
+    private var ledgerCard: some View {
+        let summary = LedgerStats.summarize(
+            ledger, month: .now, categories: generalStore.ledgerCategories)
+        return card("creditcard", "本月支出") {
+            if summary.count == 0 && summary.previousTotal == 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    emptyHint("在日記任一行寫 @spend(金額, 類別)，這裡就會按月、按類別彙總。")
+                    Text(verbatim: "- 午餐 @spend(120, 餐費)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.tertiary)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(Self.money(summary.total))
+                            .font(.title2.weight(.semibold))
+                            .monospacedDigit()
+                        Text("\(summary.count) 筆")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        if let ratio = summary.changeRatio {
+                            let up = ratio > 0
+                            Label(Self.percent(abs(ratio)) + L(" vs 上月"),
+                                  systemImage: up ? "arrow.up.right" : "arrow.down.right")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(up ? .orange : .green)
+                        } else if summary.previousTotal == 0, summary.total > 0 {
+                            Text("上月無紀錄")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+
+                    if !summary.byCategory.isEmpty {
+                        let top = summary.byCategory.prefix(3)
+                        let maxTotal = top.first?.total ?? 1
+                        VStack(alignment: .leading, spacing: 5) {
+                            ForEach(top, id: \.category) { c in
+                                HStack(spacing: 8) {
+                                    Text(c.category)
+                                        .font(.caption)
+                                        .frame(width: 56, alignment: .leading)
+                                        .lineLimit(1)
+                                    GeometryReader { geo in
+                                        Capsule()
+                                            .fill(Color.accentColor.opacity(0.35))
+                                            .frame(width: animateBars
+                                                   ? max(4, geo.size.width * c.total / max(maxTotal, 1))
+                                                   : 4)
+                                            .frame(maxHeight: .infinity, alignment: .center)
+                                    }
+                                    .frame(height: 8)
+                                    Text(Self.money(c.total))
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 72, alignment: .trailing)
+                                }
+                            }
+                        }
+                    }
+
+                    ledgerTrend(summary.trend)
+
+                    if !summary.unknownCategories.isEmpty {
+                        Text("清單外的類別：\(summary.unknownCategories.joined(separator: "、"))（可補進 .hub/ledger-categories.json）")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
+    }
+
+    /// 最近幾個月的總額（舊→新），本月那根用主色
+    private func ledgerTrend(_ trend: [LedgerMonthSummary.MonthTotal]) -> some View {
+        let maxTotal = max(trend.map(\.total).max() ?? 0, 1)
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(Array(trend.enumerated()), id: \.offset) { i, m in
+                let isCurrent = i == trend.count - 1
+                VStack(spacing: 3) {
+                    Capsule()
+                        .fill(isCurrent ? Color.accentColor : Color.gray.opacity(0.3))
+                        .frame(width: 14, height: animateBars ? max(3, 36 * m.total / maxTotal) : 3)
+                        .frame(height: 36, alignment: .bottom)
+                    Text(verbatim: m.month.formatted(.dateTime.month(.defaultDigits)) + L("月"))
+                        .font(.caption2)
+                        .foregroundStyle(isCurrent ? .primary : .tertiary)
+                }
+                .frame(maxWidth: .infinity)
+                .help(Self.money(m.total))
+            }
+        }
+    }
+
+    private static func money(_ v: Double) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = v.rounded() == v ? 0 : 2
+        f.minimumFractionDigits = 0
+        return "$" + (f.string(from: NSNumber(value: v)) ?? String(v))
+    }
+
+    private static func percent(_ v: Double) -> String {
+        "\(Int((v * 100).rounded()))%"
     }
 
     // MARK: - 今日事件
@@ -1190,6 +1303,7 @@ struct HomeView: View {
             if todayJournalPreview != snap.journalPreview { todayJournalPreview = snap.journalPreview }
             if noteCount != snap.noteCount { noteCount = snap.noteCount }
             if repeatedTodos != snap.repeatedTodos { repeatedTodos = snap.repeatedTodos }
+            if ledger != snap.ledger { ledger = snap.ledger }
         }
     }
 }
