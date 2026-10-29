@@ -268,6 +268,11 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   首頁執行率照用。編輯某一次的實例存回去走 `applyingSeriesDates`：沿用系列第一天、只套用新時間與長度；
   刪除刪整個系列。事件表單多「重複」區；規劃預覽每段可各自設重複；.ics 寫 RRULE。
 
+- iPhone 月檢視（2026-10-29 補，TimeTree 式）：`MobileCalendarView` 改成整頁月格——每週一列撐滿高度，
+  事件標題直接畫成標籤色的色塊，跨日事件連成橫跨多格的一條（`WeekLayout` 依週分 lane：先排開始早、跨得長的；
+  超過格高放不下的記成「+N」），重複事件用 `occurrences(from:to:)` 展開。點一天開 `MobileDaySheet`
+  （事件、待辦數、新增），右下角「＋」新增、工具列「規劃」與 .ics 分享照舊。
+
 ## 6. 遷移順序
 
 每一步可單獨 ship；**搬家與改行為分開 commit**；用舊 worktree 的 diff 驗證輸出不變；
