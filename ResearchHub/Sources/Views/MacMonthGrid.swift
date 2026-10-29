@@ -34,16 +34,20 @@ struct MacMonthGrid: View {
 
     var body: some View {
         let weeks = MonthLayout.weeks(for: displayedMonth, calendar: calendar)
-        VStack(spacing: Self.rowSpacing) {
-            ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
-                weekRow(week)
-                    .frame(height: rowHeight)
+        // GeometryReader 當容器：它回報的是父層「提案」的寬，不受子格子影響——
+        // 放在 background 量的話，格子一旦撐大就縮不回去（縮窄分隔線時量到的仍是自己）
+        GeometryReader { geo in
+            VStack(spacing: Self.rowSpacing) {
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
+                    weekRow(week)
+                        .frame(height: rowHeight)
+                        .clipped()
+                }
             }
+            .frame(width: geo.size.width)
+            .onChange(of: geo.size.width, initial: true) { _, new in width = new }
         }
-        .background(
-            GeometryReader { g in
-                Color.clear.onChange(of: g.size.width, initial: true) { _, new in width = new }
-            })
+        .frame(height: CGFloat(weeks.count) * rowHeight + CGFloat(max(weeks.count - 1, 0)) * Self.rowSpacing)
     }
 
     // MARK: - 一週
@@ -113,17 +117,19 @@ struct MacMonthGrid: View {
         let textOpacity = max(0, (t - 0.55) / 0.45)
         // 單日有時間的：點是實心，長成色塊後變淡底色＋彩色字
         let fillOpacity = item.isSolid ? 1 : lerp(1, 0.18, t)
-        return Text(item.event.title)
-            .font(.system(size: 10, weight: .semibold))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .foregroundStyle(item.isSolid ? Color.white : item.color)
-            .opacity(textOpacity)
-            .padding(.horizontal, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(maxHeight: .infinity)
-            .background(shape.fill(item.color.opacity(fillOpacity)))
-            .clipped()
+        // 以形狀為主體（沒有固有尺寸，剛好填滿給它的框），文字疊上去再用形狀裁切；
+        // 若反過來拿 Text 當主體，它的最小尺寸會把 4pt 的點撐成一條
+        return shape.fill(item.color.opacity(fillOpacity))
+            .overlay(alignment: .leading) {
+                Text(item.event.title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .foregroundStyle(item.isSolid ? Color.white : item.color)
+                    .opacity(textOpacity)
+                    .padding(.horizontal, 4)
+            }
+            .clipShape(shape)
     }
 
     private func dayCell(_ date: Date, hidden: Int) -> some View {
@@ -157,7 +163,7 @@ struct MacMonthGrid: View {
                         .padding(.bottom, 1)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 1)
             .background(
                 RoundedRectangle(cornerRadius: 7)
