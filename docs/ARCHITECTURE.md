@@ -256,6 +256,11 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   事件列上帶 `PlanBadge`「規劃 · 期中考」小標；事件編輯器多「刪除整個規劃（n 段）」。
 - ④ Claude 可直接照同一格式代排：自取一個 `planID`、每段標題「目標 i/n」、避開既有事件與夜間
   （`CLAUDE.md`、`.hub/README.md` 已寫）。
+- 排法（2026-10-29 補）：`PlanRequest.spacing` 多 `.everyDays(n)`（每隔 n 天一段，那天沒空就順延、
+  不越過下一個節拍）；表單「排法」三選一：自動分配／每隔幾天一段／自己指定。「自己指定」不跑排程，
+  預覽從一段開始、用「加一段」逐段加（`PlanDraft.newSession`：前一段的隔天第一個空檔，
+  `PlanScheduler.firstSlot`）。每段可填「要做什麼」，寫進行事曆時放在 `notes` 第一行、
+  自動的「第 i 段，共 n 段」那行留在後面（`PlanDraft.finalize`）。
 
 ## 6. 遷移順序
 

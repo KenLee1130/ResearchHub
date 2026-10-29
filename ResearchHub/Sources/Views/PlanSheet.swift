@@ -13,6 +13,8 @@ struct PlanSheet: View {
     @State var draft: PlanDraft
     @State private var preview: [CalendarEvent]?
     @State private var unplaced = 0
+    /// 每段自己寫的「要做什麼」
+    @State private var details: [UUID: String] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,8 +39,11 @@ struct PlanSheet: View {
                 Button("取消") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 if let events = preview {
+                    if draft.mode == .custom {
+                        Button("加一段") { addSession() }
+                    }
                     Button("加入行事曆（\(events.count) 段）") {
-                        eventStore.add(contentsOf: events)
+                        eventStore.add(contentsOf: PlanDraft.finalize(events, details: details))
                         dismiss()
                     }
                     .keyboardShortcut(.defaultAction)
@@ -56,7 +61,7 @@ struct PlanSheet: View {
 
     private func previewList(_ events: [CalendarEvent]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            PlanPreviewSummary(placed: events.count, unplaced: unplaced)
+            PlanPreviewSummary(placed: events.count, unplaced: unplaced, custom: draft.mode == .custom)
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
             if events.isEmpty {
@@ -70,6 +75,7 @@ struct PlanSheet: View {
                     ForEach(events) { event in
                         PlanSessionRow(
                             event: binding(for: event.id),
+                            detail: detailBinding(for: event.id),
                             conflict: PlanDraft.conflicts(event, existing: eventStore.events),
                             onDelete: { remove(event.id) })
                         .padding(.vertical, 4)
@@ -99,8 +105,21 @@ struct PlanSheet: View {
     private func remove(_ id: UUID) {
         guard var events = preview else { return }
         events.removeAll { $0.id == id }
+        details[id] = nil
         PlanDraft.renumber(&events, draft: draft)
         preview = events
+    }
+
+    private func addSession() {
+        var events = preview ?? []
+        let peak = pomodoro.productivityProfile(days: 60).peakWindowStart
+        events.append(draft.newSession(after: events, existing: eventStore.events, peakHour: peak))
+        PlanDraft.renumber(&events, draft: draft)
+        preview = events
+    }
+
+    private func detailBinding(for id: UUID) -> Binding<String> {
+        Binding(get: { details[id] ?? "" }, set: { details[id] = $0 })
     }
 }
 #endif

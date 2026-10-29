@@ -14,6 +14,8 @@ struct MobilePlanSheet: View {
     @State private var preview: [CalendarEvent] = []
     @State private var unplaced = 0
     @State private var showPreview = false
+    /// 每段自己寫的「要做什麼」
+    @State private var details: [UUID: String] = [:]
 
     var body: some View {
         NavigationStack {
@@ -45,9 +47,9 @@ struct MobilePlanSheet: View {
     private var previewPage: some View {
         List {
             Section {
-                PlanPreviewSummary(placed: preview.count, unplaced: unplaced)
+                PlanPreviewSummary(placed: preview.count, unplaced: unplaced, custom: draft.mode == .custom)
             }
-            if preview.isEmpty {
+            if preview.isEmpty && draft.mode != .custom {
                 Text("一段都排不進去。回去改目標日、每段長度或每天上限。")
                     .foregroundStyle(.secondary)
             } else {
@@ -55,14 +57,23 @@ struct MobilePlanSheet: View {
                     ForEach($preview) { $event in
                         PlanSessionRow(
                             event: $event,
+                            detail: detailBinding(for: event.id),
                             conflict: PlanDraft.conflicts(event, existing: eventStore.events),
                             onDelete: { remove(event.id) })
                     }
                     .onDelete { offsets in
                         var events = preview
+                        for i in offsets { details[events[i].id] = nil }
                         events.remove(atOffsets: offsets)
                         PlanDraft.renumber(&events, draft: draft)
                         preview = events
+                    }
+                    if draft.mode == .custom {
+                        Button {
+                            addSession()
+                        } label: {
+                            Label("加一段", systemImage: "plus")
+                        }
                     }
                 } header: {
                     Text(draft.goal.trimmingCharacters(in: .whitespaces))
@@ -74,7 +85,7 @@ struct MobilePlanSheet: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("加入行事曆") {
-                    eventStore.add(contentsOf: preview)
+                    eventStore.add(contentsOf: PlanDraft.finalize(preview, details: details))
                     dismiss()
                 }
                 .disabled(preview.isEmpty)
@@ -85,8 +96,21 @@ struct MobilePlanSheet: View {
     private func remove(_ id: UUID) {
         var events = preview
         events.removeAll { $0.id == id }
+        details[id] = nil
         PlanDraft.renumber(&events, draft: draft)
         preview = events
+    }
+
+    private func addSession() {
+        var events = preview
+        let peak = pomodoro.productivityProfile(days: 60).peakWindowStart
+        events.append(draft.newSession(after: events, existing: eventStore.events, peakHour: peak))
+        PlanDraft.renumber(&events, draft: draft)
+        preview = events
+    }
+
+    private func detailBinding(for id: UUID) -> Binding<String> {
+        Binding(get: { details[id] ?? "" }, set: { details[id] = $0 })
     }
 }
 #endif

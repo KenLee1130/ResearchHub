@@ -20,6 +20,22 @@ struct PlanDraft {
     var sessionMinutes = 120
     var maxPerDay = 2
     var preferred: PreferredTime = .auto
+    /// 時段怎麼排：自動分配、每隔幾天一段、或自己一段段指定。
+    var mode: Mode = .auto
+    /// `.every` 用：每隔幾天一段。
+    var repeatDays = 2
+
+    enum Mode: String, CaseIterable, Identifiable {
+        case auto, every, custom
+        var id: Self { self }
+        var title: LocalizedStringKey {
+            switch self {
+            case .auto: "自動分配"
+            case .every: "每隔幾天一段"
+            case .custom: "自己指定"
+            }
+        }
+    }
 
     enum PreferredTime: String, CaseIterable, Identifiable {
         case auto, morning, afternoon, evening, earliest
@@ -79,7 +95,9 @@ struct PlanDraft {
     }
 
     var isValid: Bool {
-        !goal.trimmingCharacters(in: .whitespaces).isEmpty && sessionCount > 0 && dayCount() > 0
+        let hasGoal = !goal.trimmingCharacters(in: .whitespaces).isEmpty
+        if mode == .custom { return hasGoal && sessionMinutes > 0 && dayCount() > 0 }
+        return hasGoal && sessionCount > 0 && dayCount() > 0
     }
 
     func request(peakHour: Int?, planID: UUID = UUID(), calendar: Calendar = .current) -> PlanRequest {
@@ -95,14 +113,57 @@ struct PlanDraft {
             lastDay: lastDay(calendar: calendar),
             totalMinutes: totalMinutes,
             sessionMinutes: sessionMinutes,
-            rules: rules)
+            rules: rules,
+            spacing: mode == .every ? .everyDays(max(repeatDays, 1)) : .auto)
     }
 
     /// 跑排程：避開行事曆上已有的事件，偏好蕃茄鐘統計出的高產時段。
     @MainActor
     func schedule(eventStore: EventStore, pomodoro: PomodoroModel) -> PlanResult {
         let peak = pomodoro.productivityProfile(days: 60).peakWindowStart
+        if mode == .custom {
+            // 自己指定：先給一段當起點，之後用「加一段」逐段加
+            var events: [CalendarEvent] = []
+            events.append(newSession(after: events, existing: eventStore.events, peakHour: peak))
+            return PlanResult(events: events, totalSessions: events.count)
+        }
         return PlanScheduler.schedule(request(peakHour: peak), existing: eventStore.events)
+    }
+
+    /// 「加一段」：放在目前最後一段的隔天（沒有就今天），挑那天第一個空檔；
+    /// 一路到目標日都沒空就放在隔天的偏好時刻，讓使用者自己調。
+    func newSession(after events: [CalendarEvent], existing: [CalendarEvent], peakHour: Int?,
+                    calendar: Calendar = .current) -> CalendarEvent {
+        let request = request(peakHour: peakHour, planID: events.first?.planID ?? UUID(), calendar: calendar)
+        let lastDay = request.lastDay
+        var day = events.map(\.start).max().map { calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: $0)) ?? $0 }
+            ?? request.firstDay
+        if day > lastDay { day = lastDay }
+        var cursor = day
+        var slot: DateInterval?
+        while slot == nil, cursor <= lastDay {
+            slot = PlanScheduler.firstSlot(on: cursor, request: request, existing: existing + events, calendar: calendar)
+            if slot == nil, let next = calendar.date(byAdding: .day, value: 1, to: cursor) { cursor = next } else { break }
+        }
+        let start = slot?.start
+            ?? calendar.date(bySettingHour: request.rules.preferredStartHour ?? 9, minute: 0, second: 0, of: day) ?? day
+        let end = start.addingTimeInterval(Double(sessionMinutes) * 60)
+        let number = events.count + 1
+        return CalendarEvent(
+            title: PlanScheduler.title(for: request, number: number, total: number),
+            notes: PlanScheduler.notes(for: request, number: number, total: number),
+            isAllDay: false, start: start, end: end, tagID: tagID,
+            planID: request.planID, planTitle: request.goal)
+    }
+
+    /// 寫進行事曆前，把每段自己填的「要做什麼」放在說明的第一行。
+    static func finalize(_ events: [CalendarEvent], details: [UUID: String]) -> [CalendarEvent] {
+        events.map { event in
+            var e = event
+            let detail = (details[event.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !detail.isEmpty { e.notes = detail + "\n" + event.notes }
+            return e
+        }
     }
 
     /// 使用者在預覽裡刪掉幾段後，剩下的重新編號（標題「3/5」→「3/4」、說明裡的合計跟著改）。
@@ -147,14 +208,32 @@ struct PlanFormFields: View {
             Text(rangeSummary)
         }
 
-        Section("時間") {
-            Stepper(value: $draft.totalHours, in: 0.5...300, step: 0.5) {
-                HStack {
-                    Text("總時數")
-                    Spacer()
-                    Text(verbatim: hoursText(draft.totalHours))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+        Section {
+            Picker("排法", selection: $draft.mode) {
+                ForEach(PlanDraft.Mode.allCases) { m in
+                    Text(m.title).tag(m)
+                }
+            }
+            if draft.mode == .every {
+                Stepper(value: $draft.repeatDays, in: 1...30) {
+                    HStack {
+                        Text("每隔")
+                        Spacer()
+                        Text("\(draft.repeatDays) 天一段")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+            }
+            if draft.mode != .custom {
+                Stepper(value: $draft.totalHours, in: 0.5...300, step: 0.5) {
+                    HStack {
+                        Text("總時數")
+                        Spacer()
+                        Text(verbatim: hoursText(draft.totalHours))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
             }
             Picker("每段長度", selection: $draft.sessionMinutes) {
@@ -162,19 +241,27 @@ struct PlanFormFields: View {
                     Text(verbatim: minutesText(m)).tag(m)
                 }
             }
-            Stepper(value: $draft.maxPerDay, in: 1...6) {
-                HStack {
-                    Text("每天最多")
-                    Spacer()
-                    Text("\(draft.maxPerDay) 段")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+            if draft.mode == .auto {
+                Stepper(value: $draft.maxPerDay, in: 1...6) {
+                    HStack {
+                        Text("每天最多")
+                        Spacer()
+                        Text("\(draft.maxPerDay) 段")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
             }
             Picker("偏好時段", selection: $draft.preferred) {
                 ForEach(PlanDraft.PreferredTime.allCases) { p in
                     Text(p.title).tag(p)
                 }
+            }
+        } header: {
+            Text("時間")
+        } footer: {
+            if draft.mode == .custom {
+                Text("預覽裡用「加一段」逐段指定日期與時間，每段可以各自寫要做什麼。")
             }
         }
 
@@ -200,6 +287,7 @@ struct PlanFormFields: View {
         let f = DateFormatter()
         f.setLocalizedDateFormatFromTemplate("Md")
         let last = f.string(from: draft.lastDay(calendar: calendar))
+        if draft.mode == .custom { return String(localized: "從今天到 \(last)，共 \(days) 天。") }
         return String(localized: "從今天到 \(last)，共 \(days) 天，會排 \(draft.sessionCount) 段。")
     }
 
@@ -219,6 +307,8 @@ struct PlanFormFields: View {
 /// 候選時段一列：序號、可調的開始時間（結束跟著平移）、撞到既有事件時的警告。
 struct PlanSessionRow: View {
     @Binding var event: CalendarEvent
+    /// 這一段要做什麼（寫進事件說明的第一行）
+    @Binding var detail: String
     let conflict: CalendarEvent?
     let onDelete: () -> Void
 
@@ -231,6 +321,9 @@ struct PlanSessionRow: View {
                 DatePicker("開始", selection: startBinding, displayedComponents: [.date, .hourAndMinute])
                     .labelsHidden()
                     .font(.caption)
+                TextField("這段要做什麼（選填）", text: $detail)
+                    .font(.callout)
+                    .textFieldStyle(.plain)
                 HStack(spacing: 6) {
                     Text(verbatim: timeRange)
                     if let conflict {
@@ -276,10 +369,12 @@ struct PlanSessionRow: View {
 struct PlanPreviewSummary: View {
     let placed: Int
     let unplaced: Int
+    var custom = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("共 \(placed) 段，可逐段調時間或刪掉。")
+            Text(custom ? "共 \(placed) 段。用「加一段」再加，每段可調時間、寫要做什麼。"
+                        : "共 \(placed) 段，可逐段調時間、寫要做什麼，或刪掉。")
                 .font(.callout)
             if unplaced > 0 {
                 Label("有 \(unplaced) 段排不進去：日期太短或行事曆太滿，可以縮短每段、提高每天上限或改目標日。",

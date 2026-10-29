@@ -118,6 +118,16 @@
         }
       }
     },
+    "%lld 天一段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days per session"
+          }
+        }
+      }
+    },
     "%lld 小時": {
       "localizations": {
         "en": {
@@ -767,12 +777,22 @@
         }
       }
     },
-    "共 %lld 段，可逐段調時間或刪掉。": {
+    "共 %lld 段。用「加一段」再加，每段可調時間、寫要做什麼。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld sessions. Adjust or remove each one."
+            "value": "%lld sessions. Use “Add session” for more; adjust the time or add a note to each."
+          }
+        }
+      }
+    },
+    "共 %lld 段，可逐段調時間、寫要做什麼，或刪掉。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessions. Adjust the time, add a note, or remove each one."
           }
         }
       }
@@ -914,6 +934,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Previous day (⌘⌥←)"
+          }
+        }
+      }
+    },
+    "加一段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add session"
           }
         }
       }
@@ -1334,6 +1364,16 @@
         }
       }
     },
+    "從今天到 %@，共 %lld 天。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From today to %1$@: %2$lld days."
+          }
+        }
+      }
+    },
     "從今天到 %@，共 %lld 天，會排 %lld 段。": {
       "localizations": {
         "en": {
@@ -1461,6 +1501,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Authorize"
+          }
+        }
+      }
+    },
+    "排法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layout"
           }
         }
       }
@@ -2105,6 +2155,26 @@
         }
       }
     },
+    "每隔": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every"
+          }
+        }
+      }
+    },
+    "每隔幾天一段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every N days"
+          }
+        }
+      }
+    },
     "永久刪除": {
       "localizations": {
         "en": {
@@ -2592,12 +2662,32 @@
         }
       }
     },
+    "自動分配": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spread evenly"
+          }
+        }
+      }
+    },
     "自動（高產時段）": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Auto (peak hours)"
+          }
+        }
+      }
+    },
+    "自己指定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick myself"
           }
         }
       }
@@ -2748,6 +2838,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Note what you did, then decide what’s next."
+          }
+        }
+      }
+    },
+    "記一筆支出": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log an expense"
+          }
+        }
+      }
+    },
+    "記一筆支出（金額, 類別）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log an expense (amount, category)"
           }
         }
       }
@@ -2949,6 +3059,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "What exactly needs to be done?"
+          }
+        }
+      }
+    },
+    "這段要做什麼（選填）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What to do in this session (optional)"
           }
         }
       }
@@ -3435,6 +3555,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preview sessions"
+          }
+        }
+      }
+    },
+    "預覽裡用「加一段」逐段指定日期與時間，每段可以各自寫要做什麼。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the preview, use “Add session” to set each date and time; each session can have its own note."
           }
         }
       }

@@ -138,6 +138,42 @@ final class PlanSchedulerTests: XCTestCase {
         XCTAssertEqual(late.unplacedCount, 1)
     }
 
+    // MARK: 每隔幾天一段
+
+    func testEveryDaysSpacingSkipsBusyDaysForward() {
+        var request = midterm()
+        request.totalMinutes = 480 // 4 段
+        request.spacing = .everyDays(2)
+        let free = PlanScheduler.schedule(request, existing: [], now: eve, calendar: calendar)
+        XCTAssertEqual(free.events.map { dayOf($0.start) }, [1, 3, 5, 7])
+
+        // 11/3 整天有事 → 那段順延到 11/4，之後照原節拍 11/5、11/7
+        let busy = CalendarEvent(title: "出差", isAllDay: false,
+                                 start: day(2026, 11, 3, 7, 0), end: day(2026, 11, 3, 23, 0))
+        let shifted = PlanScheduler.schedule(request, existing: [busy], now: eve, calendar: calendar)
+        XCTAssertEqual(shifted.events.map { dayOf($0.start) }, [1, 4, 5, 7])
+        XCTAssertEqual(shifted.events.map(\.title).last, "期中考 複習 4/4")
+
+        // 每隔 3 天、範圍不夠 → 排不完
+        request.spacing = .everyDays(3)
+        let short = PlanScheduler.schedule(request, existing: [], now: eve, calendar: calendar)
+        XCTAssertEqual(short.events.map { dayOf($0.start) }, [1, 4, 7])
+        XCTAssertEqual(short.unplacedCount, 1)
+    }
+
+    func testFirstSlotHonoursRulesAndExistingEvents() {
+        var rules = PlanRules()
+        rules.preferredStartHour = 14
+        let request = midterm(rules: rules)
+        let seminar = CalendarEvent(title: "Seminar", isAllDay: false,
+                                    start: day(2026, 11, 2, 14, 0), end: day(2026, 11, 2, 16, 0))
+        let slot = PlanScheduler.firstSlot(on: day(2026, 11, 2), request: request, existing: [seminar],
+                                           now: eve, calendar: calendar)
+        XCTAssertEqual(slot.map { hm($0.start) }, "11:45")
+        XCTAssertNil(PlanScheduler.firstSlot(on: day(2026, 11, 2), request: request, existing: [],
+                                             now: day(2026, 11, 2, 22, 30), calendar: calendar))
+    }
+
     // MARK: 資料契約
 
     func testCalendarEventDecodesWithoutPlanFieldsAndOmitsThemWhenNil() throws {
