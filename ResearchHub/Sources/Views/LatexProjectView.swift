@@ -457,6 +457,7 @@ struct LatexProjectView: View {
         VStack(spacing: 0) {
             if FileManager.default.fileExists(atPath: pdfURL.path) {
                 LatexPDFView(url: pdfURL, version: compiler.pdfVersion, continuous: continuous,
+                             layoutToken: layoutRaw,
                              onDoubleClick: { page, point, word in
                                  Task { await jumpToSource(page: page, point: point, word: word) }
                              },
