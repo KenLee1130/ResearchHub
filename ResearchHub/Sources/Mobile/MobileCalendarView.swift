@@ -350,6 +350,7 @@ struct MobileDaySheet: View {
     @State private var eventSheet: MobileEventSheet?
     @State private var showPlanSheet = false
     @State private var openTodoCount = 0
+    @State private var journalRevision = 0
 
     private let calendar = Calendar.current
     private var events: [CalendarEvent] { eventStore.events(on: day) }
@@ -361,6 +362,7 @@ struct MobileDaySheet: View {
                     Text("沒有事件")
                         .foregroundStyle(.tertiary)
                 } else {
+                    let _ = journalRevision
                     ForEach(events) { event in
                         Button {
                             eventSheet = MobileEventSheet(draft: event, isNew: false)
@@ -394,6 +396,9 @@ struct MobileDaySheet: View {
             }
             .sheet(isPresented: $showPlanSheet) {
                 MobilePlanSheet(draft: PlanDraft.initial(near: day, tag: eventStore.tags.first))
+            }
+            .onReceive(AppContainer.shared.librarySync.changes) { change in
+                if change.affects(store.journalURL(for: day)) { journalRevision += 1; reloadTodoCount() }
             }
             .onAppear { reloadTodoCount() }
         }
