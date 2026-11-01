@@ -304,6 +304,7 @@ struct JournalView: View {
             } else if let url = journalURL(for: selectedDay) {
                 EditorCore(
                     fileURL: url, mode: $mode,
+                    onSaved: { journalRevision += 1 },   // 打勾後 0.8 秒存檔 → 月曆刪除線、時間條立刻跟上
                     quickCmdBar: true,
                     onJournalCommand: handleQuickAction,
                     handle: editor)
@@ -390,7 +391,9 @@ struct JournalView: View {
     /// 只在「今天」且日記裡有帶 @est 的待辦時顯示。
     /// 打勾一項 → estRemaining 立刻少掉那項的估時，可對照 🍅 實跑。
     @ViewBuilder private var timeBudgetBar: some View {
+        // 日記存檔（journalRevision 變）就重建，不用等每分鐘的定時重繪
         TimelineView(.periodic(from: .now, by: 60)) { _ in
+            let _ = journalRevision
             if let b = todayBudget() {
                 let h = { (m: Int) in Int((Double(m) / 60).rounded()) }
                 let overloaded = b.estRemaining > b.leftMinutes

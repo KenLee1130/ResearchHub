@@ -33,7 +33,10 @@ public final class FileSystemStore {
     /// [[筆記]] 引用索引：根資料夾換了要告訴它（由 composition root 注入）
     private let noteLinks: NoteLinkIndex
 
+    private let librarySync: LibrarySync
+
     public init(noteLinks: NoteLinkIndex, librarySync: LibrarySync) {
+        self.librarySync = librarySync
         self.noteLinks = noteLinks
         restoreRoot()
         // 另一台裝置新增／改名／刪除筆記 → 目前資料夾的清單要跟著變
@@ -422,6 +425,12 @@ public final class FileSystemStore {
     }
 
     /// 在原檔打勾 / 取消打勾
+    /// 自己寫了日記檔 → 廣播出去。協調寫入與 NSFilePresenter 都不會通知回自己，
+    /// 不廣播的話月曆上的刪除線、首頁待辦等要等下一次外部變動或定時重繪才更新。
+    private func noteLocalWrite(_ url: URL) {
+        librarySync.changes.send(LibraryChange(urls: [url]))
+    }
+
     public func toggleTodo(_ item: TodoItem) {
         guard let content = Self.safeRead(item.noteURL) else { return }
         var lines = content.components(separatedBy: "\n")
@@ -436,6 +445,7 @@ public final class FileSystemStore {
         }
         try? lines.joined(separator: "\n")
             .write(to: item.noteURL, atomically: true, encoding: .utf8)
+        noteLocalWrite(item.noteURL)
     }
 
     /// 放棄一行待辦（只動這一行）：「- [ ]」→「- [-]」（已放棄，不再列入待辦與重複統計）。
@@ -448,6 +458,7 @@ public final class FileSystemStore {
               let range = lines[item.lineIndex].range(of: "- [ ]") else { return false }
         lines[item.lineIndex].replaceSubrange(range, with: "- [-]")
         try? lines.joined(separator: "\n").write(to: item.noteURL, atomically: true, encoding: .utf8)
+        noteLocalWrite(item.noteURL)
         return true
     }
 
@@ -469,6 +480,7 @@ public final class FileSystemStore {
 
     private func appendTodoLines(_ raws: [String], existingContent: String, to url: URL) {
         LibraryScan.appendTodoLines(raws, existingContent: existingContent, to: url)
+        noteLocalWrite(url)
     }
 
     // MARK: - 任務總覽（/list）
@@ -577,6 +589,7 @@ public final class FileSystemStore {
             guard updated != content else { continue }
             try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? updated.write(to: url, atomically: true, encoding: .utf8)
+            noteLocalWrite(url)
         }
     }
 
@@ -640,6 +653,7 @@ public final class FileSystemStore {
         if oldDay == newDay {
             lines[i] = newLine
             try? lines.joined(separator: "\n").write(to: oldURL, atomically: true, encoding: .utf8)
+            noteLocalWrite(oldURL)
             return
         }
         // 換天：舊的那天拿掉（規劃段空了就連 --- 一起收掉），新的那天插進規劃段
@@ -651,6 +665,8 @@ public final class FileSystemStore {
         let updated = Self.insertingPlannedLines([newLine], into: target)
         try? fm.createDirectory(at: newURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? updated.write(to: newURL, atomically: true, encoding: .utf8)
+        noteLocalWrite(oldURL)
+        noteLocalWrite(newURL)
     }
 
     /// `- [ ] 文字`／`- [x] 文字`／`- [-] 文字` → 文字；不是待辦行回 nil。
