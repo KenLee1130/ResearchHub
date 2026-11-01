@@ -10,15 +10,19 @@ public struct LatexPDFView: NSViewRepresentable {
     public let version: Int
     /// true＝連續捲動，false＝一次一頁
     public let continuous: Bool
+    /// 版面（原始碼／並排／只看 PDF）切換時換一個值：那一刻把自動縮放關掉、保留目前的比例，
+    /// 不然 PDF 那欄變寬變窄會跟著「符合欄寬」重新縮放，頁面忽大忽小。
+    public var layoutToken: String = ""
     /// 雙擊 PDF：(頁碼從 0 算, 點座標〔原點在頁面左上，SyncTeX 的慣例〕, 雙擊選到的字)
     public var onDoubleClick: ((Int, CGPoint, String?) -> Void)? = nil
     /// 建好 PDFView 時回報（頁面的 EditorHandle 靠它決定 ⌘F 找哪裡）
     public var onPDFViewReady: ((PDFView) -> Void)? = nil
 
-    public init(url: URL, version: Int, continuous: Bool,
+    public init(url: URL, version: Int, continuous: Bool, layoutToken: String = "",
                 onDoubleClick: ((Int, CGPoint, String?) -> Void)? = nil,
                 onPDFViewReady: ((PDFView) -> Void)? = nil) {
         self.url = url; self.version = version; self.continuous = continuous
+        self.layoutToken = layoutToken
         self.onDoubleClick = onDoubleClick; self.onPDFViewReady = onPDFViewReady
     }
 
@@ -47,6 +51,16 @@ public struct LatexPDFView: NSViewRepresentable {
         if view.displayMode != mode { view.displayMode = mode }
         if context.coordinator.version != version {
             load(into: view, coordinator: context.coordinator)
+        }
+        // 版面切換：在欄寬真的改變之前先鎖住比例（updateNSView 在新的 frame 套上去之前被呼叫）
+        if context.coordinator.layoutToken != layoutToken {
+            let first = context.coordinator.layoutToken == nil
+            context.coordinator.layoutToken = layoutToken
+            if !first, view.document != nil, view.autoScales {
+                let scale = view.scaleFactor
+                view.autoScales = false
+                view.scaleFactor = scale
+            }
         }
     }
 
@@ -98,6 +112,8 @@ public struct LatexPDFView: NSViewRepresentable {
     @MainActor
     public final class Coordinator {
         public var version = -1
+        /// 最後一次看到的版面值；nil＝還沒看過（第一次不算切換）
+        public var layoutToken: String?
         private var observer: NSObjectProtocol?
 
         /// 捲動時記下位置（給 view 被重建時用）
