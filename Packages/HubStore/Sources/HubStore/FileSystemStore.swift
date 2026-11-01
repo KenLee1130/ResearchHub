@@ -231,7 +231,8 @@ public final class FileSystemStore {
                 )
             }
             .sorted { a, b in
-                if a.isFolder != b.isFolder { return a.isFolder }
+                // 一般資料夾 → LaTeX 專案 → 筆記，各自照名稱
+                if a.rank != b.rank { return a.rank < b.rank }
                 return a.name.localizedStandardCompare(b.name) == .orderedAscending
             }
             // 沒變就不要重設：一設，所有用到清單的畫面都會重畫
