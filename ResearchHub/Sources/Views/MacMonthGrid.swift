@@ -8,7 +8,6 @@ import HubCore
 /// 同一個元件、一個 0…1 的參數 `t`，不是兩種版面切換。
 struct MacMonthGrid: View {
     @Environment(EventStore.self) private var eventStore
-    @Environment(FileSystemStore.self) private var store
 
     let displayedMonth: Date
     let selectedDay: Date
@@ -17,6 +16,8 @@ struct MacMonthGrid: View {
     /// 本月有日記／筆記更新的日（day number）
     let journalDays: Set<Int>
     let noteDays: Set<Int>
+    /// 事件是否完成（日記裡對應待辦勾掉）；日記頁會把正在編輯、還沒存檔的文字算進去
+    var isDone: (CalendarEvent) -> Bool = { _ in false }
     let onSelect: (Date) -> Void
 
     @State private var width: CGFloat = 0
@@ -61,7 +62,7 @@ struct MacMonthGrid: View {
             week: week,
             events: eventStore.occurrences(from: first, to: last),
             color: { eventStore.tag(for: $0.tagID)?.color ?? .gray },
-            done: { store.isPlannedEventDone($0, calendar: calendar) },
+            done: isDone,
             maxLanes: Self.maxLanes, calendar: calendar)
         // 窄版的色點列：每天的單日事件照 lane 順序排成一排
         var dotIndex: [String: (index: Int, count: Int)] = [:]

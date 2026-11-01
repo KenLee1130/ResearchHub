@@ -87,6 +87,8 @@ struct EditorCore: View {
     var imageInsertion: ImageInsertion = .markdown
     /// 存檔完成（LaTeX 專案用來觸發重新編譯）
     var onSaved: (() -> Void)?
+    /// 編輯器文字每次變動（還沒存檔）就回報：日記頁用它零延遲地重算月曆刪除線與時間條
+    var onTextChanged: ((String) -> Void)?
     /// 跳到某一行（編譯錯誤點過來）
     var lineJump: LineJumpRequest?
     /// Shift+Return：LaTeX 專案用來手動觸發編譯（會先存檔）
@@ -145,7 +147,7 @@ struct EditorCore: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
                 }
             }
-            .onChange(of: doc.text) { doc.scheduleAutosave() }
+            .onChange(of: doc.text) { doc.scheduleAutosave(); onTextChanged?(doc.text) }
             // 換檔案時只換內容、不重建整個 view。
             // （以前 LaTeX 專案是靠 .id(fileURL) 換檔，但那會連帶重建 HSplitView 的子畫面，
             //   把使用者拖好的欄寬重置回預設值。）
