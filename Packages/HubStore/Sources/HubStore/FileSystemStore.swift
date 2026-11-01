@@ -616,15 +616,29 @@ public final class FileSystemStore {
         return Set(lines.filter(\.done).map { $0.meta.cleanText })
     }
 
+    /// 從一段日記文字（例如編輯器裡還沒存檔的內容）取已勾掉的待辦，去掉標記後的文字。
+    public static func doneTodoTexts(inJournalText text: String) -> Set<String> {
+        var result = Set<String>()
+        for line in text.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.lowercased().hasPrefix("- [x]"), let body = todoBody(of: trimmed) else { continue }
+            result.insert(TodoMeta.parse(body).cleanText)
+        }
+        return result
+    }
+
+    /// 這組已勾掉的待辦文字裡，有沒有對應這個事件的（剝掉時間前綴後標題相同）。
+    public static func isEventDone(_ event: CalendarEvent, doneTexts: Set<String>) -> Bool {
+        let title = event.title.trimmingCharacters(in: .whitespaces)
+        guard !title.isEmpty, !doneTexts.isEmpty else { return false }
+        return doneTexts.contains { strippingTimeRange($0) == title }
+    }
+
     /// 這個事件（含重複事件的實例）在當天日記裡對應的待辦是否已勾掉 → 行事曆上畫刪除線。
     /// 比對的是標題：待辦前面若有「HH:mm–HH:mm 」時間範圍先剝掉（規劃寫進去的那行就是這格式；
     /// 事件時間後來改了也還認得），剩下的文字等於事件標題就算。
     public func isPlannedEventDone(_ event: CalendarEvent, calendar: Calendar = .current) -> Bool {
-        let done = doneTodoTexts(on: calendar.startOfDay(for: event.start))
-        guard !done.isEmpty else { return false }
-        let title = event.title.trimmingCharacters(in: .whitespaces)
-        guard !title.isEmpty else { return false }
-        return done.contains { Self.strippingTimeRange($0) == title }
+        Self.isEventDone(event, doneTexts: doneTodoTexts(on: calendar.startOfDay(for: event.start)))
     }
 
     /// 改了事件（時間、標題、換天）→ 日記裡對應的規劃行跟著改：勾選狀態與其他標記保留，

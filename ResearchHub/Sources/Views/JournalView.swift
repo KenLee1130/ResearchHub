@@ -34,6 +34,8 @@ struct JournalView: View {
     @State private var showPlanSheet = false
     /// 日記檔變動的計數：讓月曆上的刪除線（勾掉的規劃待辦）跟著更新
     @State private var journalRevision = 0
+    /// 編輯器裡「還沒存檔」的日記文字（打勾當下就有），給月曆刪除線與時間條用，不等 0.8 秒的自動存檔
+    @State private var liveJournal: (day: Date, text: String)?
     /// /list 任務總覽（開著時暫時卸下編輯器：先存檔，讓總覽能安全改檔案）
     @State private var showTaskManager = false
     /// 回顧頁（5.2）：開著時佔用編輯器的位置
@@ -84,7 +86,7 @@ struct JournalView: View {
         }
         .onChange(of: store.pendingJournalDate) { consumePendingDate() }
         .onChange(of: displayedMonth) { refreshMonthData() }
-        .onChange(of: selectedDay) { refreshMonthData() }
+        .onChange(of: selectedDay) { liveJournal = nil; refreshMonthData() }
         .onChange(of: eventStore.events) { refreshMonthData() }
         // 手機寫的日記同步進來 → 月曆上的「有日記」標記跟著更新
         .onReceive(AppContainer.shared.librarySync.changes) { change in
@@ -179,6 +181,7 @@ struct JournalView: View {
                 displayedMonth: displayedMonth, selectedDay: selectedDay,
                 revision: journalRevision,
                 journalDays: journalDays, noteDays: Set(noteUpdates.keys),
+                isDone: { isEventDone($0) },
                 onSelect: { date in
                     seedBeforeShowing(date)
                     selectedDay = date
@@ -304,7 +307,8 @@ struct JournalView: View {
             } else if let url = journalURL(for: selectedDay) {
                 EditorCore(
                     fileURL: url, mode: $mode,
-                    onSaved: { journalRevision += 1 },   // 打勾後 0.8 秒存檔 → 月曆刪除線、時間條立刻跟上
+                    onSaved: { journalRevision += 1 },   // 存檔後其他讀檔的地方（首頁等）也跟上
+                    onTextChanged: { text in liveJournal = (selectedDay, text); journalRevision += 1 },
                     quickCmdBar: true,
                     onJournalCommand: handleQuickAction,
                     handle: editor)
@@ -436,6 +440,17 @@ struct JournalView: View {
             return c.total > 0 ? (c.total, c.remaining) : nil
         }
         guard let content = FileSystemStore.safeRead(url) else { return nil }
+        let result = Self.estMinutes(parsing: content)
+        Self.estCache = (key, result?.total ?? 0, result?.remaining ?? 0)
+        return result
+    }
+
+    /// 編輯器裡的文字直接算（不經快取）。
+    private func estMinutes(inText text: String) -> (total: Int, remaining: Int)? {
+        Self.estMinutes(parsing: text)
+    }
+
+    private static func estMinutes(parsing content: String) -> (total: Int, remaining: Int)? {
         var total = 0, remaining = 0
         for line in content.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -448,14 +463,22 @@ struct JournalView: View {
             total += est
             if !done { remaining += est }
         }
-        Self.estCache = (key, total, remaining)
         return total > 0 ? (total, remaining) : nil
+    }
+
+    /// 事件是否完成：正在編輯的那天用編輯器裡的文字（零延遲），其他天讀檔。
+    private func isEventDone(_ event: CalendarEvent) -> Bool {
+        if let live = liveJournal, calendar.isDate(live.day, inSameDayAs: event.start) {
+            return FileSystemStore.isEventDone(event, doneTexts: FileSystemStore.doneTodoTexts(inJournalText: live.text))
+        }
+        return store.isPlannedEventDone(event)
     }
 
     private func todayBudget() -> DayBudget? {
         guard calendar.isDateInToday(selectedDay),
               let url = journalURL(for: selectedDay),
-              let est = estMinutes(in: url)
+              let est = (liveJournal.flatMap { calendar.isDateInToday($0.day) ? estMinutes(inText: $0.text) : nil }
+                         ?? estMinutes(in: url))
         else { return nil }
         var b = DayBudget()
         b.estTotal = est.total
@@ -507,7 +530,7 @@ struct JournalView: View {
 
     private func eventRow(_ event: CalendarEvent) -> some View {
         let tag = eventStore.tag(for: event.tagID)
-        let done = store.isPlannedEventDone(event)
+        let done = isEventDone(event)
         _ = journalRevision   // 日記變了要重算 done
         return HStack(alignment: .top, spacing: 8) {
             RoundedRectangle(cornerRadius: 2)

@@ -91,6 +91,15 @@ final class PlanJournalTests: XCTestCase {
         XCTAssertEqual(FileSystemStore.strippingTimeRange("跟老爸約"), "跟老爸約")
     }
 
+    func testDoneTextsFromLiveJournalText() {
+        let text = "- [x] 12:15–14:15 月會 1/5 @est(2h)\n- [ ] 讀 CFT\n- [X] 測愛之語 !high\n\n---\n"
+        let done = FileSystemStore.doneTodoTexts(inJournalText: text)
+        XCTAssertEqual(done, ["12:15–14:15 月會 1/5", "測愛之語"])
+        let meeting = CalendarEvent(title: "月會 1/5", isAllDay: false, start: day(2026, 11, 1, 12, 15), end: day(2026, 11, 1, 14, 15))
+        XCTAssertTrue(FileSystemStore.isEventDone(meeting, doneTexts: done))
+        XCTAssertFalse(FileSystemStore.isEventDone(CalendarEvent(title: "讀 CFT", isAllDay: false, start: .now, end: .now), doneTexts: done))
+    }
+
     @MainActor
     func testSyncPlannedLineFollowsTimeTitleAndDayChanges() throws {
         let root = try TestFixtures.makeTempDir()
