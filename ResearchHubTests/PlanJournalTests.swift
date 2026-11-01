@@ -81,5 +81,13 @@ final class PlanJournalTests: XCTestCase {
         try (try String(contentsOf: d3, encoding: .utf8) + "\n- [x] 期中考 複習 2/2 !high\n")
             .write(to: d3, atomically: true, encoding: .utf8)
         XCTAssertTrue(store.isPlannedEventDone(events[1], calendar: calendar))
+
+        // 事件時間後來改了（日記那行還是舊時間）→ 剝掉時間前綴比標題，仍算
+        var moved = events[0]
+        moved.start = day(2026, 11, 1, 18); moved.end = day(2026, 11, 1, 20)
+        XCTAssertTrue(store.isPlannedEventDone(moved, calendar: calendar))
+        XCTAssertEqual(FileSystemStore.strippingTimeRange("10:00–12:00 跟老爸約"), "跟老爸約")
+        XCTAssertEqual(FileSystemStore.strippingTimeRange("9:00-10:30 讀 CFT"), "讀 CFT")
+        XCTAssertEqual(FileSystemStore.strippingTimeRange("跟老爸約"), "跟老爸約")
     }
 }

@@ -604,12 +604,21 @@ public final class FileSystemStore {
     }
 
     /// 這個事件（含重複事件的實例）在當天日記裡對應的待辦是否已勾掉 → 行事曆上畫刪除線。
-    /// 認兩種：規劃寫進去的「HH:mm–HH:mm 標題」，或使用者自己寫的、文字就是事件標題的待辦。
+    /// 比對的是標題：待辦前面若有「HH:mm–HH:mm 」時間範圍先剝掉（規劃寫進去的那行就是這格式；
+    /// 事件時間後來改了也還認得），剩下的文字等於事件標題就算。
     public func isPlannedEventDone(_ event: CalendarEvent, calendar: Calendar = .current) -> Bool {
         let done = doneTodoTexts(on: calendar.startOfDay(for: event.start))
         guard !done.isEmpty else { return false }
         let title = event.title.trimmingCharacters(in: .whitespaces)
-        return done.contains(Self.plannedCleanText(for: event)) || (!title.isEmpty && done.contains(title))
+        guard !title.isEmpty else { return false }
+        return done.contains { Self.strippingTimeRange($0) == title }
+    }
+
+    /// 「10:00–12:00 跟老爸約」→「跟老爸約」；沒有時間前綴就原樣回傳。
+    static func strippingTimeRange(_ text: String) -> String {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        guard let r = t.range(of: #"^\d{1,2}:\d{2}\s*[–\-~]\s*\d{1,2}:\d{2}\s+"#, options: .regularExpression) else { return t }
+        return String(t[r.upperBound...]).trimmingCharacters(in: .whitespaces)
     }
 
     /// 日記最上面的「規劃」段：從檔首到第一條 `---` 之間全是待辦行（或空行）。
