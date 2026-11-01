@@ -28,6 +28,7 @@ struct MobileEventSheet: Identifiable {
 /// 手機版的事件表單：欄位與 Mac 共用（EventFormFields），外殼是 NavigationStack + 取消／儲存。
 struct MobileEventEditor: View {
     @Environment(EventStore.self) private var eventStore
+    @Environment(FileSystemStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State var draft: CalendarEvent
@@ -92,7 +93,14 @@ struct MobileEventEditor: View {
         var event = draft
         event.title = event.title.trimmingCharacters(in: .whitespaces)
         if event.end < event.start { event.end = event.start }
-        if isNew { eventStore.add(event) } else { eventStore.update(eventStore.applyingSeriesDates(event)) }
+        if isNew {
+            eventStore.add(event)
+        } else {
+            let old = eventStore.events.first { $0.id == event.id }
+            let fixed = eventStore.applyingSeriesDates(event)
+            eventStore.update(fixed)
+            if let old { store.syncPlannedLine(from: old, to: fixed) }
+        }
         dismiss()
     }
 }

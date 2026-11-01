@@ -90,4 +90,37 @@ final class PlanJournalTests: XCTestCase {
         XCTAssertEqual(FileSystemStore.strippingTimeRange("9:00-10:30 讀 CFT"), "讀 CFT")
         XCTAssertEqual(FileSystemStore.strippingTimeRange("跟老爸約"), "跟老爸約")
     }
+
+    @MainActor
+    func testSyncPlannedLineFollowsTimeTitleAndDayChanges() throws {
+        let root = try TestFixtures.makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = FileSystemStore(noteLinks: NoteLinkIndex(), librarySync: LibrarySync())
+        store.setRoot(root)
+        let event = CalendarEvent(title: "跟老爸約", isAllDay: false, start: day(2026, 11, 1, 10), end: day(2026, 11, 1, 12))
+        store.addPlannedEvents([event], calendar: calendar)
+        let d1 = try XCTUnwrap(store.journalURL(for: day(2026, 11, 1)))
+        // 使用者勾掉、還加了 !high
+        try "- [x] 10:00–12:00 跟老爸約 @est(2h) !high\n\n---\n\n- [ ] 讀 CFT\n".write(to: d1, atomically: true, encoding: .utf8)
+
+        // 改時間與標題：那行跟著改，勾選與 !high 保留、@est 重算
+        var moved = event
+        moved.start = day(2026, 11, 1, 18); moved.end = day(2026, 11, 1, 19, 30); moved.title = "跟老爸吃飯"
+        store.syncPlannedLine(from: event, to: moved, calendar: calendar)
+        XCTAssertEqual(try String(contentsOf: d1, encoding: .utf8),
+                       "- [x] 18:00–19:30 跟老爸吃飯 @est(90m) !high\n\n---\n\n- [ ] 讀 CFT\n")
+
+        // 換天：舊的那天規劃段空了就整段收掉，新的那天插進去
+        var other = moved
+        other.start = day(2026, 11, 2, 18); other.end = day(2026, 11, 2, 19, 30)
+        store.syncPlannedLine(from: moved, to: other, calendar: calendar)
+        XCTAssertEqual(try String(contentsOf: d1, encoding: .utf8), "- [ ] 讀 CFT\n")
+        let d2 = try XCTUnwrap(store.journalURL(for: day(2026, 11, 2)))
+        XCTAssertEqual(try String(contentsOf: d2, encoding: .utf8), "- [x] 18:00–19:30 跟老爸吃飯 @est(90m) !high\n\n---\n")
+
+        // 日記裡沒有對應的行 → 不動
+        let stray = CalendarEvent(title: "沒寫進日記的", isAllDay: false, start: day(2026, 11, 2, 9), end: day(2026, 11, 2, 10))
+        store.syncPlannedLine(from: stray, to: stray, calendar: calendar)
+        XCTAssertEqual(try String(contentsOf: d2, encoding: .utf8), "- [x] 18:00–19:30 跟老爸吃飯 @est(90m) !high\n\n---\n")
+    }
 }

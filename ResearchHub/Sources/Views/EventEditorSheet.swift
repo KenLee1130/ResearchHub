@@ -6,6 +6,7 @@ import HubCore
 /// 新增 / 編輯事件的視窗，含標籤管理（增刪、調色）。欄位本體在 `EventFormFields`（與 iPhone 共用）。
 struct EventEditorSheet: View {
     @Environment(EventStore.self) private var eventStore
+    @Environment(FileSystemStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State var draft: CalendarEvent
@@ -50,7 +51,10 @@ struct EventEditorSheet: View {
                     if isNew {
                         eventStore.add(event)
                     } else {
-                        eventStore.update(eventStore.applyingSeriesDates(event))
+                        let old = eventStore.events.first { $0.id == event.id }
+                        let fixed = eventStore.applyingSeriesDates(event)
+                        eventStore.update(fixed)
+                        if let old { store.syncPlannedLine(from: old, to: fixed) }
                     }
                     dismiss()
                 }
