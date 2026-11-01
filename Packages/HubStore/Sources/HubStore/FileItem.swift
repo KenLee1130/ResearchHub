@@ -17,4 +17,7 @@ public nonisolated struct FileItem: Identifiable, Hashable, Sendable {
     public var name: String {
         isFolder ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
     }
+
+    /// 清單排序的層級：一般資料夾 0、LaTeX 專案 1、筆記 2。
+    public var rank: Int { isFolder ? (isProject ? 1 : 0) : 2 }
 }
