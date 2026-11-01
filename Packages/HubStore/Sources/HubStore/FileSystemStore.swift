@@ -614,6 +614,70 @@ public final class FileSystemStore {
         return done.contains { Self.strippingTimeRange($0) == title }
     }
 
+    /// 改了事件（時間、標題、換天）→ 日記裡對應的規劃行跟著改：勾選狀態與其他標記保留，
+    /// 時間與標題換成新的、@est 重算；換到別天就從舊的那天拿掉、寫進新的那天。
+    /// 找不到對應的行（不是規劃排的、或使用者刪了）就什麼都不做；重複事件不動。
+    public func syncPlannedLine(from old: CalendarEvent, to new: CalendarEvent, calendar: Calendar = .current) {
+        guard old.repeatRule == nil, new.repeatRule == nil else { return }
+        let oldDay = calendar.startOfDay(for: old.start)
+        let newDay = calendar.startOfDay(for: new.start)
+        guard let oldURL = journalURL(for: oldDay), let content = Self.safeRead(oldURL) else { return }
+        var lines = content.components(separatedBy: "\n")
+        let oldTitle = old.title.trimmingCharacters(in: .whitespaces)
+        guard let i = lines.firstIndex(where: { line in
+            guard let body = Self.todoBody(of: line) else { return false }
+            return Self.strippingTimeRange(TodoMeta.parse(body).cleanText) == oldTitle
+        }) else { return }
+
+        // 新的那一行：原本的勾選狀態 + 新時間與標題 + 重算的 @est + 原本其他標記
+        let oldLine = lines[i]
+        let checkbox = String(oldLine.prefix(6))                      // "- [x] "
+        let extras = Self.todoBody(of: oldLine).map { Self.markers(in: $0, excluding: "est") } ?? []
+        var newLine = Self.plannedLine(for: new).replacingOccurrences(of: "- [ ] ", with: checkbox)
+        if !extras.isEmpty { newLine += " " + extras.joined(separator: " ") }
+        guard newLine != oldLine || oldDay != newDay else { return }
+
+        if oldDay == newDay {
+            lines[i] = newLine
+            try? lines.joined(separator: "\n").write(to: oldURL, atomically: true, encoding: .utf8)
+            return
+        }
+        // 換天：舊的那天拿掉（規劃段空了就連 --- 一起收掉），新的那天插進規劃段
+        lines.remove(at: i)
+        try? Self.removingEmptyPlannedSection(lines).joined(separator: "\n")
+            .write(to: oldURL, atomically: true, encoding: .utf8)
+        guard let newURL = journalURL(for: newDay) else { return }
+        let target = Self.safeRead(newURL) ?? ""
+        let updated = Self.insertingPlannedLines([newLine], into: target)
+        try? fm.createDirectory(at: newURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? updated.write(to: newURL, atomically: true, encoding: .utf8)
+    }
+
+    /// `- [ ] 文字`／`- [x] 文字`／`- [-] 文字` → 文字；不是待辦行回 nil。
+    static func todoBody(of line: String) -> String? {
+        guard line.count >= 6, line.hasPrefix("- ["), line.dropFirst(4).hasPrefix("] ") else { return nil }
+        return String(line.dropFirst(6))
+    }
+
+    /// 待辦文字裡的 `@xxx(...)`／`@xxx`／`!xxx` 標記（排除 `excluding` 那一種）。
+    static func markers(in body: String, excluding: String) -> [String] {
+        let pattern = #"(?:@[A-Za-z]+(?:\([^)]*\))?|![A-Za-z]+)"#
+        guard let re = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let ns = body as NSString
+        return re.matches(in: body, range: NSRange(location: 0, length: ns.length))
+            .map { ns.substring(with: $0.range) }
+            .filter { !$0.lowercased().hasPrefix("@\(excluding.lowercased())") }
+    }
+
+    /// 檔首的規劃段已經沒有待辦行 → 把那段（含 `---` 與空行）收掉。
+    static func removingEmptyPlannedSection(_ lines: [String]) -> [String] {
+        guard let rule = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }),
+              lines[..<rule].allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return lines }
+        var rest = Array(lines[(rule + 1)...])
+        while let first = rest.first, first.trimmingCharacters(in: .whitespaces).isEmpty { rest.removeFirst() }
+        return rest
+    }
+
     /// 「10:00–12:00 跟老爸約」→「跟老爸約」；沒有時間前綴就原樣回傳。
     static func strippingTimeRange(_ text: String) -> String {
         let t = text.trimmingCharacters(in: .whitespaces)
