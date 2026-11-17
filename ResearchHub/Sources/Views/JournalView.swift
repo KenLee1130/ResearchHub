@@ -68,11 +68,16 @@ struct JournalView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // 分隔線跟筆記／論文一樣用 PersistentSplitView：記得位置、好抓；月曆欄拖到底可收起
+                // 分隔線跟筆記／論文一樣用 PersistentSplitView：記得位置、好抓；月曆欄拖到底可收起。
+                // 時間軸跟月曆綁同一個開關：收月曆就一起收，任一欄被拖到底也是兩欄一起。
                 PersistentSplitView(autosaveName: "JournalPanes", panes: [
                     .init(id: "calendar", minWidth: 240, initialWidth: 280,
                           holdingPriority: .init(260), isVisible: showCalendar,
                           content: hosted(calendarPane),
+                          onVisibilityChange: { showCalendar = $0 }),
+                    .init(id: "timeline", minWidth: DayTimelineView.narrowWidth - 16, initialWidth: 232,
+                          holdingPriority: .init(255), isVisible: showCalendar,
+                          content: hosted(timelinePane),
                           onVisibilityChange: { showCalendar = $0 }),
                     .init(id: "journal", minWidth: 320,
                           content: hosted(journalPane.background(ViewProbe { journalPaneView = $0 }))),
@@ -142,7 +147,46 @@ struct JournalView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(showCalendar ? "收起月曆" : "展開月曆")
+        .help(showCalendar ? "收起月曆與時間軸" : "展開月曆與時間軸")
+    }
+
+    // MARK: - Timeline pane
+
+    /// 月曆欄旁的「今天的時間軸」：事件色塊、現在線、空檔；日記裡還沒排時段的待辦可拖進來排。
+    private var timelinePane: some View {
+        DayTimelineView(
+            day: selectedDay,
+            events: eventStore.events(on: selectedDay),
+            todoLines: dayTodoLines,
+            isDone: { isEventDone($0) },
+            onOpen: { eventSheet = EventSheetConfig(draft: $0, isNew: false) },
+            onSchedule: scheduleTodo)
+    }
+
+    /// 選中那天日記的待辦行：正在編輯的那天用編輯器裡的文字（零延遲），其他天讀檔。
+    private var dayTodoLines: [TodoLine] {
+        _ = journalRevision   // 日記存檔就重算
+        if let live = liveJournal, calendar.isDate(live.day, inSameDayAs: selectedDay) {
+            return LibraryIndex.parse(live.text)
+        }
+        guard let url = journalURL(for: selectedDay) else { return [] }
+        return LibraryIndex.shared.todoLines(in: url) ?? []
+    }
+
+    /// 待辦拖到時間軸：建事件（長度用 @est，沒有就 1 小時、不跨過午夜），
+    /// 日記那一行搬進檔首規劃段換成「HH:MM–HH:MM …」格式，跟「規劃」寫進日記的規則一致。
+    private func scheduleTodo(_ todo: TodoLine, at start: Date) {
+        editor.saveNow?()   // 編輯器裡還沒存的先落地，store 才找得到那一行
+        let minutes = todo.meta.estMinutes ?? 60
+        let dayStart = calendar.startOfDay(for: selectedDay)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
+        let end = min(start.addingTimeInterval(Double(minutes) * 60), dayEnd)
+        guard end > start else { return }
+        let event = CalendarEvent(title: todo.meta.cleanText, isAllDay: false,
+                                  start: start, end: end, tagID: eventStore.tags.first?.id)
+        eventStore.add(event)
+        store.scheduleTodo(todo, as: event, on: selectedDay)
+        journalRevision += 1
     }
 
     // MARK: - Calendar pane

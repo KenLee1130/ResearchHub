@@ -32,6 +32,9 @@ struct GeneralSettingsView: View {
     @AppStorage("settings.language") private var language = AppLanguage.system.rawValue
     @AppStorage("settings.userName") private var userName = ""
     @AppStorage(ZoteroStore.portKey) private var zoteroPort = ZoteroStore.defaultPort
+    /// 日記分頁時間軸的預設範圍；有更早／更晚的事件時軸會自己延伸
+    @AppStorage("timeline.startHour") private var timelineStart = 8
+    @AppStorage("timeline.endHour") private var timelineEnd = 22
     @State private var showFolderPicker = false
 
     var body: some View {
@@ -55,6 +58,14 @@ struct GeneralSettingsView: View {
             .pickerStyle(.segmented)
             // 墨黑本來就是深色，淺色的語意色壓在黑底上會看不見，所以這裡鎖住
             .disabled(AppTheme(rawValue: themeRaw) == .ink)
+
+            Stepper("時間軸從：\(timelineStart) 點", value: $timelineStart, in: 0...23)
+                .onChange(of: timelineStart) { _, v in if timelineEnd <= v { timelineEnd = v + 1 } }
+            Stepper("時間軸到：\(timelineEnd) 點", value: $timelineEnd, in: 1...24)
+                .onChange(of: timelineEnd) { _, v in if timelineStart >= v { timelineStart = v - 1 } }
+            Text("日記分頁的時間軸預設顯示這個範圍；當天有更早或更晚的行程會自動延伸。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Picker("語言", selection: $language) {
                 ForEach(AppLanguage.allCases) { l in
