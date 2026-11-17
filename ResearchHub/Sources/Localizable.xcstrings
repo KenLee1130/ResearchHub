@@ -1293,6 +1293,16 @@
         }
       }
     },
+    "展開月曆與時間軸": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show calendar and timeline"
+          }
+        }
+      }
+    },
     "工作結束 → 繼續工作：還要工作多久": {
       "localizations": {
         "en": {
@@ -1339,6 +1349,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Added %lld times without finishing — let it go, or do it today"
+          }
+        }
+      }
+    },
+    "已排 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheduled %@"
           }
         }
       }
@@ -1625,6 +1645,16 @@
         }
       }
     },
+    "拖到上面的時間軸排時段（長度用 @est，沒有就 1 小時）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag onto the timeline above to schedule it (length from @est, else 1 hour)"
+          }
+        }
+      }
+    },
     "授權": {
       "localizations": {
         "en": {
@@ -1732,6 +1762,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Collapse"
+          }
+        }
+      }
+    },
+    "收起月曆與時間軸": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide calendar and timeline"
           }
         }
       }
@@ -1947,6 +1987,16 @@
         }
       }
     },
+    "日記分頁的時間軸預設顯示這個範圍；當天有更早或更晚的行程會自動延伸。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The journal timeline shows this range by default; it extends automatically when the day has earlier or later events."
+          }
+        }
+      }
+    },
     "日記與筆記": {
       "localizations": {
         "en": {
@@ -2026,6 +2076,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Time"
+          }
+        }
+      }
+    },
+    "時間軸": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timeline"
+          }
+        }
+      }
+    },
+    "時間軸 · 今天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timeline · today"
+          }
+        }
+      }
+    },
+    "時間軸到：%lld 點": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timeline ends at: %lld:00"
+          }
+        }
+      }
+    },
+    "時間軸從：%lld 點": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timeline starts at: %lld:00"
           }
         }
       }
@@ -2715,6 +2805,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Later (dismiss and start on your own)"
+          }
+        }
+      }
+    },
+    "空檔 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free %@"
           }
         }
       }
@@ -3541,6 +3641,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing yet — tap to start today’s entry…"
+          }
+        }
+      }
+    },
+    "還沒排時段": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not scheduled yet"
           }
         }
       }

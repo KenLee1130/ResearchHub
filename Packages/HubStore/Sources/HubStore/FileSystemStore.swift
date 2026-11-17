@@ -606,6 +606,50 @@ public final class FileSystemStore {
         }
     }
 
+    /// 時間軸拖放：日記裡一句還沒排時段的待辦變成事件後，那一行搬進檔首的規劃段，
+    /// 換成「HH:MM–HH:MM 文字 @est」格式；`!high`、`@line` 等其他標記保留，
+    /// 原本的 `@est` 由事件長度重算。找不到那一行（使用者剛改掉了）就什麼都不做。
+    /// 回傳有沒有改到檔案；false 時呼叫端不該建事件（不然會多出一個對不上日記的事件）。
+    /// 這條直接寫檔，只給「那天沒有開在編輯器裡」時用；開著的話改編輯器的文字（見 JournalView.scheduleTodo）。
+    @discardableResult
+    public func scheduleTodo(_ todo: TodoLine, as event: CalendarEvent, on day: Date) -> Bool {
+        guard let url = journalURL(for: day), let content = Self.safeRead(url),
+              let updated = Self.schedulingTodo(todo, as: event, in: content),
+              (try? updated.write(to: url, atomically: true, encoding: .utf8)) != nil else { return false }
+        noteLocalWrite(url)
+        return true
+    }
+
+    /// `scheduleTodo` 的純文字版（可測）：回傳改好的整份內容，找不到那一行回 nil。
+    /// 先看 `todo.lineIndex` 那一行是不是它（編輯器的行號通常準），不是就用文字找。
+    public static func schedulingTodo(_ todo: TodoLine, as event: CalendarEvent, in content: String) -> String? {
+        var lines = content.components(separatedBy: "\n")
+        func matches(_ line: String) -> Bool {
+            guard let body = todoBody(of: line.trimmingCharacters(in: .whitespaces)),
+                  line.trimmingCharacters(in: .whitespaces).hasPrefix("- [ ]") else { return false }
+            return TodoMeta.parse(body).cleanText == todo.meta.cleanText
+        }
+        let index: Int
+        if todo.lineIndex < lines.count, matches(lines[todo.lineIndex]) {
+            index = todo.lineIndex
+        } else if let i = lines.firstIndex(where: matches) {
+            index = i
+        } else {
+            return nil
+        }
+        let body = todoBody(of: lines[index].trimmingCharacters(in: .whitespaces)) ?? ""
+        let extras = markers(in: body, excluding: "est")
+        var newLine = plannedLine(for: event)
+        if !extras.isEmpty { newLine += " " + extras.joined(separator: " ") }
+        lines.remove(at: index)
+        return insertingPlannedLines([newLine], into: lines.joined(separator: "\n"))
+    }
+
+    /// 這句待辦已經排了時段（「10:00–12:00 …」開頭）。時間軸用來挑出還沒排的。
+    public static func hasTimeRange(_ cleanText: String) -> Bool {
+        strippingTimeRange(cleanText) != cleanText.trimmingCharacters(in: .whitespaces)
+    }
+
     /// 一個時段在日記裡的那一行。
     public static func plannedLine(for event: CalendarEvent) -> String {
         if event.isAllDay { return "- [ ] \(event.title)" }

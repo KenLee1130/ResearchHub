@@ -68,11 +68,16 @@ struct JournalView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // 分隔線跟筆記／論文一樣用 PersistentSplitView：記得位置、好抓；月曆欄拖到底可收起
+                // 分隔線跟筆記／論文一樣用 PersistentSplitView：記得位置、好抓；月曆欄拖到底可收起。
+                // 時間軸跟月曆綁同一個開關：收月曆就一起收，任一欄被拖到底也是兩欄一起。
                 PersistentSplitView(autosaveName: "JournalPanes", panes: [
                     .init(id: "calendar", minWidth: 240, initialWidth: 280,
                           holdingPriority: .init(260), isVisible: showCalendar,
                           content: hosted(calendarPane),
+                          onVisibilityChange: { showCalendar = $0 }),
+                    .init(id: "timeline", minWidth: DayTimelineView.narrowWidth - 16, initialWidth: 232,
+                          holdingPriority: .init(255), isVisible: showCalendar,
+                          content: hosted(timelinePane),
                           onVisibilityChange: { showCalendar = $0 }),
                     .init(id: "journal", minWidth: 320,
                           content: hosted(journalPane.background(ViewProbe { journalPaneView = $0 }))),
@@ -87,6 +92,9 @@ struct JournalView: View {
         .onChange(of: store.pendingJournalDate) { consumePendingDate() }
         .onChange(of: displayedMonth) { refreshMonthData() }
         .onChange(of: selectedDay) { liveJournal = nil; refreshMonthData() }
+        // 編輯器卸下（任務總覽／回顧）期間檔案可能被別處改：別再用卸下前那份即時文字
+        .onChange(of: showTaskManager) { liveJournal = nil; journalRevision += 1 }
+        .onChange(of: showReview) { liveJournal = nil; journalRevision += 1 }
         .onChange(of: eventStore.events) { refreshMonthData() }
         // 手機寫的日記同步進來 → 月曆上的「有日記」標記跟著更新
         .onReceive(AppContainer.shared.librarySync.changes) { change in
@@ -142,7 +150,59 @@ struct JournalView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(showCalendar ? "收起月曆" : "展開月曆")
+        .help(showCalendar ? "收起月曆與時間軸" : "展開月曆與時間軸")
+    }
+
+    // MARK: - Timeline pane
+
+    /// 月曆欄旁的「今天的時間軸」：事件色塊、現在線、空檔；日記裡還沒排時段的待辦可拖進來排。
+    private var timelinePane: some View {
+        DayTimelineView(
+            day: selectedDay,
+            events: eventStore.events(on: selectedDay),
+            todoLines: dayTodoLines,
+            isDone: { isEventDone($0) },
+            onOpen: { eventSheet = EventSheetConfig(draft: $0, isNew: false) },
+            onSchedule: scheduleTodo)
+    }
+
+    /// 選中那天日記的待辦行：正在編輯的那天用編輯器裡的文字（零延遲），其他天讀檔。
+    private var dayTodoLines: [TodoLine] {
+        _ = journalRevision   // 日記存檔就重算
+        if let live = liveJournal, calendar.isDate(live.day, inSameDayAs: selectedDay) {
+            return LibraryIndex.parse(live.text)
+        }
+        guard let url = journalURL(for: selectedDay) else { return [] }
+        return LibraryIndex.shared.todoLines(in: url) ?? []
+    }
+
+    /// 待辦拖到時間軸：建事件（長度用 @est，沒有就 1 小時、不跨過午夜），
+    /// 日記那一行搬進檔首規劃段換成「HH:MM–HH:MM …」格式，跟「規劃」寫進日記的規則一致。
+    ///
+    /// 那天正開在編輯器裡（平常都是）：直接改編輯器的文字，由它自己的自動存檔寫出去。
+    /// 以前是「叫編輯器存檔 → store 立刻讀檔改寫」，但編輯器的存檔是非同步的，晚一步落地就把
+    /// store 寫的蓋掉：事件建了、待辦卻還留在「還沒排時段」，再拖一次就多一個重複的事件。
+    /// 那一行找不到（剛被改掉）就不建事件。
+    private func scheduleTodo(_ todo: TodoLine, at start: Date) {
+        let minutes = todo.meta.estMinutes ?? 60
+        let dayStart = calendar.startOfDay(for: selectedDay)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
+        let end = min(start.addingTimeInterval(Double(minutes) * 60), dayEnd)
+        guard end > start else { return }
+        let event = CalendarEvent(title: todo.meta.cleanText, isAllDay: false,
+                                  start: start, end: end, tagID: eventStore.tags.first?.id)
+
+        if let live = liveJournal, calendar.isDate(live.day, inSameDayAs: selectedDay),
+           let replaceText = editor.replaceText {
+            guard let updated = FileSystemStore.schedulingTodo(todo, as: event, in: live.text) else { return }
+            eventStore.add(event)
+            replaceText(updated)   // onTextChanged 會更新 liveJournal 與 journalRevision
+            return
+        }
+        // 編輯器沒掛著（任務總覽／回顧佔著位置，卸下前已存檔）：store 直接改檔
+        guard store.scheduleTodo(todo, as: event, on: selectedDay) else { return }
+        eventStore.add(event)
+        journalRevision += 1
     }
 
     // MARK: - Calendar pane

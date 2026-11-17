@@ -273,6 +273,25 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   超過格高放不下的記成「+N」），重複事件用 `occurrences(from:to:)` 展開。點一天開 `MobileDaySheet`
   （事件、待辦數、新增），右下角「＋」新增、工具列「規劃」與 .ics 分享照舊。
 
+### 5.4 日記分頁的時間軸（2026-11-17）
+
+痛點：月曆欄只列當天事件的清單，看不出一天的形狀——哪裡滿、哪裡空、現在走到哪。
+
+- ① 不新增契約。拖放排出的事件照 `events.json` 既有格式；日記那一行搬進檔首規劃段、
+  換成「規劃寫進日記」同一種行（`- [ ] 10:30–11:30 文字 @est(1h)`），其他標記保留。
+- ② `DayTimelineLayout`（HubCore，Foundation only）：一天的事件 → 每塊的 y／高度／欄位。
+  範圍＝min(預設 08, 最早事件) 到 max(預設 22, 最晚事件) 取整點；每小時點數＝高度 ÷ 小時數，
+  低於 24 才改捲動；重疊的事件同一群內貪婪排欄；夠長（≥ 60 分）的空檔列出來；`date(at:)` 把拖放的
+  y 換成對齊 15 分鐘的時刻。`FileSystemStore.schedulingTodo` 是寫回日記的純文字版。
+  測試在 `ResearchHubTests/DayTimelineTests.swift`。
+- ③ `Views/DayTimelineView.swift`：`JournalView` 的第三欄（月曆｜時間軸｜日記），
+  **跟月曆共用 `journal.showCalendar` 開關**，任一欄拖到底兩欄一起收。
+  跟 `MacMonthGrid` 一樣隨欄寬連續變化：≥ 200 標題＋時間＋蕃茄格＋空檔＋「還沒排時段」清單；
+  72–200 只留標題；≤ 72 只剩色塊與現在線。拖放用 SwiftUI `onDrag`／`onDrop`，
+  在同一欄裡完成（從 WKWebView 的區塊編輯器拖出來要另外接 bridge，先不做）。
+  預設範圍在設定「一般」頁（`timeline.startHour`／`timeline.endHour`）。
+- ④ Claude 代排的事件（`events.json`）會直接出現在軸上，不需額外動作。
+
 ## 6. 遷移順序
 
 每一步可單獨 ship；**搬家與改行為分開 commit**；用舊 worktree 的 diff 驗證輸出不變；
