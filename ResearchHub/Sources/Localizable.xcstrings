@@ -1565,6 +1565,26 @@
         }
       }
     },
+    "找不到上次選的根資料夾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last library folder not found"
+          }
+        }
+      }
+    },
+    "找不到上次選的資料夾（iOS 更新或 iCloud 重新同步後偶爾會這樣）。重新選同一個資料夾即可，資料不會動。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The folder you chose last time can't be found (this sometimes happens after an iOS update or an iCloud re-sync). Pick the same folder again; nothing in it is touched."
+          }
+        }
+      }
+    },
     "找不到其他筆記": {
       "localizations": {
         "en": {
@@ -2271,6 +2291,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "View mode"
+          }
+        }
+      }
+    },
+    "段落名稱": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session name"
           }
         }
       }
@@ -3183,6 +3213,16 @@
         }
       }
     },
+    "資料夾可能被搬走或改名了。重新選同一個資料夾即可，資料不會動。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The folder may have been moved or renamed. Pick the same folder again; nothing in it is touched."
+          }
+        }
+      }
+    },
     "越早越好": {
       "localizations": {
         "en": {
@@ -3601,6 +3641,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Refresh"
+          }
+        }
+      }
+    },
+    "重新選擇資料夾…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the folder again…"
           }
         }
       }

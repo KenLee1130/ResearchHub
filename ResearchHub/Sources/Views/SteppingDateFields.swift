@@ -88,6 +88,57 @@ struct TimeTextField: View {
     }
 }
 
+/// 規劃預覽每一段的名稱欄：吃滿列寬、靠左、可以直接改自動編號的標題。
+/// 用 NSTextField 是因為 SwiftUI 的 TextField 在 List 列裡常常拿到焦點環卻收不到按鍵。
+struct PlanTitleField: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSTextField, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 240, height: nsView.intrinsicContentSize.height)
+    }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField(string: text)
+        field.placeholderString = placeholder
+        field.delegate = context.coordinator
+        field.isBordered = true
+        field.bezelStyle = .roundedBezel
+        field.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .medium)
+        field.lineBreakMode = .byTruncatingTail
+        field.cell?.sendsActionOnEndEditing = false
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        field.placeholderString = placeholder
+        // 使用者正在打字時不要蓋掉他打的
+        if field.currentEditor() == nil, field.stringValue != text { field.stringValue = text }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: PlanTitleField
+        init(_ parent: PlanTitleField) { self.parent = parent }
+
+        func controlTextDidChange(_ note: Notification) {
+            guard let field = note.object as? NSTextField else { return }
+            parent.text = field.stringValue
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
+            parent.text = textView.string
+            control.window?.makeFirstResponder(nil)   // Return 收掉焦點，不往外傳成「加入行事曆」
+            return true
+        }
+    }
+}
+
 /// NSTextField：攔 ↑↓ 當步進、Return 與失焦當送出。SwiftUI 的 TextField 攔不到方向鍵。
 struct SteppingTextField: NSViewRepresentable {
     @Binding var text: String

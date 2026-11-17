@@ -14,6 +14,9 @@ public final class FileSystemStore {
     public typealias TodoItem = LibraryTodoItem
 
     public private(set) var rootURL: URL?
+    /// 上次存的根資料夾書籤解析不出來（資料夾被刪、搬走或書籤壞了）：
+    /// 選資料夾的畫面要說清楚是「授權失效、重選同一個就好」，而不是當成第一次開 app。
+    public private(set) var rootRestoreFailed = false
     /// 從 Notes/ 開始的導航堆疊，最後一個是目前所在目錄。
     public private(set) var stack: [URL] = []
     public private(set) var items: [FileItem] = []
@@ -65,27 +68,13 @@ public final class FileSystemStore {
         stack.enumerated().map { (i, url) in (url.lastPathComponent, i) }
     }
 
-    // security-scoped bookmark 的選項是 macOS 專屬；iOS 用預設選項即可
-    // （文件挑選器給的 URL 同樣要 startAccessingSecurityScopedResource）。
-    #if os(macOS)
-    private static let bookmarkCreationOptions: URL.BookmarkCreationOptions = .withSecurityScope
-    private static let bookmarkResolutionOptions: URL.BookmarkResolutionOptions = .withSecurityScope
-    #else
-    private static let bookmarkCreationOptions: URL.BookmarkCreationOptions = []
-    private static let bookmarkResolutionOptions: URL.BookmarkResolutionOptions = []
-    #endif
-
     public func setRoot(_ url: URL) {
         _ = url.startAccessingSecurityScopedResource()
         // 測試 host 就是正式 app（同一個 bundle id、同一份 UserDefaults）：
         // 測試裡的暫存資料夾絕不能寫成書籤，否則使用者下次開 app 會找不到自己的資料夾。
         guard !Self.isRunningTests else { adopt(root: url); return }
         do {
-            let data = try url.bookmarkData(
-                options: Self.bookmarkCreationOptions,
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
+            let data = try RootBookmark.Resolver.system.mint(url)
             UserDefaults.standard.set(data, forKey: Self.bookmarkKey)
         } catch {
             errorMessage = "無法儲存資料夾權限：\(error.localizedDescription)"
@@ -101,20 +90,43 @@ public final class FileSystemStore {
     private func restoreRoot() {
         guard !Self.isRunningTests else { return }
         guard let data = UserDefaults.standard.data(forKey: Self.bookmarkKey) else { return }
-        var stale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: data,
-            options: Self.bookmarkResolutionOptions,
-            relativeTo: nil,
-            bookmarkDataIsStale: &stale
-        ), !stale else { return }
-        _ = url.startAccessingSecurityScopedResource()
-        adopt(root: url)
+        restoreRoot(from: data, using: .system) { fresh in
+            UserDefaults.standard.set(fresh, forKey: Self.bookmarkKey)
+        }
+    }
+
+    /// 開 app 時從書籤還原根資料夾。解析器與「新書籤存去哪」可注入，測試從這裡進。
+    ///
+    /// 以前 stale 就直接放棄：iPhone 對 iCloud 雲碟資料夾的書籤動不動就被標 stale，
+    /// 使用者開 app 就被打回「選擇資料夾」，看起來像被登出。stale 的 URL 其實仍然有效，
+    /// 照用並換成新書籤即可；只有真的解不出 URL 才要求重選。
+    func restoreRoot(from data: Data, using resolver: RootBookmark.Resolver,
+                     saveBookmark: (Data) -> Void) {
+        switch RootBookmark.classify(data, using: resolver) {
+        case .ready(let url):
+            _ = url.startAccessingSecurityScopedResource()
+            adopt(root: url)
+        case .stale(let url):
+            // 先取得存取權再重製書籤：iOS 沒開 security scope 時 bookmarkData 會失敗
+            _ = url.startAccessingSecurityScopedResource()
+            do {
+                saveBookmark(try resolver.mint(url))
+                StoreLog.sync.notice("root bookmark was stale; replaced with a fresh one")
+            } catch {
+                // 這次照用舊的，下次開 app 再試一次
+                StoreLog.sync.warning("root bookmark stale and could not be re-minted: \(error.localizedDescription, privacy: .public)")
+            }
+            adopt(root: url)
+        case .lost(let reason):
+            StoreLog.sync.error("root bookmark could not be resolved: \(reason, privacy: .public)")
+            rootRestoreFailed = true
+        }
     }
 
     /// 採用根資料夾但不存書籤（測試用；app 內請走 setRoot）
     func adopt(root url: URL) {
         rootURL = url
+        rootRestoreFailed = false
         ensureLayout()
         // 讓 [[...]] 筆記引用知道要從哪裡掃描筆記
         noteLinks.notesRoot = notesURL
