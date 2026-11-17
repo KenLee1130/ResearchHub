@@ -160,6 +160,7 @@ struct EditorCore: View {
                 handle.owner = nil
                 handle.saveNow = nil
                 handle.append = nil
+                handle.replaceText = nil
             }
             // 載入 Zotero 文獻供 \cite 解析（已有快取就不重抓）。
             .task { if zotero.items.isEmpty { await zotero.refresh() } }
@@ -245,6 +246,7 @@ struct EditorCore: View {
         handle.usesBlockEditor = (mode == .blocks)
         handle.saveNow = { doc.saveNow() }
         handle.append = { doc.append($0) }
+        handle.replaceText = { doc.text = $0 }
     }
 
     /// 區塊編輯器命令列（/list、/go）→ 日記層級的動作

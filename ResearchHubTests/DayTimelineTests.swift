@@ -154,6 +154,50 @@ final class DayTimelineTests: XCTestCase {
                      "勾掉的不算")
     }
 
+    /// 回歸：以前拖放是「叫編輯器存檔 → store 立刻讀檔改寫」，編輯器的非同步存檔晚一步落地就把 store 寫的蓋掉。
+    /// 現在那天開在編輯器時改的是編輯器的文字：還沒存的那行與搬進規劃段的那行都要留在檔案裡。
+    @MainActor
+    func testSchedulingThroughTheEditorKeepsBothTheMoveAndUnsavedText() async throws {
+        let dir = try TestFixtures.makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = try TestFixtures.write("- [ ] 期末考前安排\n", at: "day.md", in: dir)
+        let doc = EditorDocument()
+        doc.open(url)
+        doc.text += "- [ ] 剛打還沒存的一行\n"
+
+        let todo = todoLine("期末考前安排", index: 0)
+        let updated = try XCTUnwrap(FileSystemStore.schedulingTodo(todo, as: event("期末考前安排", at(10), at(11)), in: doc.text))
+        doc.text = updated          // JournalView.scheduleTodo 走 EditorHandle.replaceText 做的事
+        doc.saveNow()
+
+        let expected = "- [ ] 10:00–11:00 期末考前安排 @est(1h)\n\n---\n\n- [ ] 剛打還沒存的一行\n"
+        let deadline = Date().addingTimeInterval(3)
+        while (try? String(contentsOf: url, encoding: .utf8)) != expected, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), expected)
+        XCTAssertEqual(doc.text, expected)
+    }
+
+    /// 編輯器沒掛著時走 store 直接改檔：要回報有沒有改到，呼叫端才知道該不該建事件。
+    @MainActor
+    func testStoreScheduleTodoReportsWhetherItChangedTheFile() throws {
+        let root = try TestFixtures.makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = FileSystemStore(noteLinks: NoteLinkIndex(), librarySync: LibrarySync())
+        store.setRoot(root)
+        let url = try XCTUnwrap(store.journalURL(for: at(10)))
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "- [ ] 期末考前安排\n".write(to: url, atomically: true, encoding: .utf8)
+
+        XCTAssertTrue(store.scheduleTodo(todoLine("期末考前安排", index: 0),
+                                         as: event("期末考前安排", at(10), at(11)), on: at(10)))
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "- [ ] 10:00–11:00 期末考前安排 @est(1h)\n\n---\n")
+        XCTAssertFalse(store.scheduleTodo(todoLine("已經不在了", index: 0),
+                                          as: event("已經不在了", at(13), at(14)), on: at(10)),
+                       "找不到那一行 → false，呼叫端不建事件")
+    }
+
     func testHasTimeRange() {
         XCTAssertTrue(FileSystemStore.hasTimeRange("10:00–12:00 期中考 複習 1/5"))
         XCTAssertTrue(FileSystemStore.hasTimeRange("9:00-10:30 約會"))

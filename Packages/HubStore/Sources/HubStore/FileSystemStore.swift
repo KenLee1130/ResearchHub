@@ -597,11 +597,15 @@ public final class FileSystemStore {
     /// 時間軸拖放：日記裡一句還沒排時段的待辦變成事件後，那一行搬進檔首的規劃段，
     /// 換成「HH:MM–HH:MM 文字 @est」格式；`!high`、`@line` 等其他標記保留，
     /// 原本的 `@est` 由事件長度重算。找不到那一行（使用者剛改掉了）就什麼都不做。
-    public func scheduleTodo(_ todo: TodoLine, as event: CalendarEvent, on day: Date) {
+    /// 回傳有沒有改到檔案；false 時呼叫端不該建事件（不然會多出一個對不上日記的事件）。
+    /// 這條直接寫檔，只給「那天沒有開在編輯器裡」時用；開著的話改編輯器的文字（見 JournalView.scheduleTodo）。
+    @discardableResult
+    public func scheduleTodo(_ todo: TodoLine, as event: CalendarEvent, on day: Date) -> Bool {
         guard let url = journalURL(for: day), let content = Self.safeRead(url),
-              let updated = Self.schedulingTodo(todo, as: event, in: content) else { return }
-        try? updated.write(to: url, atomically: true, encoding: .utf8)
+              let updated = Self.schedulingTodo(todo, as: event, in: content),
+              (try? updated.write(to: url, atomically: true, encoding: .utf8)) != nil else { return false }
         noteLocalWrite(url)
+        return true
     }
 
     /// `scheduleTodo` 的純文字版（可測）：回傳改好的整份內容，找不到那一行回 nil。

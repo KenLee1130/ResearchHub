@@ -124,6 +124,10 @@ final class EditorHandle {
     var owner: UUID?
     var saveNow: (() -> Void)?
     var append: ((String) -> Void)?
+    /// 把編輯器裡的整份文字換掉（由編輯器自己的自動存檔寫出去）。
+    /// 頁面要改「正開在編輯器裡的檔案」時走這裡，不要直接寫檔：編輯器的存檔是非同步的，
+    /// 晚一步落地就會把直接寫進檔案的內容蓋掉。編輯器沒掛著時是 nil。
+    var replaceText: ((String) -> Void)?
 
     /// ⌘F 的目標：焦點所在的那塊 > 看得到的（原始碼 > PDF > 預覽 > 區塊編輯器）
     func findTarget() -> NSView? {
