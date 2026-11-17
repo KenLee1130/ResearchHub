@@ -311,7 +311,8 @@ struct PlanFormFields: View {
 struct PlanSessionRow: View {
     let index: Int
     @Binding var event: CalendarEvent
-    /// 使用者自己取的名稱；空白時顯示 `event.title`（自動編號）當提示
+    /// 這段的名稱。預設就是 `event.title`（自動編號），使用者可以直接改；
+    /// 改回跟自動編號一樣就當沒改（見 `PlanSheet.titleBinding`）。
     @Binding var title: String
     let conflict: CalendarEvent?
     let onDelete: () -> Void
@@ -326,11 +327,11 @@ struct PlanSessionRow: View {
                 .foregroundStyle(Color.accentColor)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 6) {
-                TextField(event.title, text: $title)
+                #if os(iOS)
+                TextField("段落名稱", text: $title)
                     .font(.body.weight(.medium))
                     .textFieldStyle(.plain)
                 // 手機寬度塞不下三個選擇器：日期一行、開始–結束一行；Mac 一行排完
-                #if os(iOS)
                 DatePicker("日期", selection: startBinding, displayedComponents: [.date])
                     .labelsHidden()
                 HStack(spacing: 6) {
@@ -342,7 +343,10 @@ struct PlanSessionRow: View {
                     Spacer(minLength: 0)
                 }
                 #else
-                // Mac：純文字欄、可以直接打；↑↓ 日期調一天、時間調 15 分鐘；24 小時制（SteppingDateFields.swift）
+                // Mac：名稱欄跟下面的日期欄一樣走 NSTextField——SwiftUI 的 TextField 放在 List 列裡
+                // 焦點環出來了卻打不進字（InlineRenameField 也是同一個原因才改用 AppKit）
+                PlanTitleField(text: $title, placeholder: event.title)
+                // 純文字欄、可以直接打；↑↓ 日期調一天、時間調 15 分鐘；24 小時制（SteppingDateFields.swift）
                 HStack(spacing: 6) {
                     Button { shiftDay(-1) } label: { Image(systemName: "chevron.left") }
                         .buttonStyle(.plain).foregroundStyle(.secondary)

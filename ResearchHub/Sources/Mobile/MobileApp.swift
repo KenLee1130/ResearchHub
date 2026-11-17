@@ -176,12 +176,21 @@ struct MobileOnboardingView: View {
                 .foregroundStyle(.tint)
             Text("ResearchHub")
                 .font(.largeTitle.weight(.semibold))
-            Text("選擇你的資料夾（建議放在 iCloud 雲碟，與 Mac 版共用同一份）")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Button("選擇資料夾…") { showPicker = true }
+            if store.rootRestoreFailed {
+                // 不是第一次開 app：上次選的資料夾找不到了。說清楚重選同一個就好、資料不會動
+                Text("找不到上次選的資料夾（iOS 更新或 iCloud 重新同步後偶爾會這樣）。重新選同一個資料夾即可，資料不會動。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            } else {
+                Text("選擇你的資料夾（建議放在 iCloud 雲碟，與 Mac 版共用同一份）")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            Button(store.rootRestoreFailed ? "重新選擇資料夾…" : "選擇資料夾…") { showPicker = true }
                 .buttonStyle(.borderedProminent)
         }
         .fileImporter(isPresented: $showPicker, allowedContentTypes: [.folder]) { result in

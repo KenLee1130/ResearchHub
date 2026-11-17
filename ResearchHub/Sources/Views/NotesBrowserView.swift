@@ -466,6 +466,7 @@ private struct FolderDropModifier: ViewModifier {
 // MARK: - First-launch root picker
 
 struct ChooseRootView: View {
+    @Environment(FileSystemStore.self) private var store
     @Binding var showPicker: Bool
 
     var body: some View {
@@ -473,13 +474,22 @@ struct ChooseRootView: View {
             Image(systemName: "folder.badge.gearshape")
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
-            Text("選擇 Research Hub 的根資料夾")
-                .font(.title3)
-            Text("筆記會以真實檔案存放在這個資料夾內，\n會自動建立 Notes/ 與 Journal/ 兩個子目錄。")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button("選擇資料夾…") { showPicker = true }
+            if store.rootRestoreFailed {
+                Text("找不到上次選的根資料夾")
+                    .font(.title3)
+                Text("資料夾可能被搬走或改名了。重新選同一個資料夾即可，資料不會動。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("選擇 Research Hub 的根資料夾")
+                    .font(.title3)
+                Text("筆記會以真實檔案存放在這個資料夾內，\n會自動建立 Notes/ 與 Journal/ 兩個子目錄。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            Button(store.rootRestoreFailed ? "重新選擇資料夾…" : "選擇資料夾…") { showPicker = true }
                 .keyboardShortcut(.defaultAction)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

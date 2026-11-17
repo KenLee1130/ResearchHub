@@ -62,7 +62,7 @@ struct MobilePlanSheet: View {
                     PlanSessionRow(
                         index: i + 1,
                         event: $preview[i],
-                        title: titleBinding(for: event.id),
+                        title: titleBinding(for: event),
                         conflict: PlanDraft.conflicts(event, existing: eventStore.events),
                         onDelete: { remove(event.id) })
                 }
@@ -113,8 +113,15 @@ struct MobilePlanSheet: View {
         preview = events
     }
 
-    private func titleBinding(for id: UUID) -> Binding<String> {
-        Binding(get: { titles[id] ?? "" }, set: { titles[id] = $0 })
+    /// 欄位裡顯示的是自動編號的標題，使用者直接在上面改；
+    /// 改回跟自動編號一模一樣（或清空）就當沒改，之後刪段重編號時標題才會跟著變。
+    private func titleBinding(for event: CalendarEvent) -> Binding<String> {
+        Binding(
+            get: { titles[event.id] ?? event.title },
+            set: { new in
+                let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines)
+                titles[event.id] = (trimmed.isEmpty || trimmed == event.title) ? nil : new
+            })
     }
 }
 #endif
