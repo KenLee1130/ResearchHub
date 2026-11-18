@@ -169,7 +169,7 @@ struct MobilePomodoroView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
 
-                Text("倒數以結束時刻計算——鎖屏、切出去都不會停，時間到會推播通知。")
+                Text("倒數以結束時刻計算——鎖屏、切出去都不會停，時間到會推播通知。停在這一頁倒數時螢幕會保持常亮。")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
