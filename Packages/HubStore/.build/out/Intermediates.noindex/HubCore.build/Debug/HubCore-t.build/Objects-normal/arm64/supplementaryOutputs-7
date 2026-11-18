@@ -1,0 +1,23 @@
+{
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/PaperChatModels.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatModels.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatModels.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatModels.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatModels.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatModels.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/PaperChatStream.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatStream.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatStream.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatStream.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatStream.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperChatStream.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/PaperPrompt.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperPrompt.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperPrompt.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperPrompt.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperPrompt.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperPrompt.swiftdeps"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/CalendarHelpers.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarHelpers.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarHelpers.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarHelpers.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarHelpers.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarHelpers.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/DataContract.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DataContract.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DataContract.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DataContract.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DataContract.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DataContract.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/DayTimelineLayout.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DayTimelineLayout.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DayTimelineLayout.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DayTimelineLayout.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DayTimelineLayout.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/DayTimelineLayout.swiftdeps"
+  }
+}

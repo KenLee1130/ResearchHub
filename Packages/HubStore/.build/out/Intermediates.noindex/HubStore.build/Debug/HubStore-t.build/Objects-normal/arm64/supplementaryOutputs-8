@@ -1,0 +1,23 @@
+{
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/EditorDocument.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/EventStore.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/FileItem.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.swiftdeps"
+  }
+}
