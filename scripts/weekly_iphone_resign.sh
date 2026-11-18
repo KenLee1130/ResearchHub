@@ -14,6 +14,12 @@
 #     到了該續命的時候先刪掉本機快取的描述檔，逼它抓一張新的 7 天效期。
 #   • Xcode 的 Apple ID 可能被登出（Xcode 更新／keychain 損壞）→ 偵測到就跳
 #     會停留的警告視窗，這一步只有使用者能做。
+#   • 登出每次都從同一句開始：xcodebuild「Invalid credentials in keychain … missing
+#     Xcode-Username」，之後帳號就從 Xcode 消失（2026-09～11 共 7 次，都在登入後 3～6 天）。
+#     懷疑是背景跑的時候登入鑰匙圈鎖著 → 鎖著就不建置（等下一個 4 小時），
+#     並把鑰匙圈／螢幕狀態寫進 log，之後再登出就看得出是不是這個原因。
+#   • 重新登入 Apple ID 後 Apple 那邊的裝置名單是空的，generic 建置不會登記裝置，
+#     會報「Your team has no devices」→ 手機在線就改用指定裝置重建一次把它登記回去。
 set -uo pipefail
 
 BASE="$HOME/Library/Application Support/ResearchHub/resign"
@@ -46,6 +52,45 @@ alert() {
     >/dev/null 2>&1 &
 }
 
+# 登入鑰匙圈的狀態：unlocked／locked／unknown。
+# 不用 `security show-keychain-info`：鑰匙圈鎖著時它會跳出要密碼的視窗。
+keychain_state() {
+  /usr/bin/osascript -l JavaScript -e '
+    ObjC.import("Security");
+    var kc = Ref(), st = Ref();
+    if ($.SecKeychainCopyDefault(kc) !== 0 || $.SecKeychainGetStatus(kc[0], st) !== 0) "unknown";
+    else (st[0] & 1) ? "unlocked" : "locked";' 2>/dev/null || echo unknown
+}
+
+screen_state() {
+  if /usr/sbin/ioreg -n Root -d1 2>/dev/null | grep -q CGSSessionScreenIsLocked; then echo locked; else echo unlocked; fi
+}
+
+# 手機現在連不連得到（插線或同一個 Wi-Fi）
+device_reachable() {
+  xcrun devicectl list devices 2>/dev/null | grep -F "$DEVICE_ID" | grep -qv unavailable
+}
+
+# run_build <destination> [額外的 xcodebuild 參數…]；輸出寫進 $BUILD_OUT 並附到 log
+run_build() {
+  local destination=$1; shift
+  xcodebuild -project "$PROJECT" -scheme ResearchHubMobile \
+    -destination "$destination" \
+    -derivedDataPath "$DERIVED" \
+    -configuration Debug -allowProvisioningUpdates "$@" build > "$BUILD_OUT" 2>&1
+  local rc=$?
+  cat "$BUILD_OUT" >> "$LOG"
+  return $rc
+}
+
+# 手機上那張描述檔剩不到一天（或不知道）→ 該吵使用者了
+expiring_soon() {
+  [[ -s "$STAMP" ]] || return 0
+  local cur
+  cur=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$(cat "$STAMP")" "+%s" 2>/dev/null || echo 0)
+  (( cur - now < 86400 ))
+}
+
 # ---- 1. 還不用續命就跳過 ----------------------------------------------------
 now=$(date +%s)
 if [[ "${1:-}" != "--force" && -s "$STAMP" ]]; then
@@ -61,6 +106,19 @@ log "===== 開始重簽（手機上描述檔到期：$(cat "$STAMP" 2>/dev/null 
 
 git -C "$REPO" pull --ff-only >> "$LOG" 2>&1 \
   || log "pull 失敗（launchd 讀不到 Desktop origin），用 clone 現有版本"
+
+# ---- 1.5 鑰匙圈鎖著就不碰 xcodebuild -----------------------------------------
+# 要放在刪描述檔之前：這次不建置，就別把還能用的那張刪掉。
+KEYCHAIN=$(keychain_state)
+log "鑰匙圈：$KEYCHAIN，螢幕：$(screen_state)"
+if [[ "$KEYCHAIN" == locked ]]; then
+  log "跳過：登入鑰匙圈鎖著，xcodebuild 讀不到 Apple ID 憑證（下一個 4 小時再試）"
+  echo "登入鑰匙圈鎖著，這次不重簽（解鎖 Mac 後再跑一次）" >&2
+  if expiring_soon; then
+    alert "手機上的 ResearchHub 不到一天就過期，但每次要續命時這台 Mac 的鑰匙圈都鎖著。請解鎖 Mac 並保持登入，4 小時內會自動再試。"
+  fi
+  exit 1
+fi
 
 # ---- 2. 刪掉本機快取的本 app 描述檔，逼 Xcode 抓新的 --------------------------
 for dir in "${PROFILES_DIRS[@]}"; do
@@ -78,16 +136,27 @@ done
 # 「Build input file cannot be found: …mobileprovision」→ 每次都從乾淨的 Build 開始。
 rm -rf "$DERIVED/Build"
 BUILD_OUT=$(mktemp)
-xcodebuild -project "$PROJECT" -scheme ResearchHubMobile \
-  -destination "generic/platform=iOS" \
-  -derivedDataPath "$DERIVED" \
-  -configuration Debug -allowProvisioningUpdates build > "$BUILD_OUT" 2>&1
+run_build "generic/platform=iOS"
 build_rc=$?
-cat "$BUILD_OUT" >> "$LOG"
+
+# 重新登入 Apple ID 之後 team 底下沒有裝置 → 手機在線就用指定裝置重建，順便把它登記回去
+if (( build_rc != 0 )) && grep -q "has no devices from which to generate a provisioning profile" "$BUILD_OUT"; then
+  if device_reachable; then
+    log "team 底下沒有裝置：改用指定 iPhone 重建，把它登記回去"
+    rm -rf "$DERIVED/Build"
+    run_build "id=$DEVICE_ID" -allowProvisioningDeviceRegistration
+    build_rc=$?
+  else
+    log "失敗：team 底下沒有裝置，而且連不到 iPhone"
+    alert "重新登入 Apple ID 之後，要讓這台 Mac 看到 iPhone 一次才能續命。請用線把 iPhone 插上 Mac 並解鎖（跳出「信任這部電腦」就按信任），4 小時內會自動再試。"
+    rm -f "$BUILD_OUT"
+    exit 1
+  fi
+fi
 
 if (( build_rc != 0 )); then
   if grep -qE "No Accounts|Invalid credentials in keychain|missing Xcode-Username" "$BUILD_OUT"; then
-    log "失敗：Xcode 沒有登入 Apple ID"
+    log "失敗：Xcode 沒有登入 Apple ID（鑰匙圈：$KEYCHAIN）"
     alert "Xcode 的 Apple ID 登出了，沒辦法幫 iPhone 版續命。請打開 Xcode → Settings → Accounts → 「+」重新登入 Apple ID。登入後不用做別的，下次排程會自動補上。"
   else
     log "失敗：編譯錯誤"
@@ -115,10 +184,7 @@ for i in 1 2; do
 done
 
 # 裝不上：還有時間就安靜等下次；真的快到期了才吵使用者
-if [[ -s "$STAMP" ]]; then
-  cur=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$(cat "$STAMP")" "+%s" 2>/dev/null || echo 0)
-  if (( cur - now < 86400 )); then
-    alert "手機上的 ResearchHub 不到一天就過期，但這台 Mac 一直連不到 iPhone。請讓 iPhone 解鎖並連上和 Mac 同一個 Wi-Fi（或插線），4 小時內會自動再試。"
-  fi
+if [[ -s "$STAMP" ]] && expiring_soon; then
+  alert "手機上的 ResearchHub 不到一天就過期，但這台 Mac 一直連不到 iPhone。請讓 iPhone 解鎖並連上和 Mac 同一個 Wi-Fi（或插線），4 小時內會自動再試。"
 fi
 exit 1
