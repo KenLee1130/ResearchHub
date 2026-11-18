@@ -755,7 +755,16 @@
         }
       }
     },
-    "倒數以結束時刻計算——鎖屏、切出去都不會停，時間到會推播通知。": {},
+    "倒數以結束時刻計算——鎖屏、切出去都不會停，時間到會推播通知。停在這一頁倒數時螢幕會保持常亮。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The countdown is based on its end time, so locking the screen or leaving the app won't stop it, and you'll get a notification when time is up. The screen stays on while this page is counting down."
+          }
+        }
+      }
+    },
     "偏好時段": {
       "localizations": {
         "en": {

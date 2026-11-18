@@ -63,6 +63,12 @@ struct MobileRootView: View {
     @State private var nav = MobileNavigation()
     @Environment(\.scenePhase) private var scenePhase
 
+    /// 停在蕃茄鐘分頁且正在倒數 → 不讓螢幕自動鎖定（當桌上計時器看）。
+    /// 暫停、結束或切到別的分頁就還給系統的自動鎖定，免得忘在那頁把電耗光。
+    private var keepsScreenAwake: Bool {
+        store.rootURL != nil && nav.tab == .pomodoro && pomodoro.isRunning
+    }
+
     /// 一次關卡請求（fullScreenCover(item:) 需要 Identifiable）
     struct GateRequest: Identifiable {
         let id = UUID()
@@ -147,6 +153,10 @@ struct MobileRootView: View {
             default:
                 break
             }
+        }
+        // 系統只在 app 在前景時理會這個旗標，進背景不用自己還原
+        .onChange(of: keepsScreenAwake, initial: true) { _, on in
+            UIApplication.shared.isIdleTimerDisabled = on
         }
         // 閱讀關卡：捷徑自動化在打開黑名單 app 時導到 researchhub://gate?app=<scheme>
         .onOpenURL { url in handleGateURL(url) }
