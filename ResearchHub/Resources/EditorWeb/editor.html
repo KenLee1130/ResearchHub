@@ -1571,6 +1571,31 @@
   });
   // ---- ArrowShortcuts END ----
 
+  // tiptap 內建的待辦 node view 換內容時只改 checkbox 的 `checked`「屬性」；
+  // 方塊被點過之後瀏覽器就只認 `checked`「特性」，屬性怎麼改畫面都不動——
+  // 於是在某天勾了一項、切到別天（同位置的 node view 被沿用），方塊還停在打勾。
+  // 這裡補上：每次更新都把特性對齊文件裡的值。
+  const SyncedTaskItem = TaskItem.extend({
+    addNodeView() {
+      const build = this.parent?.();
+      if (!build) return null;
+      return props => {
+        const view = build(props);
+        const box = view.dom.querySelector('input[type="checkbox"]');
+        if (!box || !view.update) return view;
+        const update = view.update;
+        box.checked = !!props.node.attrs.checked;
+        return Object.assign({}, view, {
+          update(node, ...rest) {
+            const ok = update(node, ...rest);
+            if (ok) box.checked = !!node.attrs.checked;
+            return ok;
+          }
+        });
+      };
+    }
+  });
+
   const editor = new Editor({
     element: document.getElementById("editor"),
     extensions: [
@@ -1581,7 +1606,7 @@
       ToggleAwareBackspace,
       ExitListOnBackspace,
       TaskList,
-      TaskItem.configure({ nested: true }),
+      SyncedTaskItem.configure({ nested: true }),
       TaskFold,
       TaskToggleShortcut,
       JoinAdjacentLists,
