@@ -11,6 +11,9 @@ struct EventEditorSheet: View {
 
     @State var draft: CalendarEvent
     let isNew: Bool
+    /// 刪事件時把日記那一行退回「沒排時段」。日記頁會傳進來（那天開在編輯器時要改編輯器的文字）；
+    /// 沒傳就由 store 直接改檔。
+    var unscheduleLine: ((CalendarEvent) -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +29,10 @@ struct EventEditorSheet: View {
             HStack {
                 if !isNew {
                     Button(role: .destructive) {
+                        // 用存著的那份（表單裡的標題可能改到一半），日記那一行是照它寫的
+                        let stored = eventStore.events.first { $0.id == draft.id } ?? draft
                         eventStore.delete(draft)
+                        unschedule(stored)
                         dismiss()
                     } label: {
                         Text("刪除")
@@ -34,7 +40,9 @@ struct EventEditorSheet: View {
                     if let planID = draft.planID, let planTitle = draft.planTitle,
                        eventStore.events(inPlan: planID).count > 1 {
                         Button(role: .destructive) {
+                            let sessions = eventStore.events(inPlan: planID)
                             eventStore.deletePlan(planID)
+                            sessions.forEach(unschedule)
                             dismiss()
                         } label: {
                             Text("刪除整個規劃（\(eventStore.events(inPlan: planID).count) 段）")
@@ -64,6 +72,10 @@ struct EventEditorSheet: View {
             .padding(14)
         }
         .frame(width: 440, height: 620)
+    }
+
+    private func unschedule(_ event: CalendarEvent) {
+        if let unscheduleLine { unscheduleLine(event) } else { store.unscheduleLine(for: event) }
     }
 }
 #endif

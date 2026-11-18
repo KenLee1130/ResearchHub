@@ -1,0 +1,219 @@
+{
+  "" : {
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/HubStore-primary.dia",
+    "emit-module-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/HubStore-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/HubStore-primary-emit-module.dia",
+    "pch" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/HubStore-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/HubStore-primary.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/EditorDocument.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EditorDocument~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/EventStore.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/EventStore~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/FileItem.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileItem~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/FileSystemStore.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/FileWatcher.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/GeneralTodoStore.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/JournalEventSync.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/JournalReviewScan.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/LatexHistory.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/LatexStaging.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexStaging~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/LibraryIndex.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryIndex~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/LibrarySync.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibrarySync~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/LibraryTypes.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LibraryTypes~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/Log.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/Log~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/NoteLinkIndex.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/NoteLinkIndex~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/PaperFulltextIndex.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PaperFulltextIndex~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/PomodoroClock.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroClock~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/PomodoroModel.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/PomodoroModel~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/ReadingGate.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ReadingGate~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/RootBookmark.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/RootBookmark~partial.swiftmodule"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore/ZoteroStore.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore.dia",
+    "index-unit-output-path" : "/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore.o",
+    "llvm-bc" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore.bc",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore.swiftdeps",
+    "swiftmodule" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/ZoteroStore~partial.swiftmodule"
+  }
+}

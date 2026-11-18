@@ -292,6 +292,26 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
   預設範圍在設定「一般」頁（`timeline.startHour`／`timeline.endHour`）。
 - ④ Claude 代排的事件（`events.json`）會直接出現在軸上，不需額外動作。
 
+### 5.5 日記 → 行事曆（2026-11-18）
+
+痛點：只有「事件 → 日記」會同步（規劃、改事件時間）。使用者直接在日記打 `16:00-18:00 讀 QIC CP`
+或把既有那行的時段改掉，時間軸與月曆都不會動。
+
+- ① 不新增契約、不在事件上加欄位。`JournalEventSync`（HubStore，純計算）吃日記文字＋當天事件，
+  吐出 `create／retime／rename／delete`；比對以**標題**為準（跟 `isEventDone` 同口徑），
+  只看「當天開始、有時間、不重複」的事件。測試在 `ResearchHubTests/JournalEventSyncTests.swift`。
+- ② 保守的地方（都是為了不誤動資料）：
+  - 改名與刪除只對「這次打開這天以來跟日記某一行對上過」的事件（`linked`，只存在記憶體）——
+    行事曆上跟日記無關的事件，時段一模一樣也不會被動。
+  - 刪除只在**離開那一天**時做（換天、開任務總覽／回顧、離開分頁），打字途中不刪：
+    時間改到一半時那一行暫時不是合法時段。編輯器文字整份是空的也不刪。
+  - 過去的日子：打開時就在的行（`untouched`）不建事件也不改時間，被動過才同步。
+- ③ 接線在 `JournalView`：打開一天從檔案對齊一次（`beginJournalSync`）、編輯器文字變動後停 0.8 秒
+  對齊（`scheduleJournalSync`）、離開時收尾（`finishJournalSync`）。**只有 Mac**；iPhone 打的時段行
+  等 Mac 打開那天時補事件（兩台同時建會重複，所以先不在 iPhone 做）。
+- ④ 刪事件（Mac／iPhone 的事件編輯）會把日記那一行的時段拿掉（`unscheduleLine`），
+  不然對齊會把事件建回來；那天開在編輯器裡時走 `EditorHandle.replaceText`。
+
 ## 6. 遷移順序
 
 每一步可單獨 ship；**搬家與改行為分開 commit**；用舊 worktree 的 diff 驗證輸出不變；

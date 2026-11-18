@@ -75,14 +75,21 @@ struct MobileEventEditor: View {
             }
             .confirmationDialog("刪除這個事件？", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("刪除", role: .destructive) {
+                    // 日記那一行退回「沒排時段」：留著時段的話，Mac 對齊日記時會把事件建回來
+                    let stored = eventStore.events.first { $0.id == draft.id } ?? draft
                     eventStore.delete(draft)
+                    store.unscheduleLine(for: stored)
                     dismiss()
                 }
             }
             .confirmationDialog("刪除這個規劃的全部 \(planEvents.count) 段？", isPresented: $confirmDeletePlan,
                                 titleVisibility: .visible) {
                 Button("全部刪除", role: .destructive) {
-                    if let planID = draft.planID { eventStore.deletePlan(planID) }
+                    if let planID = draft.planID {
+                        let sessions = eventStore.events(inPlan: planID)
+                        eventStore.deletePlan(planID)
+                        sessions.forEach { store.unscheduleLine(for: $0) }
+                    }
                     dismiss()
                 }
             }

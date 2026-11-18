@@ -195,7 +195,7 @@ public final class FileSystemStore {
     | `claude/reading_gate.json` | Question bank for the iPhone reading gate: `{updatedAt, papers: [{id, title, authors, year, abstract, zoteroKey, questions: [{q, options, answer, explain}]}]}`. `answer` is the 0-based index of the correct option — vary its position across questions. Generate from the user's Zotero library; refresh when it runs low. |
     | `claude/reading_gate_log.json` | Written by the app: `{passedAt: {paperID: date}, totalPasses}`. Used to rotate papers (least-recently-passed first). Read-only for Claude. |
     | `focus_state.json` | Written by the Mac app's pomodoro: `{pomodoroActive, phase, phaseEndAt, manualGate, plan, pomoIndex, pomoTotal, updatedAt}`. The iPhone reads it to decide whether the reading gate is armed, and shows `plan` so the user is reminded what this pomodoro was for. Read-only for Claude. |
-    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Items with `@due`/`@every` are seeded as an independent copy into each applicable day's journal — checking one day only records that day. Markers: `!high`/`!low`, `@due(M/d)`, `@from(M/d)`, `@every(mon,thu)`, `@on(M/d,M/d)` (exact dates only), `@remind(M/d HH:mm)`, `@est(3h)`, `@line(name)`. Spending: any line may carry `@spend(amount, category)` (category optional; amount is a plain number without thousands separators; several per line allowed) — the home screen sums them per month and category. |
+    | `../Journal/yyyy/MM/yyyy-MM-dd.md` | Daily journal. Todos: `- [ ]` open, `- [x]` done, `- [-]` dropped. Items with `@due`/`@every` are seeded as an independent copy into each applicable day's journal — checking one day only records that day. Markers: `!high`/`!low`, `@due(M/d)`, `@from(M/d)`, `@every(mon,thu)`, `@on(M/d,M/d)` (exact dates only), `@remind(M/d HH:mm)`, `@est(3h)`, `@line(name)`. Spending: any line may carry `@spend(amount, category)` (category optional; amount is a plain number without thousands separators; several per line allowed) — the home screen sums them per month and category. A todo that starts with a time range (`- [ ] 16:00-18:00 Read paper`) is that day's scheduled block: the Mac app keeps a same-titled, non-repeating event in `events.json` in step with it (creates it, follows time edits, removes it when the line or its time range goes away). |
     | `../Notes/**/*.md` | Notes (plain Markdown, `[[wikilinks]]`, `$…$` math, `\\cite{…}` Zotero keys). `assets/` folders hold images. |
     | `../Pomodoro/pomodoro.json` | Focus sessions: `[{date,minutes,plan,done,startedAt?}]`. Legacy entries have no `startedAt`, empty plan/done, and a 12:00:00 timestamp — exclude them from time-of-day analytics. |
 
@@ -738,6 +738,21 @@ public final class FileSystemStore {
         try? updated.write(to: newURL, atomically: true, encoding: .utf8)
         noteLocalWrite(oldURL)
         noteLocalWrite(newURL)
+    }
+
+    /// 刪掉事件 → 當天日記裡對應的那一行拿掉時段（退回「還沒排時段」的待辦）。
+    /// 日記 → 行事曆的對齊（`JournalEventSync`）看到帶時段卻沒有事件的行會建事件，
+    /// 那一行不退回去的話，刪掉的事件下次就被建回來。過去的日子不動（那邊沒被動過的行本來就不會建事件）；
+    /// 重複事件與全天事件在日記裡沒有對應的時段行，也不動。回傳有沒有改到檔案。
+    @discardableResult
+    public func unscheduleLine(for event: CalendarEvent, calendar: Calendar = .current) -> Bool {
+        guard !event.isAllDay, event.repeatRule == nil,
+              calendar.startOfDay(for: event.start) >= calendar.startOfDay(for: .now),
+              let url = journalURL(for: event.start), let content = Self.safeRead(url),
+              let updated = JournalEventSync.unscheduling(title: event.title, in: content),
+              (try? updated.write(to: url, atomically: true, encoding: .utf8)) != nil else { return false }
+        noteLocalWrite(url)
+        return true
     }
 
     /// `- [ ] 文字`／`- [x] 文字`／`- [-] 文字` → 文字；不是待辦行回 nil。

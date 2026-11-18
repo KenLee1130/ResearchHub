@@ -36,6 +36,13 @@ struct JournalView: View {
     @State private var journalRevision = 0
     /// 編輯器裡「還沒存檔」的日記文字（打勾當下就有），給月曆刪除線與時間條用，不等 0.8 秒的自動存檔
     @State private var liveJournal: (day: Date, text: String)?
+    /// 日記 → 行事曆對齊（JournalEventSync）：這次打開這天以來，跟日記某一行對上過的事件。
+    /// 只有它們會被改名或（離開這天時）刪除——跟日記無關的事件不碰。
+    @State private var syncLinks: Set<UUID> = []
+    /// 過去的日子：打開時就已經在的時段行。沒被動過就不建事件、不改時間。
+    @State private var syncUntouched: Set<String> = []
+    /// 打字停下來一會兒才對齊，免得每個字都改一次事件
+    @State private var syncTask: Task<Void, Never>?
     /// /list 任務總覽（開著時暫時卸下編輯器：先存檔，讓總覽能安全改檔案）
     @State private var showTaskManager = false
     /// 回顧頁（5.2）：開著時佔用編輯器的位置
@@ -88,13 +95,20 @@ struct JournalView: View {
         .onAppear {
             refreshMonthData()
             consumePendingDate()
+            beginJournalSync(for: selectedDay)
         }
+        .onDisappear { finishJournalSync(for: selectedDay) }
         .onChange(of: store.pendingJournalDate) { consumePendingDate() }
         .onChange(of: displayedMonth) { refreshMonthData() }
-        .onChange(of: selectedDay) { liveJournal = nil; refreshMonthData() }
+        .onChange(of: selectedDay) { old, new in
+            finishJournalSync(for: old)
+            liveJournal = nil
+            refreshMonthData()
+            beginJournalSync(for: new)
+        }
         // 編輯器卸下（任務總覽／回顧）期間檔案可能被別處改：別再用卸下前那份即時文字
-        .onChange(of: showTaskManager) { liveJournal = nil; journalRevision += 1 }
-        .onChange(of: showReview) { liveJournal = nil; journalRevision += 1 }
+        .onChange(of: showTaskManager) { finishJournalSync(for: selectedDay); liveJournal = nil; journalRevision += 1 }
+        .onChange(of: showReview) { finishJournalSync(for: selectedDay); liveJournal = nil; journalRevision += 1 }
         .onChange(of: eventStore.events) { refreshMonthData() }
         // 手機寫的日記同步進來 → 月曆上的「有日記」標記跟著更新
         .onReceive(AppContainer.shared.librarySync.changes) { change in
@@ -104,7 +118,7 @@ struct JournalView: View {
             }
         }
         .sheet(item: $eventSheet) { config in
-            EventEditorSheet(draft: config.draft, isNew: config.isNew)
+            EventEditorSheet(draft: config.draft, isNew: config.isNew, unscheduleLine: unscheduleLine)
         }
         .sheet(isPresented: $showPlanSheet) {
             PlanSheet(draft: PlanDraft.initial(near: selectedDay, tag: eventStore.tags.first))
@@ -203,6 +217,79 @@ struct JournalView: View {
         guard store.scheduleTodo(todo, as: event, on: selectedDay) else { return }
         eventStore.add(event)
         journalRevision += 1
+    }
+
+    // MARK: - 日記 → 行事曆
+
+    /// 打開一天：從檔案對齊一次。今天與之後的日子，帶時段卻沒有事件的行會建事件、時間不同的改時間；
+    /// 過去的日子只記下「哪些行本來就在」，之後被動過的行才同步（翻舊日記不會把當時刪掉的事件變回來）。
+    private func beginJournalSync(for day: Date) {
+        syncTask?.cancel()
+        syncLinks = []
+        let text = journalURL(for: day).flatMap { FileSystemStore.safeRead($0) } ?? ""
+        let isPast = calendar.startOfDay(for: day) < calendar.startOfDay(for: .now)
+        syncUntouched = isPast ? Set(JournalEventSync.timedLines(in: text).map(\.key)) : []
+        applyJournalSync(day: day, text: text, removeOrphans: false)
+    }
+
+    /// 編輯器的文字變了（打字、勾選、外部同步進來）：停 0.8 秒後對齊。不刪事件——
+    /// 時間改到一半時那一行暫時不是合法時段，這時刪掉事件會連它的標籤、備註一起丟。
+    private func scheduleJournalSync() {
+        syncTask?.cancel()
+        syncTask = Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled, let live = liveJournal,
+                  calendar.isDate(live.day, inSameDayAs: selectedDay) else { return }
+            applyJournalSync(day: live.day, text: live.text, removeOrphans: false)
+        }
+    }
+
+    /// 離開這一天（換天、開任務總覽／回顧、離開日記分頁）：用編輯器最後的文字再對齊一次，
+    /// 這次把「對上過、現在日記裡已經沒有那一行」的事件刪掉（行被刪了，或時段被拿掉）。
+    /// 文字整份是空的就不刪——那比較像還沒載入，不像使用者把整天清空。
+    private func finishJournalSync(for day: Date) {
+        syncTask?.cancel()
+        guard let live = liveJournal, calendar.isDate(live.day, inSameDayAs: day),
+              !live.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        applyJournalSync(day: day, text: live.text, removeOrphans: true)
+    }
+
+    private func applyJournalSync(day: Date, text: String, removeOrphans: Bool) {
+        let result = JournalEventSync.plan(
+            day: day, text: text, events: eventStore.events, linked: syncLinks,
+            untouched: syncUntouched, removeOrphans: removeOrphans, calendar: calendar)
+        for op in result.ops {
+            switch op {
+            case .create(var event):
+                event.tagID = eventStore.tags.first?.id
+                eventStore.add(event)
+            case .retime(let id, let start, let end):
+                guard var event = eventStore.events.first(where: { $0.id == id }) else { continue }
+                event.start = start
+                event.end = end
+                eventStore.update(event)
+            case .rename(let id, let title):
+                guard var event = eventStore.events.first(where: { $0.id == id }) else { continue }
+                event.title = title
+                eventStore.update(event)
+            case .delete(let id):
+                guard let event = eventStore.events.first(where: { $0.id == id }) else { continue }
+                eventStore.delete(event)
+            }
+        }
+        syncLinks = result.linked
+    }
+
+    /// 事件被刪掉 → 日記那一行拿掉時段（不然上面的對齊會把事件建回來）。
+    /// 那天正開在編輯器裡就改編輯器的文字（跟 scheduleTodo 同理，不跟它的存檔搶檔案）。
+    private func unscheduleLine(for event: CalendarEvent) {
+        if !event.isAllDay, event.repeatRule == nil,
+           let live = liveJournal, calendar.isDate(live.day, inSameDayAs: event.start),
+           let replaceText = editor.replaceText {
+            if let updated = JournalEventSync.unscheduling(title: event.title, in: live.text) { replaceText(updated) }
+            return
+        }
+        store.unscheduleLine(for: event)
     }
 
     // MARK: - Calendar pane
@@ -368,7 +455,11 @@ struct JournalView: View {
                 EditorCore(
                     fileURL: url, mode: $mode,
                     onSaved: { journalRevision += 1 },   // 存檔後其他讀檔的地方（首頁等）也跟上
-                    onTextChanged: { text in liveJournal = (selectedDay, text); journalRevision += 1 },
+                    onTextChanged: { text in
+                        liveJournal = (selectedDay, text)
+                        journalRevision += 1
+                        scheduleJournalSync()
+                    },
                     quickCmdBar: true,
                     onJournalCommand: handleQuickAction,
                     handle: editor)
