@@ -369,16 +369,6 @@
         }
       }
     },
-    "Lofi 讀書": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lofi study"
-          }
-        }
-      }
-    },
     "PDF 暗色模式": {
       "localizations": {
         "en": {
@@ -1308,16 +1298,6 @@
         }
       }
     },
-    "午睡的貓": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Napping cat"
-          }
-        }
-      }
-    },
     "即將到期": {
       "localizations": {
         "en": {
@@ -1435,6 +1415,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trash (%lld)"
+          }
+        }
+      }
+    },
+    "壁爐邊的貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cat by the fireplace"
           }
         }
       }
@@ -1698,6 +1688,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Minutes (blank = default)"
+          }
+        }
+      }
+    },
+    "床上看書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading in bed"
           }
         }
       }
@@ -2934,6 +2934,16 @@
         }
       }
     },
+    "深夜書桌": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Late-night desk"
+          }
+        }
+      }
+    },
     "深色": {
       "localizations": {
         "en": {
@@ -2964,6 +2974,16 @@
         }
       }
     },
+    "湖邊營火": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lakeside campfire"
+          }
+        }
+      }
+    },
     "源碼": {
       "extractionState": "stale",
       "localizations": {
@@ -2981,6 +3001,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ready?"
+          }
+        }
+      }
+    },
+    "火車上的貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cat on a train"
           }
         }
       }
@@ -3015,12 +3045,12 @@
         }
       }
     },
-    "營火": {
+    "營火與茶壺": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Campfire"
+            "value": "Campfire and kettle"
           }
         }
       }
@@ -3214,6 +3244,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Free %@"
+          }
+        }
+      }
+    },
+    "窗邊看夜景": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Night view by the window"
           }
         }
       }
@@ -4507,12 +4547,22 @@
         }
       }
     },
-    "雨夜窗邊": {
+    "雨夜寫作業": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rainy window"
+            "value": "Rainy night homework"
+          }
+        }
+      }
+    },
+    "雨夜的貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cat on a rainy night"
           }
         }
       }
@@ -4638,12 +4688,12 @@
         }
       }
     },
-    "黃昏散步": {
+    "黃昏電車": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sunset walk"
+            "value": "Sunset train"
           }
         }
       }
