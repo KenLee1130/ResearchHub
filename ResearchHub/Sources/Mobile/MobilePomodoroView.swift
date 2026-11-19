@@ -34,11 +34,17 @@ struct MobilePomodoroView: View {
             ZStack {
                 if pomodoro.isActive {
                     activeLayout
+                        .environment(\.colorScheme, .dark)
                 } else {
                     idleLayout
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { ambientBackground }
             .animation(.spring(response: 0.6, dampingFraction: 0.86), value: pomodoro.isActive)
+            // 計時中整頁是深色影片背景：導覽列、分頁列跟著用深色、背景透明
+            .toolbarColorScheme(pomodoro.isActive ? .dark : nil, for: .navigationBar, .tabBar)
+            .toolbarBackground(pomodoro.isActive ? .hidden : .automatic, for: .navigationBar)
             .navigationTitle(pomodoro.isActive ? "" : "蕃茄鐘")
             .navigationBarTitleDisplayMode(pomodoro.isActive ? .inline : .large)
             .toolbar {
@@ -64,6 +70,30 @@ struct MobilePomodoroView: View {
                 // 開 app 時就在計時中（重啟續跑）：補挑一次
                 if pomodoro.isActive && !scenePicked { pickScene() }
             }
+        }
+    }
+
+    // MARK: - 背景
+
+    /// 計時中：同一支影片放大、霧化、壓暗鋪滿整頁，跟中間的畫面連成一片。
+    /// 動畫關掉時用深色漸層。待命時是一般背景。
+    @ViewBuilder private var ambientBackground: some View {
+        if pomodoro.isActive {
+            ZStack {
+                if sceneChoice != "off" {
+                    PomodoroSceneView(scene: scene, paused: !ticking)
+                        .scaleEffect(1.4)
+                        .blur(radius: 36, opaque: true)
+                        .id(scene)
+                        .transition(.opacity)
+                }
+                LinearGradient(colors: [.black.opacity(0.5), .black.opacity(0.2), .black.opacity(0.55)],
+                               startPoint: .top, endPoint: .bottom)
+            }
+            .environment(\.colorScheme, .dark)
+            .background(Color(red: 0.08, green: 0.07, blue: 0.12))
+            .ignoresSafeArea()
+            .transition(.opacity)
         }
     }
 
@@ -284,7 +314,7 @@ struct MobilePomodoroView: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.bordered)
-            .tint(tint)
+            .tint(tint ?? .white)
             .clipShape(Circle())
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
