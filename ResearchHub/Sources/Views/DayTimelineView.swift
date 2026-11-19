@@ -39,6 +39,8 @@ struct DayTimelineView: View {
     @State private var dragging: TodoLine?
     /// 拖曳經過軸時的落點預覽
     @State private var dropStart: Date?
+    /// 點開詳情的那條紅線（用開始時刻認，每分鐘重繪也不會跳掉）
+    @State private var openFocus: Date?
 
     private let calendar = Calendar.current
 
@@ -193,8 +195,8 @@ struct DayTimelineView: View {
 
             // 蕃茄鐘：專注過的時段畫成紅色直線，正在跑的延伸到現在（任一台裝置）
             ForEach(Array(pomodoro.focusSpans(on: day, now: now).enumerated()), id: \.offset) { _, span in
-                focusLine(span, layout: layout)
-                    .offset(x: blockLeft - (isNarrow ? 4 : 6), y: layout.y(for: span.start))
+                focusLine(span, layout: layout, now: now)
+                    .offset(x: blockLeft - (isNarrow ? 4 : 6) - 5, y: layout.y(for: span.start))
             }
 
             // 拖放預覽
@@ -244,12 +246,13 @@ struct DayTimelineView: View {
         }
     }
 
-    private func focusLine(_ span: FocusSpan, layout: DayTimelineLayout) -> some View {
+    private func focusLine(_ span: FocusSpan, layout: DayTimelineLayout, now: Date) -> some View {
         let height = max(layout.y(for: span.end) - layout.y(for: span.start), 2)
+        let isOpen = openFocus == span.start
         return ZStack(alignment: .bottom) {
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color.red)
-                .frame(width: 3, height: height)
+                .frame(width: isOpen ? 5 : 3, height: height)
             if span.live {
                 Circle().fill(Color.red).frame(width: 7, height: 7)
                     .shadow(color: .red.opacity(0.6), radius: 3)
@@ -257,10 +260,25 @@ struct DayTimelineView: View {
             }
         }
         .frame(width: 7, height: height, alignment: .bottom)
+        // 線只有 3pt 寬，點擊範圍往左（小時欄）放寬、太短的也至少 12pt 高
+        .frame(width: 12, height: max(height, 12), alignment: .bottomTrailing)
+        .contentShape(Rectangle())
         .offset(x: -2)
+        .onTapGesture { openFocus = isOpen ? nil : span.start }
+        .onHover { inside in
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .popover(isPresented: Binding(
+            get: { openFocus == span.start },
+            set: { if !$0, openFocus == span.start { openFocus = nil } }),
+                 arrowEdge: .trailing) {
+            FocusSpanDetailView(span: span,
+                                session: span.sessionID.flatMap { pomodoro.session(id: $0) },
+                                events: events, now: now)
+        }
         .help(Text(span.live
-                   ? L("蕃茄鐘進行中 · \(Self.rangeText(span.start, span.end))")
-                   : L("蕃茄鐘 · \(Self.rangeText(span.start, span.end))")))
+                   ? L("蕃茄鐘進行中 · \(Self.rangeText(span.start, span.end)) · 點一下看詳情")
+                   : L("蕃茄鐘 · \(Self.rangeText(span.start, span.end)) · 點一下看詳情")))
     }
 
     private func nowLine(width: CGFloat) -> some View {

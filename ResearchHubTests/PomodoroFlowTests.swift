@@ -66,12 +66,12 @@ final class PomodoroFlowTests: XCTestCase {
         let spans = pomodoroFocusSpans(day: day, sessions: [classic, legacy, flow],
                                        live: [local, remote], now: at(340), calendar: cal)
         XCTAssertEqual(spans, [
-            FocusSpan(start: at(0), end: at(25), live: false),
-            FocusSpan(start: at(95), end: at(120), live: false),
-            FocusSpan(start: at(180), end: at(200), live: false),
-            FocusSpan(start: at(210), end: at(240), live: false),
-            FocusSpan(start: at(300), end: at(320), live: false),   // 離開畫面那段不畫
-            FocusSpan(start: at(330), end: at(340), live: true),
+            FocusSpan(start: at(0), end: at(25), live: false, sessionID: classic.id),
+            FocusSpan(start: at(95), end: at(120), live: false, sessionID: legacy.id),
+            FocusSpan(start: at(180), end: at(200), live: false, sessionID: flow.id),
+            FocusSpan(start: at(210), end: at(240), live: false, sessionID: flow.id),
+            FocusSpan(start: at(300), end: at(320), live: false, liveState: remote),   // 離開畫面那段不畫
+            FocusSpan(start: at(330), end: at(340), live: true, liveState: local),
         ].filter { cal.isDate($0.start, inSameDayAs: day) })
     }
 

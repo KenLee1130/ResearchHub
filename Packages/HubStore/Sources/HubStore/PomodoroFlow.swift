@@ -138,14 +138,16 @@ public struct PomodoroLiveState: Codable, Equatable, Sendable {
     public var awaySince: Date?
     /// 經典模式：這段的結束時刻（過了就當作沒在跑）
     public var phaseEndAt: Date?
+    /// 這段要做什麼（開始時填的計畫；舊檔沒有）
+    public var plan: String?
     public var updatedAt: Date
 
     public init(device: String, active: Bool, kind: Kind, startedAt: Date?,
                 awaySpans: [PomodoroSpan] = [], awaySince: Date? = nil,
-                phaseEndAt: Date? = nil, updatedAt: Date = .now) {
+                phaseEndAt: Date? = nil, plan: String? = nil, updatedAt: Date = .now) {
         self.device = device; self.active = active; self.kind = kind; self.startedAt = startedAt
         self.awaySpans = awaySpans; self.awaySince = awaySince
-        self.phaseEndAt = phaseEndAt; self.updatedAt = updatedAt
+        self.phaseEndAt = phaseEndAt; self.plan = plan; self.updatedAt = updatedAt
     }
 
     /// 到 `now` 為止這段的工作時段；不在跑、或是殘留（另一台當掉沒收尾）的回空。
@@ -172,9 +174,15 @@ public struct FocusSpan: Equatable, Sendable {
     public let end: Date
     /// 還在進行中（畫成延伸到現在、末端有圓點）
     public let live: Bool
+    /// 來自哪筆完成的紀錄（點紅線看當時做了什麼、聽了什麼）
+    public var sessionID: UUID? = nil
+    /// 來自哪台裝置正在跑的那段
+    public var liveState: PomodoroLiveState? = nil
 
-    public init(start: Date, end: Date, live: Bool) {
+    public init(start: Date, end: Date, live: Bool,
+                sessionID: UUID? = nil, liveState: PomodoroLiveState? = nil) {
         self.start = start; self.end = end; self.live = live
+        self.sessionID = sessionID; self.liveState = liveState
     }
 }
 
@@ -208,7 +216,7 @@ public func pomodoroFocusSpans(day: Date, sessions: [PomodoroSession], live: [Po
         guard s.date > dayStart, s.date.timeIntervalSince(dayEnd) < 86_400 else { continue }
         for span in s.workSpans(calendar: calendar) {
             if let c = span.clipped(from: dayStart, to: dayEnd) {
-                result.append(FocusSpan(start: c.start, end: c.end, live: false))
+                result.append(FocusSpan(start: c.start, end: c.end, live: false, sessionID: s.id))
             }
         }
     }
@@ -218,7 +226,7 @@ public func pomodoroFocusSpans(day: Date, sessions: [PomodoroSession], live: [Po
             if let c = span.clipped(from: dayStart, to: dayEnd) {
                 // 最後一段延伸到現在的才算「進行中」
                 let isLast = i == spans.count - 1 && span.end >= now.addingTimeInterval(-1)
-                result.append(FocusSpan(start: c.start, end: c.end, live: isLast))
+                result.append(FocusSpan(start: c.start, end: c.end, live: isLast, liveState: state))
             }
         }
     }

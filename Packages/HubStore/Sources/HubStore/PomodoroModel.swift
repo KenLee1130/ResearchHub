@@ -624,12 +624,14 @@ public final class PomodoroModel {
         if let flow {
             return PomodoroLiveState(device: Self.deviceName, active: true, kind: .flow,
                                      startedAt: flow.startedAt, awaySpans: flow.awaySpans,
-                                     awaySince: flow.awaySince)
+                                     awaySince: flow.awaySince,
+                                     plan: flow.plan.isEmpty ? nil : flow.plan)
         }
         let working = isRunning && phase == .work
         return PomodoroLiveState(device: Self.deviceName, active: working, kind: .classic,
                                  startedAt: working ? activeStartedAt : nil,
-                                 phaseEndAt: working ? phaseEndAt : nil)
+                                 phaseEndAt: working ? phaseEndAt : nil,
+                                 plan: working && !currentPlan.isEmpty ? currentPlan : nil)
     }
 
     /// 狀態有變就寫自己的 live 檔（內容沒變不寫，免得一直觸發 iCloud 上傳）。
@@ -668,6 +670,11 @@ public final class PomodoroModel {
                 return try? Self.jsonDecoder.decode(PomodoroLiveState.self, from: data)
             }
         if states != remoteLive { remoteLive = states }
+    }
+
+    /// 紅線背後那筆紀錄
+    public func session(id: UUID) -> PomodoroSession? {
+        sessions.first { $0.id == id }
     }
 
     /// 某天時間軸上的紅線：完成的紀錄、這台正在跑的、另一台正在跑的。
