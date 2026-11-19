@@ -24,7 +24,7 @@ Claude 可以直接讀寫下列檔案來參與工作流程。
 | `.hub/todos.json` | 首頁「一般待辦」與垃圾桶：`{ "todos": [...], "trash": [...] }` | 可新增待辦、把放棄的項目搬進 `trash` |
 | `.hub/journal-meta.json` | 日記回顧旁車檔，鍵是 `yyyy-MM-dd`：`{"2026-10-11": {"kind": "log"\|"reflective", "mood": -2..2, "themes": ["…"]}}`。app 自己會把每天分成流水帳（待辦為主）或心得（散文、有感受）；檔裡的 `kind` 覆寫它，`mood`／`themes` 只來自這個檔。app 只讀不寫 | **做 insights 時順手補**：掃最近的日記，給每天 `mood`（-2…2）與 2–4 個 `themes`，心得日也可明寫 `kind`；以 key 合併寫回，不要刪別天 |
 | `.hub/claude/insights.json` | Claude 寫給使用者的觀察與鼓勵，顯示在首頁「Claude 觀察」區 | **這是 Claude 的主要輸出口**，見下方格式 |
-| `Pomodoro/pomodoro.json` | 番茄鐘紀錄 | 讀取統計 |
+| `Pomodoro/pomodoro.json` | 番茄鐘紀錄。`kind:"flow"` 是無限模式（正向計時）：`minutes` 只算工作時間，`awaySpans` 是離開蕃茄鐘畫面／暫停的時段；`tracks` 是那段聽的歌（Spotify）。`Pomodoro/live-<裝置>.json` 是各裝置「正在專注」的即時狀態（app 自己寫） | 讀取統計；`tracks` 可拿來看「聽什麼音樂時最專注」 |
 
 所有 JSON 的日期都是 ISO8601 字串；缺欄位可容忍（app 解碼會補預設值）。
 改 JSON 後不用重啟 app——首頁每次出現時會重新讀檔。
