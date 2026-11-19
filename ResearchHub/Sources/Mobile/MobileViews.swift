@@ -122,75 +122,7 @@ struct MobileNotePreview: View {
     }
 }
 
-// MARK: - 蕃茄鐘
-
-struct MobilePomodoroView: View {
-    @Environment(PomodoroModel.self) private var pomodoro
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
-
-                PomodoroCountdownText(clock: pomodoro.clock)
-                    .font(.system(size: 76, weight: .medium, design: .monospaced))
-                    .monospacedDigit()
-                Text(LocalizedStringKey(pomodoro.phase.label))
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-
-                // 這顆要做什麼（沒開始倒數前可改）
-                TextField("這顆要做什麼…", text: Bindable(pomodoro).currentPlan)
-                    .textFieldStyle(.roundedBorder)
-                    .padding(.horizontal, 40)
-                    .disabled(pomodoro.isRunning)
-
-                HStack(spacing: 28) {
-                    Button {
-                        pomodoro.reset()
-                    } label: {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.title2)
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button {
-                        pomodoro.toggle()
-                    } label: {
-                        Image(systemName: pomodoro.isRunning ? "pause.fill" : "play.fill")
-                            .font(.title)
-                            .frame(width: 56, height: 56)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .clipShape(Circle())
-                }
-
-                Text("今天 \(pomodoro.todayCount) 顆 · 本輪第 \(min(pomodoro.cyclePosition + 1, pomodoro.cycleLength)) / \(pomodoro.cycleLength) 顆")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-
-                Text("倒數以結束時刻計算——鎖屏、切出去都不會停，時間到會推播通知。停在這一頁倒數時螢幕會保持常亮。")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-
-                Spacer()
-            }
-            .navigationTitle("蕃茄鐘")
-            .sheet(item: completionBinding) { prompt in
-                MobileCompletionSheet(prompt: prompt)
-            }
-        }
-    }
-
-    /// completionPrompt 是 @Published var，包一層 Binding 給 sheet(item:) 用。
-    private var completionBinding: Binding<PomodoroModel.CompletionPrompt?> {
-        Binding(
-            get: { pomodoro.completionPrompt },
-            set: { pomodoro.completionPrompt = $0 })
-    }
-}
+// MARK: - 蕃茄鐘（主畫面在 MobilePomodoroView.swift）
 
 /// 一顆結束後的動作小卡（手機版精簡版：記錄完成內容＋選下一步）。
 struct MobileCompletionSheet: View {
@@ -227,6 +159,12 @@ struct MobileCompletionSheet: View {
                     Section("下一顆要做什麼（繼續工作時）") {
                         TextField("可留空", text: $nextPlan)
                     }
+                    // 連了 Spotify 才顯示：這顆聽了哪些歌
+                    if SpotifyService.shared.isConnected, let session = pomodoro.lastCompletedSession {
+                        SpotifyTracksSection(
+                            start: session.startedAt ?? session.date.addingTimeInterval(-Double(session.minutes) * 60),
+                            end: session.date, sessionID: session.id)
+                    }
 
                 case .breakDone(let wasLong):
                     Section("休息結束") {
@@ -254,7 +192,7 @@ struct MobileCompletionSheet: View {
             .navigationTitle(prompt == .workDone ? "🍅 完成一顆" : "休息結束")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .presentationDetents([.medium])
+        .presentationDetents(SpotifyService.shared.isConnected && prompt == .workDone ? [.medium, .large] : [.medium])
         .interactiveDismissDisabled()
     }
 }

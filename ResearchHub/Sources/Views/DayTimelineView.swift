@@ -15,6 +15,8 @@ import UniformTypeIdentifiers
 /// 範圍與座標全交給 `DayTimelineLayout`（HubCore，可測），這裡只畫。
 struct DayTimelineView: View {
     @Environment(EventStore.self) private var eventStore
+    /// 蕃茄鐘紀錄與正在跑的那段 → 軸左側的紅線
+    @Environment(PomodoroModel.self) private var pomodoro
     @AppStorage(PomodoroModel.SettingsKey.workMinutes) private var workMinutes = 25
     /// 預設範圍（設定可改）：沒有更早／更晚的事件時軸從幾點到幾點
     @AppStorage("timeline.startHour") private var defaultStartHour = 8
@@ -189,6 +191,12 @@ struct DayTimelineView: View {
                     .offset(x: blockLeft + CGFloat(block.column) * colWidth, y: block.y + 1)
             }
 
+            // 蕃茄鐘：專注過的時段畫成紅色直線，正在跑的延伸到現在（任一台裝置）
+            ForEach(Array(pomodoro.focusSpans(on: day, now: now).enumerated()), id: \.offset) { _, span in
+                focusLine(span, layout: layout)
+                    .offset(x: blockLeft - (isNarrow ? 4 : 6), y: layout.y(for: span.start))
+            }
+
             // 拖放預覽
             if let start = dropStart, let todo = dragging {
                 let minutes = todo.meta.estMinutes ?? 60
@@ -234,6 +242,25 @@ struct DayTimelineView: View {
                     .padding(.top, 1)
             }
         }
+    }
+
+    private func focusLine(_ span: FocusSpan, layout: DayTimelineLayout) -> some View {
+        let height = max(layout.y(for: span.end) - layout.y(for: span.start), 2)
+        return ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.red)
+                .frame(width: 3, height: height)
+            if span.live {
+                Circle().fill(Color.red).frame(width: 7, height: 7)
+                    .shadow(color: .red.opacity(0.6), radius: 3)
+                    .offset(y: 3.5)
+            }
+        }
+        .frame(width: 7, height: height, alignment: .bottom)
+        .offset(x: -2)
+        .help(Text(span.live
+                   ? L("蕃茄鐘進行中 · \(Self.rangeText(span.start, span.end))")
+                   : L("蕃茄鐘 · \(Self.rangeText(span.start, span.end))")))
     }
 
     private func nowLine(width: CGFloat) -> some View {

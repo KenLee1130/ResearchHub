@@ -312,6 +312,26 @@ public struct SearchHit: Identifiable, Hashable, Sendable {
 - ④ 刪事件（Mac／iPhone 的事件編輯）會把日記那一行的時段拿掉（`unscheduleLine`），
   不然對齊會把事件建回來；那天開在編輯器裡時走 `EditorHandle.replaceText`。
 
+### 5.6 蕃茄鐘：無限模式、時間軸紅線、計時動畫、Spotify（2026-11-19）
+
+- ① 契約（都向下相容，舊紀錄照讀）：`PomodoroSession` 多 `kind`（`"flow"`）、`awaySpans`、`tracks`；
+  新檔 `Pomodoro/live-<iphone|mac>.json`（一台一個檔，不互蓋）放「現在有沒有在專注」。`.hub/README.md`、`CLAUDE.md` 已寫。
+- ② `HubStore/PomodoroFlow.swift`（純值、可測）：`FlowTimer` 以時刻記帳——畫面離開蕃茄鐘（`offScreen`）或暫停
+  （`paused`）任一成立就開一段非工作時段，兩者都解除才收；`PomodoroLiveState` 是 live 檔；
+  `pomodoroFocusSpans(day:sessions:live:now:)` 算某天的紅線（完成的紀錄扣掉非工作時段＋各台進行中那段，
+  殘留狀態——倒數早該結束、無限模式超過 16 小時——不畫）。`PomodoroModel` 多 `mode`、`flow`、
+  `startFlow`／`setFlowOffScreen`／`stopFlow`（工作滿 1 分鐘才寫紀錄）、`flowSummary`、`focusSpans(on:)`、
+  `attachTracks`。計時器快照（UserDefaults）多存 `flow`，重啟續跑。
+  `HubCore/SpotifyListening.swift`：「最近播放／正在播放」回應 → 某段時間的歌（純解析）。
+  測試在 `PomodoroFlowTests.swift`、`SpotifyListeningTests.swift`。
+- ③ iPhone `Mobile/MobilePomodoroView.swift`：待命版面同舊版＋模式切換；計時中用 matchedGeometryEffect
+  把數字移到頂端、操作移到底部，中間 `PomodoroSceneView`（`Mobile/PomodoroScenes.swift`，Canvas 即時畫的
+  五個場景：散步、lofi 讀書、雨夜窗、營火、午睡的貓；隨機、點一下換下一個、工具列可固定或關掉）。
+  「離開畫面」由 `MobileRootView` 判斷：分頁不是蕃茄鐘或 scenePhase 不是 active。
+  Spotify：`Services/SpotifyService.swift`（PKCE、refresh token 存鑰匙圈、使用者自己的 Client ID），
+  無限模式總結與一般完成小卡顯示那段的歌並寫回紀錄。Mac `DayTimelineView` 在軸左側畫紅線（任一台裝置）。
+- ④ Claude 可用 `tracks`／`awaySpans` 做分析（例：非工作時間佔比、哪種音樂時段完成度高）。
+
 ## 6. 遷移順序
 
 每一步可單獨 ship；**搬家與改行為分開 commit**；用舊 worktree 的 diff 驗證輸出不變；

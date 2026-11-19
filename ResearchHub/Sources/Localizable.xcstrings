@@ -108,6 +108,16 @@
         }
       }
     },
+    "%lld 分 %lld 秒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld min %2$lld s"
+          }
+        }
+      }
+    },
     "%lld 分鐘": {
       "localizations": {
         "en": {
@@ -138,6 +148,16 @@
         }
       }
     },
+    "%lld 小時 %lld 分": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld h %2$lld min"
+          }
+        }
+      }
+    },
     "%lld 小時 %lld 分鐘": {
       "localizations": {
         "en": {
@@ -154,6 +174,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld sessions"
+          }
+        }
+      }
+    },
+    "%lld 秒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld s"
           }
         }
       }
@@ -198,6 +228,16 @@
         }
       }
     },
+    "%lld 首": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tracks"
+          }
+        }
+      }
+    },
     "**作者**": {
       "localizations": {
         "en": {
@@ -228,12 +268,52 @@
         }
       }
     },
+    "1. 用電腦打開 developer.spotify.com/dashboard，登入後按 Create app。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1. On a computer, open developer.spotify.com/dashboard, sign in and click Create app."
+          }
+        }
+      }
+    },
+    "2. Redirect URI 填這一串（一字不差）：": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2. Set the Redirect URI to exactly:"
+          }
+        }
+      }
+    },
     "24 小時制，可以直接打 13:30 或 1330；↑↓ 每次 15 分鐘": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "24-hour; type 13:30 or 1330; ↑↓ moves 15 minutes"
+          }
+        }
+      }
+    },
+    "3. API 勾選 Web API，存檔。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3. Tick Web API and save."
+          }
+        }
+      }
+    },
+    "4. 打開這個 app 的 Settings，把 Client ID 貼到上面，再按「連結 Spotify」。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4. Open the app's Settings, paste its Client ID above, then tap Connect Spotify."
           }
         }
       }
@@ -254,6 +334,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Claude Insights"
+          }
+        }
+      }
+    },
+    "Client ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Client ID"
           }
         }
       }
@@ -279,6 +369,16 @@
         }
       }
     },
+    "Lofi 讀書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lofi study"
+          }
+        }
+      }
+    },
     "PDF 暗色模式": {
       "localizations": {
         "en": {
@@ -295,6 +395,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "ResearchHub"
+          }
+        }
+      }
+    },
+    "Spotify": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify"
+          }
+        }
+      }
+    },
+    "Spotify Client ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify Client ID"
+          }
+        }
+      }
+    },
+    "Spotify 只記播超過 30 秒的歌，剛結束的那首可能要過一下才會出現。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify only logs tracks played for over 30 seconds; the one that just ended may take a moment to show up."
+          }
+        }
+      }
+    },
+    "Spotify 回應錯誤（%lld）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify error (%lld)"
+          }
+        }
+      }
+    },
+    "Spotify 沒有回傳授權碼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify didn't return an authorization code"
+          }
+        }
+      }
+    },
+    "Spotify 登入失敗：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify sign-in failed: %@"
           }
         }
       }
@@ -325,6 +485,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "starts {d}"
+          }
+        }
+      }
+    },
+    "· 暫停中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· Paused"
           }
         }
       }
@@ -365,6 +535,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing fits. Go back and change the target day, session length or daily limit, or just “Add session”."
+          }
+        }
+      }
+    },
+    "一直計時到你按「結束」。離開這一頁（切分頁、回桌面、鎖屏）或按暫停的時間記成非工作時間，結束時會告訴你總時間、工作與非工作各多久。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Counts up until you tap Finish. Time spent away from this page (another tab, home screen, lock screen) or paused is logged as non-work; at the end you get total, work and non-work time."
           }
         }
       }
@@ -462,12 +642,32 @@
         }
       }
     },
+    "不要動畫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No animation"
+          }
+        }
+      }
+    },
     "不重複": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Never"
+          }
+        }
+      }
+    },
+    "中斷連結": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect"
           }
         }
       }
@@ -680,6 +880,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Low priority"
+          }
+        }
+      }
+    },
+    "你在 Spotify 取消了授權": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You cancelled the Spotify authorization"
           }
         }
       }
@@ -1057,6 +1267,16 @@
         }
       }
     },
+    "動畫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animation"
+          }
+        }
+      }
+    },
     "匯出全部事件為 .ics（可匯入系統行事曆／Google 日曆）": {
       "localizations": {
         "en": {
@@ -1088,6 +1308,16 @@
         }
       }
     },
+    "午睡的貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Napping cat"
+          }
+        }
+      }
+    },
     "即將到期": {
       "localizations": {
         "en": {
@@ -1104,6 +1334,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        }
+      }
+    },
+    "只要兩個唯讀權限：最近播放、正在播放。蕃茄鐘結束時查那段時間聽了哪些歌，記在那筆紀錄裡。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only two read-only permissions: recently played and currently playing. When a session ends, the tracks from that time are saved with its record."
           }
         }
       }
@@ -1312,6 +1552,26 @@
         }
       }
     },
+    "工作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work"
+          }
+        }
+      }
+    },
+    "工作不到一分鐘，這段不記進紀錄。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Less than a minute of work, so this stretch isn't logged."
+          }
+        }
+      }
+    },
     "工作結束 → 繼續工作：還要工作多久": {
       "localizations": {
         "en": {
@@ -1368,6 +1628,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scheduled %@"
+          }
+        }
+      }
+    },
+    "已經記的時間會全部丟掉。要留下紀錄請按「結束」。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All tracked time will be thrown away. Tap Finish to keep a record."
+          }
+        }
+      }
+    },
+    "已複製": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        }
+      }
+    },
+    "已連結": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
           }
         }
       }
@@ -1704,6 +1994,16 @@
         }
       }
     },
+    "換動畫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next scene"
+          }
+        }
+      }
+    },
     "搜尋標題、作者、年份…": {
       "localizations": {
         "en": {
@@ -1811,6 +2111,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Letting go is not failure — it frees time for what matters more."
+          }
+        }
+      }
+    },
+    "放棄這一段？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard this stretch?"
+          }
+        }
+      }
+    },
+    "放棄，不記錄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard without saving"
           }
         }
       }
@@ -2159,6 +2479,26 @@
         }
       }
     },
+    "暫停": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "暫停中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused"
+          }
+        }
+      }
+    },
     "曾加入 %lld 次": {
       "localizations": {
         "en": {
@@ -2302,6 +2642,16 @@
         }
       }
     },
+    "未連結": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected"
+          }
+        }
+      }
+    },
     "本月": {
       "extractionState": "stale",
       "localizations": {
@@ -2384,12 +2734,32 @@
         }
       }
     },
+    "模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode"
+          }
+        }
+      }
+    },
     "檢視模式": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "View mode"
+          }
+        }
+      }
+    },
+    "正向計時": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Count-up"
           }
         }
       }
@@ -2625,12 +2995,32 @@
         }
       }
     },
+    "無限模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endless mode"
+          }
+        }
+      }
+    },
     "照計畫完成": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Done as planned"
+          }
+        }
+      }
+    },
+    "營火": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire"
           }
         }
       }
@@ -2838,6 +3228,16 @@
         }
       }
     },
+    "第一次設定（約 3 分鐘）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First-time setup (about 3 minutes)"
+          }
+        }
+      }
+    },
     "筆記": {
       "localizations": {
         "en": {
@@ -2980,6 +3380,16 @@
         }
       }
     },
+    "總時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        }
+      }
+    },
     "繁體中文": {
       "comment": "Language name — kept verbatim across locales",
       "localizations": {
@@ -3071,6 +3481,16 @@
         }
       }
     },
+    "蕃茄鐘 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomodoro · %@"
+          }
+        }
+      }
+    },
     "蕃茄鐘紀錄還不夠，先累積幾天吧。": {
       "localizations": {
         "en": {
@@ -3081,12 +3501,32 @@
         }
       }
     },
+    "蕃茄鐘結束時列出那段時間聽了哪些歌。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List the tracks you listened to when a Pomodoro ends."
+          }
+        }
+      }
+    },
     "蕃茄鐘統計": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Pomodoro stats"
+          }
+        }
+      }
+    },
+    "蕃茄鐘進行中 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomodoro in progress · %@"
           }
         }
       }
@@ -3107,6 +3547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Inline math"
+          }
+        }
+      }
+    },
+    "複製": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
           }
         }
       }
@@ -3301,6 +3751,16 @@
         }
       }
     },
+    "讀取 Spotify…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading Spotify…"
+          }
+        }
+      }
+    },
     "變更…": {
       "localizations": {
         "en": {
@@ -3432,6 +3892,56 @@
         }
       }
     },
+    "這段完成了什麼？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What did you get done?"
+          }
+        }
+      }
+    },
+    "這段專注": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This focus stretch"
+          }
+        }
+      }
+    },
+    "這段時間沒有聽歌（或 Spotify 還沒更新紀錄）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No music during this time (or Spotify hasn't updated yet)"
+          }
+        }
+      }
+    },
+    "這段時間聽了": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listened to"
+          }
+        }
+      }
+    },
+    "這段要做什麼…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What's this stretch for…"
+          }
+        }
+      }
+    },
     "這筆文獻沒有 PDF 附件": {
       "localizations": {
         "en": {
@@ -3510,6 +4020,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "What’s this one for?"
+          }
+        }
+      }
+    },
+    "連結 Spotify": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Spotify"
+          }
+        }
+      }
+    },
+    "連結 Spotify，結束時列出這段聽了哪些歌": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Spotify to list what you listened to"
+          }
+        }
+      }
+    },
+    "連結中…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
           }
         }
       }
@@ -3714,6 +4254,16 @@
         }
       }
     },
+    "還沒連結 Spotify": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify isn't connected yet"
+          }
+        }
+      }
+    },
     "還要休息幾分鐘": {
       "localizations": {
         "en": {
@@ -3740,6 +4290,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "To do that day"
+          }
+        }
+      }
+    },
+    "重來": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
           }
         }
       }
@@ -3790,6 +4350,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Important"
+          }
+        }
+      }
+    },
+    "重設": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
           }
         }
       }
@@ -3916,6 +4486,16 @@
         }
       }
     },
+    "隨機": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Random"
+          }
+        }
+      }
+    },
     "雙欄": {
       "extractionState": "stale",
       "localizations": {
@@ -3923,6 +4503,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Split"
+          }
+        }
+      }
+    },
+    "雨夜窗邊": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rainy window"
+          }
+        }
+      }
+    },
+    "非工作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non-work"
           }
         }
       }
@@ -4034,6 +4634,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "High priority"
+          }
+        }
+      }
+    },
+    "黃昏散步": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunset walk"
           }
         }
       }

@@ -29,6 +29,12 @@ public struct PomodoroSession: Codable, Identifiable, Equatable {
     public var done: String        // 完成後記下實際做了什麼
     // 新欄位;舊紀錄缺這個 key,靠 Optional 讓 Codable 解碼為 nil(向下相容)。
     public var startedAt: Date? = nil   // 這顆實際開始倒數的時刻(用來算真實專注時段)
+    /// "flow" = 無限模式（正向計時）記的；nil = 一般倒數的一顆
+    public var kind: String? = nil
+    /// 無限模式：中間離開蕃茄鐘／暫停的非工作時段（minutes 已扣掉）
+    public var awaySpans: [PomodoroSpan]? = nil
+    /// 這段時間聽的歌（「歌名 — 歌手」，來自 Spotify）
+    public var tracks: [String]? = nil
 }
 
 /// 統計區間。
@@ -97,6 +103,19 @@ public final class PomodoroModel {
         static let history = "pomodoro.history" // [yyyy-MM-dd: count]
         static let focusLog = "pomodoro.focusLog" // ["yyyy-MM-dd HH:mm [kind] text"]
         static let savedTimer = "pomodoro.savedTimer" // 重啟續跑用的計時器快照
+        static let mode = "pomodoro.mode"             // classic / flow
+    }
+
+    /// 經典（倒數一顆）或無限（正向計時到按結束）。
+    public enum Mode: String, CaseIterable, Identifiable {
+        case classic, flow
+        public var id: String { rawValue }
+        public var label: String {
+            switch self {
+            case .classic: return "蕃茄鐘"
+            case .flow: return "無限模式"
+            }
+        }
     }
 
     // MARK: - State
@@ -130,6 +149,20 @@ public final class PomodoroModel {
     /// 目前(這顆)work 的計畫;顯示在計時器上,完成時寫進紀錄。
     public var currentPlan: String = ""
 
+    /// 下一次按開始用哪種模式（記在 UserDefaults）
+    public var mode: Mode = .classic {
+        didSet { defaults.set(mode.rawValue, forKey: CountKey.mode) }
+    }
+    /// 無限模式正在跑（nil = 沒開）
+    public private(set) var flow: FlowTimer?
+    /// 無限模式剛結束：畫面彈出總結
+    public var flowSummary: FlowSummary?
+    /// 其他裝置寫的「正在專注」狀態（時間軸畫進行中的紅線）
+    public private(set) var remoteLive: [PomodoroLiveState] = []
+
+    /// 經典倒數在跑、或無限模式開著——畫面用它切到「計時中」版面
+    public var isActive: Bool { isRunning || flow != nil || hasStartedPhase }
+
     private var timer: Timer?
     private var hasStartedPhase = false
     private let defaults = UserDefaults.standard
@@ -156,6 +189,7 @@ public final class PomodoroModel {
         self.readingGate = readingGate
         self.system = system
         remaining = duration(of: .work)
+        mode = Mode(rawValue: defaults.string(forKey: CountKey.mode) ?? "") ?? .classic
 
         NotificationCenter.default.addObserver(
             self,
@@ -186,17 +220,23 @@ public final class PomodoroModel {
         ]
         d["phaseEndAt"] = phaseEndAt?.timeIntervalSince1970 ?? 0
         d["activeStartedAt"] = activeStartedAt?.timeIntervalSince1970 ?? 0
+        if let flow, let data = try? Self.jsonEncoder.encode(flow) {
+            d["flow"] = data
+        }
         defaults.set(d, forKey: CountKey.savedTimer)
         writeFocusState()
+        writeLiveState()
     }
 
     /// 把「現在是否在專注」寫進 .hub/focus_state.json，讓手機端的閱讀關卡讀得到
     /// （計時狀態本身在 UserDefaults，是本機的，跨不到 iPhone）。
     /// 一併帶上這顆的計畫，關卡跳出來時可以提醒使用者現在該做什麼。
     private func writeFocusState() {
+        // 無限模式開著（沒按暫停）也算在專注：閱讀關卡照樣攔
+        let flowFocusing = flow.map { !$0.paused } ?? false
         let state = GateFocusState(
-            pomodoroActive: isRunning,
-            phase: phase.rawValue,
+            pomodoroActive: isRunning || flowFocusing,
+            phase: flowFocusing ? Phase.work.rawValue : phase.rawValue,
             phaseEndAt: phaseEndAt,
             manualGate: defaults.bool(forKey: "gate.manualGate"),
             plan: currentPlan,
@@ -229,6 +269,10 @@ public final class PomodoroModel {
         if let t = d["activeStartedAt"] as? Double, t > 0 {
             activeStartedAt = Date(timeIntervalSince1970: t)
         }
+        if let data = d["flow"] as? Data, let saved = try? Self.jsonDecoder.decode(FlowTimer.self, from: data) {
+            flow = saved
+            return
+        }
         let wasRunning = d["isRunning"] as? Bool ?? false
         if wasRunning, let end = d["phaseEndAt"] as? Double, end > 0 {
             remaining = max(0, Int(
@@ -250,21 +294,26 @@ public final class PomodoroModel {
         loadSessions()
         readingGate.configure(rootURL: rootURL)
         // 另一台裝置記了蕃茄鐘（或切回 app）→ 重讀
+        loadRemoteLive()
+        writeLiveState()
         libraryObserver = librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
-                guard let self, change.affects(self.sessionsFileURL) else { return }
-                self.loadSessions()
+                guard let self else { return }
+                if change.affects(self.sessionsFileURL) { self.loadSessions() }
+                if change.affects(self.pomodoroFolderURL) { self.loadRemoteLive() }
             }
         #if os(macOS)
         writeFocusState()   // Mac 是狀態的來源；開 app 就先落地一次
         #endif
     }
 
+    private var pomodoroFolderURL: URL? {
+        rootURL?.appendingPathComponent("Pomodoro", isDirectory: true)
+    }
+
     private var sessionsFileURL: URL? {
-        rootURL?
-            .appendingPathComponent("Pomodoro", isDirectory: true)
-            .appendingPathComponent("pomodoro.json")
+        pomodoroFolderURL?.appendingPathComponent("pomodoro.json")
     }
 
     private static let jsonEncoder: JSONEncoder = {
@@ -413,12 +462,29 @@ public final class PomodoroModel {
 
     public var timeString: String { clock.timeString }
 
+    /// 開始／暫停。沒在跑時依 `mode` 決定開哪一種；無限模式開著時切換暫停（暫停算非工作時間）。
     public func toggle() {
-        isRunning ? pause() : start()
+        if var f = flow {
+            f.setPaused(!f.paused, at: .now)
+            flow = f
+            saveTimerState()
+            return
+        }
+        if isRunning { pause(); return }
+        if mode == .flow && !hasStartedPhase && phase == .work {
+            startFlow()
+        } else {
+            start()
+        }
     }
 
-    /// 重設目前這顆鐘（不動循環進度）。
+    /// 重設目前這顆鐘（不動循環進度）。無限模式：整段作廢、不記錄。
     public func reset() {
+        if flow != nil {
+            flow = nil
+            saveTimerState()
+            return
+        }
         pause()
         hasStartedPhase = false
         activeStartedAt = nil           // 這顆作廢,別把起始時刻帶到下一顆
@@ -467,6 +533,146 @@ public final class PomodoroModel {
         phaseEndAt = nil
         cancelEndNotification()
         saveTimerState()
+    }
+
+    // MARK: - 無限模式
+
+    /// 開始正向計時（沒有倒數、沒有推播），一直記到 `stopFlow()`。
+    public func startFlow() {
+        guard flow == nil, !isRunning else { return }
+        flow = FlowTimer(startedAt: .now, plan: currentPlan.trimmingCharacters(in: .whitespacesAndNewlines))
+        saveTimerState()
+    }
+
+    /// 畫面離開／回到蕃茄鐘（切分頁、回桌面、鎖屏）。只有無限模式在意。
+    public func setFlowOffScreen(_ off: Bool) {
+        guard var f = flow, f.offScreen != off else { return }
+        f.setOffScreen(off, at: .now)
+        flow = f
+        saveTimerState()
+    }
+
+    /// 結束無限模式：工作滿一分鐘就寫一筆紀錄（kind = flow），並彈出總結。
+    @discardableResult
+    public func stopFlow(at now: Date = .now) -> FlowSummary? {
+        guard var f = flow else { return nil }
+        f.setOffScreen(false, at: now)
+        f.setPaused(false, at: now)
+        let work = f.workSeconds(at: now)
+        let away = f.awaySeconds(at: now)
+        var sessionID: UUID?
+        if work >= 60 {
+            let s = PomodoroSession(
+                date: now, minutes: max(1, Int((work / 60).rounded())),
+                plan: f.plan, done: "", startedAt: f.startedAt,
+                kind: PomodoroLiveState.Kind.flow.rawValue,
+                awaySpans: f.awaySpans.isEmpty ? nil : f.awaySpans)
+            loadSessions()
+            sessions.append(s)
+            pendingSessionID = s.id
+            saveSessions()
+            recomputeCounts()
+            sessionID = s.id
+        }
+        let summary = FlowSummary(startedAt: f.startedAt, endedAt: now, workSeconds: work,
+                                  awaySeconds: away, plan: f.plan, sessionID: sessionID)
+        flow = nil
+        currentPlan = ""
+        flowSummary = summary
+        saveTimerState()
+        return summary
+    }
+
+    /// 剛完成的那筆（一般一顆或無限模式），給完成畫面補資料用。
+    public var lastCompletedSession: PomodoroSession? {
+        guard let id = pendingSessionID else { return nil }
+        return sessions.first { $0.id == id }
+    }
+
+    /// 把這段時間聽的歌寫進某筆紀錄。
+    public func attachTracks(_ tracks: [String], to id: UUID) {
+        guard !tracks.isEmpty else { return }
+        loadSessions()
+        guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[i].tracks = tracks
+        saveSessions()
+    }
+
+    /// 這一顆／這一段從何時開始（經典模式只有 work 階段才有）。
+    public var currentWorkStartedAt: Date? {
+        if let flow { return flow.startedAt }
+        return phase == .work ? activeStartedAt : nil
+    }
+
+    // MARK: - 時間軸的紅線
+
+    /// 這台裝置的名字（live 檔名用）
+    private static var deviceName: String {
+        #if os(iOS)
+        return "iphone"
+        #else
+        return "mac"
+        #endif
+    }
+
+    private func liveURL(device: String) -> URL? {
+        pomodoroFolderURL?.appendingPathComponent("live-\(device).json")
+    }
+
+    /// 自己現在的專注狀態。
+    public var localLiveState: PomodoroLiveState {
+        if let flow {
+            return PomodoroLiveState(device: Self.deviceName, active: true, kind: .flow,
+                                     startedAt: flow.startedAt, awaySpans: flow.awaySpans,
+                                     awaySince: flow.awaySince)
+        }
+        let working = isRunning && phase == .work
+        return PomodoroLiveState(device: Self.deviceName, active: working, kind: .classic,
+                                 startedAt: working ? activeStartedAt : nil,
+                                 phaseEndAt: working ? phaseEndAt : nil)
+    }
+
+    /// 狀態有變就寫自己的 live 檔（內容沒變不寫，免得一直觸發 iCloud 上傳）。
+    private func writeLiveState() {
+        guard let url = liveURL(device: Self.deviceName) else { return }
+        var state = localLiveState
+        if let old = try? Data(contentsOf: url),
+           var prev = try? Self.jsonDecoder.decode(PomodoroLiveState.self, from: old) {
+            prev.updatedAt = state.updatedAt
+            if prev == state { return }
+            if !state.active && !prev.active { return }
+        } else if !state.active {
+            return   // 從沒開過就不用建檔
+        }
+        state.updatedAt = .now
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let data = try? Self.jsonEncoder.encode(state) {
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    /// 讀其他裝置的 live 檔。
+    private func loadRemoteLive() {
+        guard let folder = pomodoroFolderURL,
+              let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else {
+            remoteLive = []
+            return
+        }
+        let mine = "live-\(Self.deviceName).json"
+        let states: [PomodoroLiveState] = names
+            .filter { $0.hasPrefix("live-") && $0.hasSuffix(".json") && $0 != mine }
+            .compactMap { name in
+                guard case .data(let data) = LibraryFileRead.read(folder.appendingPathComponent(name))
+                else { return nil }
+                return try? Self.jsonDecoder.decode(PomodoroLiveState.self, from: data)
+            }
+        if states != remoteLive { remoteLive = states }
+    }
+
+    /// 某天時間軸上的紅線：完成的紀錄、這台正在跑的、另一台正在跑的。
+    public func focusSpans(on day: Date, now: Date = .now) -> [FocusSpan] {
+        pomodoroFocusSpans(day: day, sessions: sessions, live: [localLiveState] + remoteLive, now: now)
     }
 
     // MARK: - 結束時刻的預約通知（app 不在前景／手機鎖屏時也會響）

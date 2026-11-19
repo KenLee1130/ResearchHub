@@ -66,7 +66,13 @@ struct MobileRootView: View {
     /// 停在蕃茄鐘分頁且正在倒數 → 不讓螢幕自動鎖定（當桌上計時器看）。
     /// 暫停、結束或切到別的分頁就還給系統的自動鎖定，免得忘在那頁把電耗光。
     private var keepsScreenAwake: Bool {
-        store.rootURL != nil && nav.tab == .pomodoro && pomodoro.isRunning
+        let flowTicking = pomodoro.flow.map { !$0.paused } ?? false
+        return store.rootURL != nil && nav.tab == .pomodoro && (pomodoro.isRunning || flowTicking)
+    }
+
+    /// 無限模式：畫面不在蕃茄鐘上（別的分頁、回桌面、鎖屏、切 app）就記成非工作時間
+    private var pomodoroOffScreen: Bool {
+        nav.tab != .pomodoro || scenePhase != .active
     }
 
     /// 一次關卡請求（fullScreenCover(item:) 需要 Identifiable）
@@ -157,6 +163,9 @@ struct MobileRootView: View {
         // 系統只在 app 在前景時理會這個旗標，進背景不用自己還原
         .onChange(of: keepsScreenAwake, initial: true) { _, on in
             UIApplication.shared.isIdleTimerDisabled = on
+        }
+        .onChange(of: pomodoroOffScreen, initial: true) { _, off in
+            pomodoro.setFlowOffScreen(off)
         }
         // 閱讀關卡：捷徑自動化在打開黑名單 app 時導到 researchhub://gate?app=<scheme>
         .onOpenURL { url in handleGateURL(url) }
@@ -289,6 +298,20 @@ struct MobileSettingsView: View {
                 }
                 .onChange(of: language) { _, newValue in
                     (AppLanguage(rawValue: newValue) ?? .system).apply()
+                }
+
+                Section {
+                    NavigationLink {
+                        SpotifySettingsView()
+                    } label: {
+                        LabeledContent {
+                            Text(SpotifyService.shared.isConnected ? "已連結" : "未連結")
+                        } label: {
+                            Label("Spotify", systemImage: "music.note")
+                        }
+                    }
+                } footer: {
+                    Text("蕃茄鐘結束時列出那段時間聽了哪些歌。")
                 }
 
                 Section {
