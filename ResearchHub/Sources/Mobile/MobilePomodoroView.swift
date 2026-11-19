@@ -18,7 +18,7 @@ struct MobilePomodoroView: View {
     @Environment(PomodoroModel.self) private var pomodoro
     /// random / off / 某個場景的 rawValue
     @AppStorage("pomodoro.scene") private var sceneChoice = "random"
-    @State private var scene: PomodoroScene = .lofi
+    @State private var scene: PomodoroScene = .study
     @State private var confirmDiscard = false
     /// 這一段已經挑過場景了（切分頁回來不要重抽）
     @State private var scenePicked = false
@@ -294,7 +294,8 @@ struct MobilePomodoroView: View {
         scenePicked = true
         if let fixed = PomodoroScene(rawValue: sceneChoice) {
             scene = fixed
-        } else if sceneChoice == "random" {
+        } else if sceneChoice != "off" {
+            // "random"，或舊版存的場景名（已經沒有了）都當隨機
             scene = .random(excluding: scene)
         }
     }
