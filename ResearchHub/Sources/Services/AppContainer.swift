@@ -34,6 +34,8 @@ final class AppContainer {
     let paperModels = PaperModelCatalog()
     /// 蕃茄鐘浮動面板
     let pomodoroPanel = PomodoroPanelController()
+    /// 無限模式：螢幕鎖定／睡眠記成非工作時間
+    let flowAwayWatcher = FlowAwayWatcher()
     #endif
 
     private init() {

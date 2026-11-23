@@ -544,6 +544,22 @@ public final class PomodoroModel {
         saveTimerState()
     }
 
+    /// 改「這顆／這段要做什麼」。無限模式開著時，那段的計畫一起改（時間軸、紀錄用的是它）。
+    public func updatePlan(_ plan: String) {
+        let trimmed = plan.trimmingCharacters(in: .whitespacesAndNewlines)
+        currentPlan = trimmed
+        if var f = flow, f.plan != trimmed {
+            f.plan = trimmed
+            flow = f
+        }
+        saveTimerState()
+    }
+
+    /// 無限模式（還沒開始時看 `mode`、開著就是 `flow`）：畫面依此顯示正向計時。
+    public var isFlowMode: Bool {
+        flow != nil || (!isActive && mode == .flow && phase == .work)
+    }
+
     /// 畫面離開／回到蕃茄鐘（切分頁、回桌面、鎖屏）。只有無限模式在意。
     public func setFlowOffScreen(_ off: Bool) {
         guard var f = flow, f.offScreen != off else { return }

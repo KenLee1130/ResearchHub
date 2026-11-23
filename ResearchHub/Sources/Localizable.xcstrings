@@ -1549,7 +1549,16 @@
         }
       }
     },
-    "寫一句就好": {},
+    "寫一句就好": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One line is enough"
+          }
+        }
+      }
+    },
     "專注 %@": {
       "localizations": {
         "en": {
@@ -1618,6 +1627,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Less than a minute of work, so this stretch isn't logged."
+          }
+        }
+      }
+    },
+    "工作時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work time"
           }
         }
       }
@@ -2171,6 +2190,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Letting go is not failure — it frees time for what matters more."
+          }
+        }
+      }
+    },
+    "放棄這一段（不記錄）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard this stretch (not logged)"
           }
         }
       }
@@ -3105,6 +3134,16 @@
         }
       }
     },
+    "無限模式：一直計時到按「結束」，暫停與螢幕鎖定、睡眠的時間記成非工作時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endless mode: counts up until you press Finish. Time paused, locked or asleep counts as non-work."
+          }
+        }
+      }
+    },
     "照計畫完成": {
       "localizations": {
         "en": {
@@ -3456,6 +3495,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tracks are saved when this session ends"
+          }
+        }
+      }
+    },
+    "結束這一段，記下工作時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish this stretch and log the work time"
           }
         }
       }
@@ -4092,12 +4141,32 @@
         }
       }
     },
+    "這段要做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What is this stretch for?"
+          }
+        }
+      }
+    },
     "這段要做什麼…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "What's this stretch for…"
+          }
+        }
+      }
+    },
+    "這段要做什麼？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s this stretch for?"
           }
         }
       }
@@ -4713,6 +4782,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non-work"
+          }
+        }
+      }
+    },
+    "非工作時間（暫停、螢幕鎖定或睡眠）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non-work time (paused, screen locked or asleep)"
           }
         }
       }

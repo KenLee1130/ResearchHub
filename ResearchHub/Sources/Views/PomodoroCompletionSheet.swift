@@ -204,4 +204,95 @@ struct PomodoroCompletionSheet: View {
         return v
     }
 }
+// MARK: - 無限模式結束的總結
+
+/// 按「結束」後跳出：總時間、工作／非工作各多久，順手記一句這段完成了什麼。
+struct FlowSummarySheet: View {
+    let summary: FlowSummary
+    @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(\.dismiss) private var dismiss
+    @State private var doneNote = ""
+
+    private var workRatio: Double {
+        summary.totalSeconds > 0 ? summary.workSeconds / summary.totalSeconds : 0
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Label {
+                    Text(summary.plan.isEmpty ? L("這段專注") : summary.plan)
+                } icon: {
+                    Image(systemName: "infinity").foregroundStyle(.red)
+                }
+                .font(.title2.bold())
+                .lineLimit(2)
+                Text(verbatim: DayTimelineView.rangeText(summary.startedAt, summary.endedAt))
+                    .font(.callout)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(spacing: 12) {
+                Text(PomodoroFormat.duration(summary.totalSeconds))
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                // 工作／非工作的比例條
+                GeometryReader { geo in
+                    HStack(spacing: 2) {
+                        Capsule().fill(Color.red).frame(width: max(geo.size.width * workRatio - 1, 0))
+                        Capsule().fill(Color.secondary.opacity(0.35))
+                    }
+                }
+                .frame(height: 10)
+                HStack {
+                    stat("總時間", summary.totalSeconds, .primary)
+                    Divider().frame(height: 34)
+                    stat("工作", summary.workSeconds, .red)
+                    Divider().frame(height: 34)
+                    stat("非工作", summary.awaySeconds, .secondary)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.05)))
+
+            if summary.sessionID != nil {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("這段完成了什麼？")
+                        .font(.subheadline.weight(.medium))
+                    TextField("寫一句就好", text: $doneNote, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(2...4)
+                }
+            } else {
+                Text("工作不到一分鐘，這段不記進紀錄。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Spacer()
+                Button("完成") {
+                    if summary.sessionID != nil { pomodoro.recordDone(doneNote) }
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(28)
+        .frame(width: 420)
+        .onAppear { if doneNote.isEmpty { doneNote = summary.plan } }
+    }
+
+    private func stat(_ title: LocalizedStringKey, _ seconds: TimeInterval, _ color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(PomodoroFormat.duration(seconds))
+                .font(.headline.monospacedDigit())
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
 #endif

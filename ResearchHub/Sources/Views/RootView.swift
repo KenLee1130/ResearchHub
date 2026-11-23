@@ -394,6 +394,10 @@ struct RootView: View {
                 PomodoroCompletionSheet(prompt: prompt)
                     .environment(pomodoro)
             }
+            .sheet(item: Bindable(pomodoro).flowSummary) { summary in
+                FlowSummarySheet(summary: summary)
+                    .environment(pomodoro)
+            }
         }
         .windowCommands(router, searchPresented: $searchPresented) { cmd in
             switch cmd {
@@ -438,6 +442,7 @@ struct RootView: View {
         .onAppear {
             eventStore.configure(rootURL: store.rootURL)
             pomodoro.configure(rootURL: store.rootURL)
+            AppContainer.shared.flowAwayWatcher.start(pomodoro)
             generalTodos.configure(rootURL: store.rootURL)
             AppContainer.shared.librarySync.configure(rootURL: store.rootURL) // 開 app：先跟 iCloud 要手機的更新
             AppContainer.shared.blockEditor.preload() // 預載日記編輯器，切分頁即時顯示
