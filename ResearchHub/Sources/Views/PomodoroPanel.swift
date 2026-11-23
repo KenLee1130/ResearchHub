@@ -17,7 +17,8 @@ final class PomodoroPanelController {
             return
         }
         let hosting = NSHostingController(
-            rootView: PomodoroPanelView().environment(pomodoro))
+            rootView: PomodoroPanelView { [weak self] size in self?.fit(size) }
+                .environment(pomodoro))
         let panel = NSPanel(contentViewController: hosting)
         // 無邊框：關閉鈕做在面板內，避免透明標題列的點擊穿透問題。
         // 不用 .utilityWindow —— 它會在 app 失焦時自動把面板藏起來,正是「切桌面後消失」的元兇。
@@ -38,6 +39,20 @@ final class PomodoroPanelController {
     func close() {
         panel?.close()
     }
+
+    /// 內容大小變了（計時中多出影片、切到無限模式…）：視窗跟著改，頂端不動。
+    /// 不用 sizingOptions = .preferredContentSize —— 跟無邊框面板一起用會陷入版面無限遞迴當掉。
+    private func fit(_ size: CGSize) {
+        DispatchQueue.main.async { [weak self] in
+            guard let panel = self?.panel, size.width > 0, size.height > 0 else { return }
+            var frame = panel.frame
+            let target = panel.frameRect(forContentRect: NSRect(origin: .zero, size: size)).size
+            guard abs(frame.height - target.height) > 1 || abs(frame.width - target.width) > 1 else { return }
+            frame.origin.y += frame.height - target.height
+            frame.size = target
+            panel.setFrame(frame, display: true, animate: false)
+        }
+    }
 }
 
 /// 按住就能拖動所在視窗的區域（無邊框面板用）
@@ -55,9 +70,13 @@ struct WindowDragArea: NSViewRepresentable {
 struct PomodoroPanelView: View {
     @Environment(PomodoroModel.self) private var pomodoro
     @State private var hovering = false
+    /// 內容的理想大小（給面板視窗調整大小）
+    var onSize: (CGSize) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 8) {
+            PomodoroSceneStrip(cornerRadius: 12)
+                .frame(width: 224)
             PomodoroClockText(size: 36)
             PomodoroStatusLine()
             if pomodoro.canPickMode {
@@ -84,6 +103,8 @@ struct PomodoroPanelView: View {
         // 背景鋪一層：按下就請視窗跟著拖。按鈕、計畫欄蓋在上面，照樣能點。
         .background(WindowDragArea())
         .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .contextMenu { PomodoroSceneMenu() }
+        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: pomodoro.isActive)
         .overlay(alignment: .topTrailing) {
             // 滑過面板時顯示關閉鈕
             Button {
@@ -101,6 +122,8 @@ struct PomodoroPanelView: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
         .padding(8)
+        .fixedSize()
+        .onGeometryChange(for: CGSize.self, of: { $0.size }, action: onSize)
     }
 }
 
@@ -190,9 +213,7 @@ struct PomodoroControls: View {
     var showsPanelButton = true
     @State private var confirmDiscard = false
 
-    private var ticking: Bool {
-        pomodoro.isRunning || (pomodoro.flow.map { !$0.paused } ?? false)
-    }
+    private var ticking: Bool { pomodoro.isTicking }
 
     var body: some View {
         HStack(spacing: spacing) {
@@ -239,6 +260,98 @@ struct PomodoroControls: View {
                 .contentShape(Rectangle())
         }
         .help(help)
+    }
+}
+
+// MARK: - 計時中的動畫（跟手機同一批影片）
+
+extension PomodoroModel {
+    /// 正在走（倒數中，或無限模式沒暫停）
+    var isTicking: Bool { isRunning || (flow.map { !$0.paused } ?? false) }
+}
+
+/// 側欄與浮動面板共用同一個場景：開始計時時挑一次，點影片換下一個。
+@MainActor
+@Observable
+final class PomodoroSceneState {
+    private(set) var scene: PomodoroScene = .study
+    @ObservationIgnored private var picked = false
+
+    /// 計時開始時挑一次（側欄、面板都會呼叫，只算一次）；停了就等下一段再挑
+    func update(active: Bool, choice: String) {
+        guard active else { picked = false; return }
+        guard !picked else { return }
+        picked = true
+        pick(choice)
+    }
+
+    func pick(_ choice: String) {
+        if let fixed = PomodoroScene(rawValue: choice) {
+            scene = fixed
+        } else if choice != "off" {
+            scene = .random(excluding: scene)
+        }
+    }
+
+    func next() { scene = scene.next }
+}
+
+/// 計時中才出現的 16:9 影片；暫停就定格。待命時不佔空間。
+struct PomodoroSceneStrip: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+    @AppStorage("pomodoro.scene") private var choice = "random"
+    var cornerRadius: CGFloat = 8
+    private var state: PomodoroSceneState { AppContainer.shared.pomodoroScene }
+
+    var body: some View {
+        Group {
+            if pomodoro.isActive && choice != "off" {
+                Color.clear
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    // 浮動面板量大小時高度沒有提議值：不鎖住的話影片會被壓成 0 高
+                    .fixedSize(horizontal: false, vertical: true)
+                    .overlay {
+                        PomodoroSceneView(scene: state.scene, paused: !pomodoro.isTicking)
+                            .id(state.scene)
+                            .transition(.opacity)
+                    }
+                    .overlay {
+                        if !pomodoro.isTicking {
+                            Color.black.opacity(0.25)
+                            Image(systemName: "pause.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.35)) { state.next() }
+                    }
+                    .help(Text("\(Text(state.scene.title)) · 點一下換場景，右鍵選擇或關掉動畫"))
+                    .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity),
+                                            removal: .opacity))
+            }
+        }
+        .onChange(of: pomodoro.isActive, initial: true) { _, active in
+            state.update(active: active, choice: choice)
+        }
+        .onChange(of: choice) { state.pick(choice) }
+    }
+}
+
+/// 右鍵選單：選場景／隨機／不要動畫（Mac 自己記，不跟手機同步）
+struct PomodoroSceneMenu: View {
+    @AppStorage("pomodoro.scene") private var choice = "random"
+
+    var body: some View {
+        Picker("動畫", selection: $choice) {
+            Label("隨機", systemImage: "shuffle").tag("random")
+            ForEach(PomodoroScene.allCases) { s in
+                Label(s.title, systemImage: s.symbol).tag(s.rawValue)
+            }
+            Label("不要動畫", systemImage: "eye.slash").tag("off")
+        }
     }
 }
 
@@ -308,6 +421,9 @@ struct PomodoroMiniView: View {
 
     var body: some View {
         VStack(spacing: 6) {
+            PomodoroSceneStrip(cornerRadius: 8)
+                .padding(.horizontal, 6)
+                .padding(.top, -4)
             PomodoroClockText(size: 20)
             PomodoroStatusLine()
 
@@ -344,6 +460,8 @@ struct PomodoroMiniView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
+        .contextMenu { PomodoroSceneMenu() }
+        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: pomodoro.isActive)
     }
 
     private func segmentColor(_ index: Int) -> Color {

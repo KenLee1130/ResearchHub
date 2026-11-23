@@ -21,6 +21,16 @@
         }
       }
     },
+    "%@ · 點一下換場景，右鍵選擇或關掉動畫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Click for the next scene; right-click to pick one or turn animation off"
+          }
+        }
+      }
+    },
     "%@ 事件": {
       "localizations": {
         "en": {
