@@ -18,4 +18,4 @@
 | pomo-scene-kettlecamp.mp4 | https://pixabay.com/videos/ai-created-anime-camping-campfire-367792/ | Hideaki_AnimeTH |
 
 換影片：照同樣的 ffmpeg 參數做一支 `pomo-scene-<名字>.mp4` 放進這個資料夾，
-再在 `Mobile/PomodoroScenes.swift` 的 `PomodoroScene` 加一個 case。
+再在 `Views/PomodoroScenes.swift` 的 `PomodoroScene` 加一個 case，並在 `project.pbxproj` 的 ResearchHub（Mac）例外清單加上這個檔名（Mac 不打包直版）。

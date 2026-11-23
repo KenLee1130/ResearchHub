@@ -4,15 +4,37 @@ import AVFoundation
 import AppKit
 #endif
 
-/// 蕃茄鐘計時中畫面中間的動畫：Pixabay 上授權可用的 anime lofi 循環影片
-/// （來源與授權見 `Resources/PomodoroScenes/PomodoroScenes-CREDITS.md`）。
-/// 影片已裁成 4:5、結尾淡入開頭，無縫循環播放；沒有聲音，不會打斷正在聽的音樂。
+/// 蕃茄鐘計時中的動畫：Pixabay 上授權可用的 anime lofi 循環影片
+/// （來源與授權見 `Resources/PomodoroScenes*/…-CREDITS.md`）。
+/// 截一段、結尾淡入開頭，無縫循環播放；沒有聲音，不會打斷正在聽的音樂。
 ///
-/// 加一個新場景：放一支 `pomo-scene-<rawValue>.mp4` 到資源資料夾，在這裡加 case、`title`、`symbol`。
+/// iPhone 用直的 4:5（`PomodoroScenes/pomo-scene-<rawValue>.mp4`）；
+/// Mac 浮動面板用橫的 16:9（`PomodoroScenesWide/pomo-wide-<rawValue>.mp4`，不裁切），
+/// 而且 Mac 多 15 支只有橫版的場景。兩個資料夾各自只打包進對應的 target。
+///
+/// 加一個新場景：照 CREDITS 的參數做影片放進資料夾，在這裡加 case、`title`、`symbol`，
+/// 只有橫版的話也加進 `wideOnly`。
 enum PomodoroScene: String, CaseIterable, Identifiable {
     case study, bedread, nightdesk, windowview, raincat, fireplacecat, traincat, sunsettrain, lakecamp, kettlecamp
+    // 只有 Mac（橫版）
+    case readcat, umbrella, nighttrain, desklamp, sunsetwrite, raincafe, lampcat, fireread,
+         rainlaptop, heavyrain, sunrisecat, headphones, lamplaptop, raincabin, rainbook
 
     var id: String { rawValue }
+
+    private static let wideOnly: Set<PomodoroScene> = [
+        .readcat, .umbrella, .nighttrain, .desklamp, .sunsetwrite, .raincafe, .lampcat, .fireread,
+        .rainlaptop, .heavyrain, .sunrisecat, .headphones, .lamplaptop, .raincabin, .rainbook,
+    ]
+
+    /// 這台裝置有影片的場景
+    static var available: [PomodoroScene] {
+        #if os(macOS)
+        allCases
+        #else
+        allCases.filter { !wideOnly.contains($0) }
+        #endif
+    }
 
     var title: LocalizedStringKey {
         switch self {
@@ -26,6 +48,21 @@ enum PomodoroScene: String, CaseIterable, Identifiable {
         case .sunsettrain: return "黃昏電車"
         case .lakecamp: return "湖邊營火"
         case .kettlecamp: return "營火與茶壺"
+        case .readcat: return "窗邊看書與貓"
+        case .umbrella: return "雨夜撐傘"
+        case .nighttrain: return "夜車喝茶"
+        case .desklamp: return "夜窗檯燈"
+        case .sunsetwrite: return "黃昏寫字"
+        case .raincafe: return "雨夜咖啡店"
+        case .lampcat: return "檯燈下睡貓"
+        case .fireread: return "壁爐邊看書"
+        case .rainlaptop: return "雨夜筆電"
+        case .heavyrain: return "大雨夜景"
+        case .sunrisecat: return "日出看海的貓"
+        case .headphones: return "戴耳機讀書"
+        case .lamplaptop: return "檯燈與筆電"
+        case .raincabin: return "雨天小木屋"
+        case .rainbook: return "雨窗邊的書"
         }
     }
 
@@ -41,19 +78,40 @@ enum PomodoroScene: String, CaseIterable, Identifiable {
         case .sunsettrain: return "tram"
         case .lakecamp: return "tent"
         case .kettlecamp: return "flame"
+        case .readcat: return "book.pages"
+        case .umbrella: return "umbrella"
+        case .nighttrain: return "train.side.front.car"
+        case .desklamp: return "lamp.table"
+        case .sunsetwrite: return "sunset"
+        case .raincafe: return "cup.and.saucer"
+        case .lampcat: return "cat.fill"
+        case .fireread: return "sofa"
+        case .rainlaptop: return "laptopcomputer"
+        case .heavyrain: return "cloud.heavyrain"
+        case .sunrisecat: return "sunrise"
+        case .headphones: return "headphones"
+        case .lamplaptop: return "desktopcomputer"
+        case .raincabin: return "house"
+        case .rainbook: return "book.closed"
         }
     }
 
-    var videoURL: URL? { Bundle.main.url(forResource: "pomo-scene-\(rawValue)", withExtension: "mp4") }
+    var videoURL: URL? {
+        #if os(macOS)
+        Bundle.main.url(forResource: "pomo-wide-\(rawValue)", withExtension: "mp4")
+        #else
+        Bundle.main.url(forResource: "pomo-scene-\(rawValue)", withExtension: "mp4")
+        #endif
+    }
 
     /// 隨機挑一個，盡量不跟上一個一樣。
     static func random(excluding last: PomodoroScene?) -> PomodoroScene {
-        let pool = allCases.filter { $0 != last }
+        let pool = available.filter { $0 != last }
         return pool.randomElement() ?? .study
     }
 
     var next: PomodoroScene {
-        let all = Self.allCases
+        let all = Self.available
         let i = all.firstIndex(of: self) ?? 0
         return all[(i + 1) % all.count]
     }

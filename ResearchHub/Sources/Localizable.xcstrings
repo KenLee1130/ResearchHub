@@ -1489,6 +1489,16 @@
         }
       }
     },
+    "壁爐邊看書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading by the fireplace"
+          }
+        }
+      }
+    },
     "外觀": {
       "localizations": {
         "en": {
@@ -1505,6 +1515,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "External tools can open this app via researchhub://note?path=… or researchhub://journal?date=YYYY-MM-DD; the data contract lives in .hub/README.md inside your library folder."
+          }
+        }
+      }
+    },
+    "夜窗檯燈": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desk lamp at a night window"
+          }
+        }
+      }
+    },
+    "夜車喝茶": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tea on the night train"
+          }
+        }
+      }
+    },
+    "大雨夜景": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heavy rain over the city"
           }
         }
       }
@@ -1953,6 +1993,16 @@
         }
       }
     },
+    "戴耳機讀書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Studying with headphones"
+          }
+        }
+      }
+    },
     "手動放棄": {
       "localizations": {
         "en": {
@@ -2391,6 +2441,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New tag name"
+          }
+        }
+      }
+    },
+    "日出看海的貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cat watching the sunrise"
           }
         }
       }
@@ -2849,6 +2909,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "View mode"
+          }
+        }
+      }
+    },
+    "檯燈下睡貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cat asleep under the lamp"
+          }
+        }
+      }
+    },
+    "檯燈與筆電": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lamp and laptop"
           }
         }
       }
@@ -3383,6 +3463,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Night view by the window"
+          }
+        }
+      }
+    },
+    "窗邊看書與貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading by the window with a cat"
           }
         }
       }
@@ -4766,6 +4856,16 @@
         }
       }
     },
+    "雨夜咖啡店": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rainy-night café"
+          }
+        }
+      }
+    },
     "雨夜寫作業": {
       "localizations": {
         "en": {
@@ -4776,12 +4876,52 @@
         }
       }
     },
+    "雨夜撐傘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Umbrella on a rainy night"
+          }
+        }
+      }
+    },
     "雨夜的貓": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Cat on a rainy night"
+          }
+        }
+      }
+    },
+    "雨夜筆電": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laptop on a rainy night"
+          }
+        }
+      }
+    },
+    "雨天小木屋": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cabin on a rainy day"
+          }
+        }
+      }
+    },
+    "雨窗邊的書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book by a rainy window"
           }
         }
       }
@@ -4913,6 +5053,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "High priority"
+          }
+        }
+      }
+    },
+    "黃昏寫字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Writing at sunset"
           }
         }
       }

@@ -395,7 +395,7 @@ struct PomodoroSceneMenu: View {
     var body: some View {
         Picker("動畫", selection: $choice) {
             Label("隨機", systemImage: "shuffle").tag("random")
-            ForEach(PomodoroScene.allCases) { s in
+            ForEach(PomodoroScene.available) { s in
                 Label(s.title, systemImage: s.symbol).tag(s.rawValue)
             }
             Label("不要動畫", systemImage: "eye.slash").tag("off")
