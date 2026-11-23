@@ -471,7 +471,7 @@ public final class PomodoroModel {
             return
         }
         if isRunning { pause(); return }
-        if mode == .flow && !hasStartedPhase && phase == .work {
+        if mode == .flow && phase == .work {
             startFlow()
         } else {
             start()
@@ -540,6 +540,12 @@ public final class PomodoroModel {
     /// 開始正向計時（沒有倒數、沒有推播），一直記到 `stopFlow()`。
     public func startFlow() {
         guard flow == nil, !isRunning else { return }
+        // 暫停到一半的那顆蕃茄鐘作廢（切到無限模式並按開始＝改用正向計時）
+        if hasStartedPhase && phase == .work {
+            hasStartedPhase = false
+            activeStartedAt = nil
+            remaining = duration(of: .work)
+        }
         flow = FlowTimer(startedAt: .now, plan: currentPlan.trimmingCharacters(in: .whitespacesAndNewlines))
         saveTimerState()
     }
@@ -555,10 +561,14 @@ public final class PomodoroModel {
         saveTimerState()
     }
 
-    /// 無限模式（還沒開始時看 `mode`、開著就是 `flow`）：畫面依此顯示正向計時。
+    /// 無限模式（沒在計時時看 `mode`、開著就是 `flow`）：畫面依此顯示正向計時。
     public var isFlowMode: Bool {
-        flow != nil || (!isActive && mode == .flow && phase == .work)
+        flow != nil || (!isRunning && mode == .flow && phase == .work)
     }
+
+    /// 可以切蕃茄鐘／無限模式：沒在計時、在 work 階段（暫停到一半的那顆也可以切；
+    /// 切去無限模式按開始才會丟掉那顆，切回來還在）。
+    public var canPickMode: Bool { flow == nil && !isRunning && phase == .work }
 
     /// 畫面離開／回到蕃茄鐘（切分頁、回桌面、鎖屏）。只有無限模式在意。
     public func setFlowOffScreen(_ off: Bool) {

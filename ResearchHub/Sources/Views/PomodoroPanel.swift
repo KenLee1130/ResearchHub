@@ -106,11 +106,6 @@ struct PomodoroPanelView: View {
 
 // MARK: - 共用小元件（側欄、浮動面板）
 
-extension PomodoroModel {
-    /// 還沒開始、在 work 階段：可以切蕃茄鐘／無限模式
-    var canPickMode: Bool { !isActive && phase == .work }
-}
-
 /// 大數字：蕃茄鐘是倒數，無限模式是開始到現在的總時間
 struct PomodoroClockText: View {
     @Environment(PomodoroModel.self) private var pomodoro
