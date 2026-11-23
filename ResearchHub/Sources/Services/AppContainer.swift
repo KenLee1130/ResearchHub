@@ -36,7 +36,7 @@ final class AppContainer {
     let pomodoroPanel = PomodoroPanelController()
     /// 無限模式：螢幕鎖定／睡眠記成非工作時間
     let flowAwayWatcher = FlowAwayWatcher()
-    /// 蕃茄鐘動畫：側欄與浮動面板共用目前的場景
+    /// 蕃茄鐘浮動面板動畫目前的場景
     let pomodoroScene = PomodoroSceneState()
     #endif
 

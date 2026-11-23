@@ -8,21 +8,28 @@ import AppKit
 // MARK: - 浮動面板（置頂於所有 app 之上的玻璃小窗）
 
 @MainActor
-final class PomodoroPanelController {
+final class PomodoroPanelController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
+    private var hosting: NSHostingController<AnyView>?
+    private static let widthKey = "pomodoro.panelWidth"
+    private static let widthRange: ClosedRange<CGFloat> = 240...960
 
     func toggle(pomodoro: PomodoroModel) {
         if let panel, panel.isVisible {
             panel.close()
             return
         }
-        let hosting = NSHostingController(
-            rootView: PomodoroPanelView { [weak self] size in self?.fit(size) }
-                .environment(pomodoro))
+        let hosting = NSHostingController(rootView: AnyView(
+            PomodoroPanelView { [weak self] _ in self?.fitHeight() }
+                .environment(pomodoro)))
+        // 視窗大小全由這裡決定（寬度＝使用者拉的、高度＝內容需要的）。
+        // 不讓 SwiftUI 自動調視窗：sizingOptions = .preferredContentSize 會在無邊框面板上無限遞迴當掉。
+        hosting.sizingOptions = []
         let panel = NSPanel(contentViewController: hosting)
         // 無邊框：關閉鈕做在面板內，避免透明標題列的點擊穿透問題。
         // 不用 .utilityWindow —— 它會在 app 失焦時自動把面板藏起來,正是「切桌面後消失」的元兇。
-        panel.styleMask = [.nonactivatingPanel, .borderless]
+        // .resizable：拉邊角縮放（高度跟著寬度，見 windowWillResize）
+        panel.styleMask = [.nonactivatingPanel, .borderless, .resizable]
         panel.level = .floating
         // 出現在所有桌面、跟著 Space 不動、全螢幕也在;切換桌面/切到別的 app 都不消失。
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
@@ -32,7 +39,14 @@ final class PomodoroPanelController {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.isReleasedWhenClosed = false
+        panel.delegate = self
         self.panel = panel
+        self.hosting = hosting
+
+        let saved = CGFloat(UserDefaults.standard.double(forKey: Self.widthKey))
+        let width = saved > 0 ? saved.clamped(to: Self.widthRange) : 300
+        panel.setContentSize(NSSize(width: width, height: contentHeight(forWidth: width)))
+        panel.center()
         panel.orderFrontRegardless()
     }
 
@@ -40,18 +54,43 @@ final class PomodoroPanelController {
         panel?.close()
     }
 
-    /// 內容大小變了（計時中多出影片、切到無限模式…）：視窗跟著改，頂端不動。
-    /// 不用 sizingOptions = .preferredContentSize —— 跟無邊框面板一起用會陷入版面無限遞迴當掉。
-    private func fit(_ size: CGSize) {
+    /// 這個寬度下內容要多高
+    private func contentHeight(forWidth width: CGFloat) -> CGFloat {
+        guard let hosting else { return 200 }
+        return ceil(hosting.sizeThatFits(in: CGSize(width: width, height: 10_000)).height)
+    }
+
+    /// 內容變了（計時中多出影片、切到無限模式…）：高度跟著改，頂端不動。
+    private func fitHeight() {
         DispatchQueue.main.async { [weak self] in
-            guard let panel = self?.panel, size.width > 0, size.height > 0 else { return }
+            guard let self, let panel = self.panel, !panel.inLiveResize else { return }
             var frame = panel.frame
-            let target = panel.frameRect(forContentRect: NSRect(origin: .zero, size: size)).size
-            guard abs(frame.height - target.height) > 1 || abs(frame.width - target.width) > 1 else { return }
-            frame.origin.y += frame.height - target.height
-            frame.size = target
+            let height = self.contentHeight(forWidth: frame.width)
+            guard height > 0, abs(frame.height - height) > 1 else { return }
+            frame.origin.y += frame.height - height
+            frame.size.height = height
             panel.setFrame(frame, display: true, animate: false)
         }
+    }
+
+    // MARK: NSWindowDelegate
+
+    /// 使用者拉邊角：寬度照拉的，高度剛好包住內容（影片 16:9 跟著放大）
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let width = frameSize.width.clamped(to: Self.widthRange)
+        return NSSize(width: width, height: contentHeight(forWidth: width))
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let panel else { return }
+        UserDefaults.standard.set(Double(panel.frame.width), forKey: Self.widthKey)
+        fitHeight()
+    }
+}
+
+private extension CGFloat {
+    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }
 
@@ -70,22 +109,26 @@ struct WindowDragArea: NSViewRepresentable {
 struct PomodoroPanelView: View {
     @Environment(PomodoroModel.self) private var pomodoro
     @State private var hovering = false
-    /// 內容的理想大小（給面板視窗調整大小）
+    /// 面板寬度（使用者拉的）：數字跟著放大
+    @State private var width: CGFloat = 300
+    /// 內容大小變了（給面板視窗調整高度）
     var onSize: (CGSize) -> Void = { _ in }
 
+    private var clockSize: CGFloat { Swift.min(Swift.max(width * 0.15, 36), 120) }
+    private var scale: CGFloat { Swift.min(Swift.max(width / 300, 1), 2.2) }
+
     var body: some View {
-        VStack(spacing: 8) {
-            PomodoroSceneStrip(cornerRadius: 12)
-                .frame(width: 224)
-            PomodoroClockText(size: 36)
+        VStack(spacing: 8 * scale) {
+            PomodoroSceneStrip(cornerRadius: 10 + 4 * scale)
+            PomodoroClockText(size: clockSize)
             PomodoroStatusLine()
             if pomodoro.canPickMode {
                 PomodoroModePicker()
                     .frame(width: 170)
             }
             PomodoroPlanRow()
-                .frame(maxWidth: 200)
-            PomodoroControls(spacing: 18, iconFont: .title3, showsPanelButton: false)
+                .frame(maxWidth: 200 * scale)
+            PomodoroControls(spacing: 18 * scale, iconFont: .system(size: 17 * scale), showsPanelButton: false)
             if !pomodoro.isFlowMode {
                 HStack(spacing: 4) {
                     ForEach(0..<pomodoro.cycleLength, id: \.self) { i in
@@ -95,9 +138,10 @@ struct PomodoroPanelView: View {
                             .frame(height: 4)
                     }
                 }
-                .frame(width: 120)
+                .frame(width: 120 * scale)
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(22)
         // 面板內容全是 SwiftUI，NSHostingView 會吃掉滑鼠，isMovableByWindowBackground 不會生效 →
         // 背景鋪一層：按下就請視窗跟著拖。按鈕、計畫欄蓋在上面，照樣能點。
@@ -122,8 +166,12 @@ struct PomodoroPanelView: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
         .padding(8)
-        .fixedSize()
-        .onGeometryChange(for: CGSize.self, of: { $0.size }, action: onSize)
+        // 寬度聽視窗的，高度用內容自己需要的（視窗再跟著調）
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGSize.self, of: { $0.size }) { size in
+            width = size.width
+            onSize(size)
+        }
     }
 }
 
@@ -270,7 +318,7 @@ extension PomodoroModel {
     var isTicking: Bool { isRunning || (flow.map { !$0.paused } ?? false) }
 }
 
-/// 側欄與浮動面板共用同一個場景：開始計時時挑一次，點影片換下一個。
+/// 浮動面板的場景：開始計時時挑一次，點影片換下一個（面板關掉再開也接著同一個）。
 @MainActor
 @Observable
 final class PomodoroSceneState {
@@ -421,9 +469,6 @@ struct PomodoroMiniView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            PomodoroSceneStrip(cornerRadius: 8)
-                .padding(.horizontal, 6)
-                .padding(.top, -4)
             PomodoroClockText(size: 20)
             PomodoroStatusLine()
 
@@ -460,8 +505,6 @@ struct PomodoroMiniView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
-        .contextMenu { PomodoroSceneMenu() }
-        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: pomodoro.isActive)
     }
 
     private func segmentColor(_ index: Int) -> Color {
