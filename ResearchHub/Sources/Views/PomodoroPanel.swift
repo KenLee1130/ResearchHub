@@ -25,11 +25,17 @@ final class PomodoroPanelController: NSObject, NSWindowDelegate {
         // 視窗大小全由這裡決定（寬度＝使用者拉的、高度＝內容需要的）。
         // 不讓 SwiftUI 自動調視窗：sizingOptions = .preferredContentSize 會在無邊框面板上無限遞迴當掉。
         hosting.sizingOptions = []
-        let panel = NSPanel(contentViewController: hosting)
         // 無邊框：關閉鈕做在面板內，避免透明標題列的點擊穿透問題。
         // 不用 .utilityWindow —— 它會在 app 失焦時自動把面板藏起來,正是「切桌面後消失」的元兇。
         // .resizable：拉邊角縮放（高度跟著寬度，見 windowWillResize）
-        panel.styleMask = [.nonactivatingPanel, .borderless, .resizable]
+        // .nonactivatingPanel 一定要在 init 就給：建好之後才改 styleMask，AppKit 不會真的生效，
+        // 點面板上的按鈕會把整個 app（主視窗）叫到前面。
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
+                            styleMask: [.nonactivatingPanel, .borderless, .resizable],
+                            backing: .buffered, defer: false)
+        panel.contentViewController = hosting
+        // 點按鈕、影片不搶鍵盤焦點；只有要打字（計畫欄）時才變 key window
+        panel.becomesKeyOnlyIfNeeded = true
         panel.level = .floating
         // 出現在所有桌面、跟著 Space 不動、全螢幕也在;切換桌面/切到別的 app 都不消失。
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
