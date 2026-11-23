@@ -1117,6 +1117,16 @@
       }
     },
     "再休息一下": {},
+    "再記一件事…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note another thing…"
+          }
+        }
+      }
+    },
     "分隔線": {
       "localizations": {
         "en": {
@@ -1133,6 +1143,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove every session scheduled by the “%@” plan"
+          }
+        }
+      }
+    },
+    "刪掉這一件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this item"
           }
         }
       }
@@ -1273,6 +1293,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add session"
+          }
+        }
+      }
+    },
+    "加入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
           }
         }
       }
@@ -2740,6 +2770,16 @@
         }
       }
     },
+    "會記成新的一件事；之前記的在右邊的清單裡改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved as a new item; edit earlier ones in the list on the right."
+          }
+        }
+      }
+    },
     "會議": {
       "extractionState": "stale",
       "localizations": {
@@ -3250,6 +3290,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Campfire and kettle"
+          }
+        }
+      }
+    },
+    "現在在做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What are you doing now?"
           }
         }
       }
@@ -3970,6 +4020,26 @@
         }
       }
     },
+    "記下": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note it"
+          }
+        }
+      }
+    },
+    "記下現在在做的事": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note what you're doing now"
+          }
+        }
+      }
+    },
     "記帳": {
       "localizations": {
         "en": {
@@ -4267,6 +4337,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "What’s this stretch for?"
+          }
+        }
+      }
+    },
+    "這段記下的事": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noted in this stretch"
+          }
+        }
+      }
+    },
+    "這段記下的事：看、修改、刪除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Things noted in this stretch: view, edit, delete"
           }
         }
       }
@@ -4579,6 +4669,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No notes yet"
+          }
+        }
+      }
+    },
+    "還沒記任何事": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing noted yet"
           }
         }
       }

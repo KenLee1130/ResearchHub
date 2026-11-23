@@ -550,14 +550,29 @@ public final class PomodoroModel {
         saveTimerState()
     }
 
-    /// 改「這顆／這段要做什麼」。無限模式開著時，那段的計畫一起改（時間軸、紀錄用的是它）。
+    /// 改「這顆／這段要做什麼」。無限模式開著時是「記下新的一件事」（跟現在這件一樣就不重複記）。
     public func updatePlan(_ plan: String) {
         let trimmed = plan.trimmingCharacters(in: .whitespacesAndNewlines)
         currentPlan = trimmed
-        if var f = flow, f.plan != trimmed {
-            f.plan = trimmed
+        if var f = flow, f.record(trimmed, at: .now) {
             flow = f
         }
+        saveTimerState()
+    }
+
+    /// 無限模式：改某一件記下的事
+    public func updateFlowItem(id: UUID, text: String) {
+        guard var f = flow else { return }
+        f.editItem(id: id, text: text)
+        flow = f
+        saveTimerState()
+    }
+
+    /// 無限模式：刪掉某一件記下的事
+    public func removeFlowItem(id: UUID) {
+        guard var f = flow else { return }
+        f.removeItem(id: id)
+        flow = f
         saveTimerState()
     }
 
@@ -590,7 +605,7 @@ public final class PomodoroModel {
         if work >= 60 {
             let s = PomodoroSession(
                 date: now, minutes: max(1, Int((work / 60).rounded())),
-                plan: f.plan, done: "", startedAt: f.startedAt,
+                plan: f.planSummary, done: "", startedAt: f.startedAt,
                 kind: PomodoroLiveState.Kind.flow.rawValue,
                 awaySpans: f.awaySpans.isEmpty ? nil : f.awaySpans)
             loadSessions()
@@ -601,7 +616,10 @@ public final class PomodoroModel {
             sessionID = s.id
         }
         let summary = FlowSummary(startedAt: f.startedAt, endedAt: now, workSeconds: work,
-                                  awaySeconds: away, plan: f.plan, sessionID: sessionID)
+                                  awaySeconds: away,
+                                  plan: f.planSummary.replacingOccurrences(of: "\n", with: "、"),
+                                  sessionID: sessionID,
+                                  items: f.items.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty })
         flow = nil
         currentPlan = ""
         flowSummary = summary

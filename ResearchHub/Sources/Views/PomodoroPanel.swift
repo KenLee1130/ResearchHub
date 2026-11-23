@@ -549,60 +549,168 @@ struct PomodoroSceneMenu: View {
 // MARK: - 「這顆要做什麼」計畫列（計時器上顯示 / 點擊編輯）
 
 /// work 階段（或無限模式）顯示目前的計畫；點一下用 popover 編輯。休息階段不顯示。
+/// 無限模式計時中：點一下是「記下新的一件事」，右邊的清單鈕看／改這段記過的所有事。
 struct PomodoroPlanRow: View {
     @Environment(PomodoroModel.self) private var pomodoro
     @State private var editing = false
+    @State private var showingItems = false
     @State private var draft = ""
 
     private var plan: String { pomodoro.flow?.plan ?? pomodoro.currentPlan }
     private var flowMode: Bool { pomodoro.isFlowMode }
+    /// 無限模式正在跑：計畫列改成一條一條記
+    private var recording: Bool { pomodoro.flow != nil }
 
     var body: some View {
         if pomodoro.phase == .work || pomodoro.flow != nil {
-            Button {
-                draft = plan
-                editing = true
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "target").font(.caption2)
-                    Group {
-                        if plan.isEmpty {
-                            Text(flowMode ? "這段要做什麼？" : "這顆要做什麼？")
-                        } else {
-                            Text(plan)
+            HStack(spacing: 4) {
+                Button {
+                    draft = recording ? "" : plan
+                    editing = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "target").font(.caption2)
+                        Group {
+                            if plan.isEmpty {
+                                Text(flowMode ? "這段要做什麼？" : "這顆要做什麼？")
+                            } else {
+                                Text(plan)
+                            }
                         }
+                            .font(.caption2)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
                     }
+                    .foregroundStyle(plan.isEmpty ? .tertiary : .secondary)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(recording ? "記下現在在做的事" : "")
+                .popover(isPresented: $editing) { editor }
+
+                if recording {
+                    Button {
+                        showingItems = true
+                    } label: {
+                        HStack(spacing: 2) {
+                            Image(systemName: "list.bullet")
+                            let count = pomodoro.flow?.items.count ?? 0
+                            if count > 1 { Text("\(count)").monospacedDigit() }
+                        }
                         .font(.caption2)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 0)
-                }
-                .foregroundStyle(plan.isEmpty ? .tertiary : .secondary)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $editing) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(flowMode ? "這段要做什麼" : "這顆蕃茄鐘要做什麼").font(.headline)
-                    TextField("例如：推導 crossing equation", text: $draft, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                        .frame(width: 260)
-                        .onSubmit(commit)
-                    HStack {
-                        Spacer()
-                        Button("完成", action: commit).keyboardShortcut(.defaultAction)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("這段記下的事：看、修改、刪除")
+                    .popover(isPresented: $showingItems, arrowEdge: .top) {
+                        FlowItemsEditor()
+                            .environment(pomodoro)
                     }
                 }
-                .padding(14)
             }
         }
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(recording ? "現在在做什麼" : (flowMode ? "這段要做什麼" : "這顆蕃茄鐘要做什麼"))
+                .font(.headline)
+            TextField("例如：推導 crossing equation", text: $draft, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(2...4)
+                .frame(width: 260)
+                .onSubmit(commit)
+            if recording {
+                Text("會記成新的一件事；之前記的在右邊的清單裡改。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Button(recording ? "記下" : "完成", action: commit).keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(14)
     }
 
     private func commit() {
         pomodoro.updatePlan(draft)
         editing = false
     }
+}
+
+/// 無限模式這段記下的事：時間＋文字，可直接改、可刪、可再加一件。
+struct FlowItemsEditor: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+    @State private var newText = ""
+
+    private var items: [FlowItem] { pomodoro.flow?.items ?? [] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("這段記下的事").font(.headline)
+            if items.isEmpty {
+                Text("還沒記任何事")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(items) { item in row(item) }
+                    }
+                }
+                .frame(maxHeight: 260)
+                .fixedSize(horizontal: false, vertical: items.count <= 6)
+            }
+            Divider()
+            HStack(spacing: 6) {
+                TextField("再記一件事…", text: $newText)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(add)
+                Button("加入", action: add)
+                    .disabled(newText.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(14)
+        .frame(width: 320)
+    }
+
+    private func row(_ item: FlowItem) -> some View {
+        HStack(spacing: 6) {
+            Text(Self.time.string(from: item.at))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 38, alignment: .leading)
+            TextField("", text: Binding(
+                get: { item.text },
+                set: { pomodoro.updateFlowItem(id: item.id, text: $0) }))
+                .textFieldStyle(.roundedBorder)
+            Button {
+                pomodoro.removeFlowItem(id: item.id)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("刪掉這一件")
+        }
+    }
+
+    private func add() {
+        pomodoro.updatePlan(newText)
+        newText = ""
+    }
+
+    private static let time: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
 }
 
 // MARK: - Sidebar mini view
