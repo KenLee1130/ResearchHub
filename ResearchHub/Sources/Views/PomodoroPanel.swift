@@ -82,9 +82,106 @@ final class PomodoroPanelController: NSObject, NSWindowDelegate {
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
+        endResize()
+    }
+
+    // MARK: 自訂縮放把手（系統的無邊框視窗邊緣只有 1–2 pt、又在透明邊距外，太難抓）
+
+    var frame: NSRect? { panel?.frame }
+
+    /// 拖把手時：寬度 = 開始時的寬度 + delta，高度跟著內容；頂端不動，往左拉時右邊不動
+    func resize(from start: NSRect, widthDelta: CGFloat, keepRightEdge: Bool) {
+        guard let panel else { return }
+        let width = (start.width + widthDelta).clamped(to: Self.widthRange)
+        let height = contentHeight(forWidth: width)
+        let frame = NSRect(x: keepRightEdge ? start.maxX - width : start.minX,
+                           y: start.maxY - height, width: width, height: height)
+        panel.setFrame(frame, display: true, animate: false)
+    }
+
+    func endResize() {
         guard let panel else { return }
         UserDefaults.standard.set(Double(panel.frame.width), forKey: Self.widthKey)
         fitHeight()
+    }
+}
+
+/// 浮動面板的縮放把手：左右兩邊、下方兩角。滑過去游標變縮放箭頭，拖了改寬度（高度跟著內容）。
+struct PanelResizeHandle: NSViewRepresentable {
+    enum Position { case left, right, bottomLeft, bottomRight }
+    let position: Position
+
+    func makeNSView(context: Context) -> HandleView {
+        let view = HandleView()
+        view.position = position
+        return view
+    }
+
+    func updateNSView(_ view: HandleView, context: Context) {
+        view.position = position
+    }
+
+    final class HandleView: NSView {
+        var position: Position = .right
+        private var startFrame: NSRect = .zero
+        private var startMouse: NSPoint = .zero
+        private var dragging = false
+
+        override var mouseDownCanMoveWindow: Bool { false }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        private var cursor: NSCursor {
+            switch position {
+            case .left: return .frameResize(position: .left, directions: .all)
+            case .right: return .frameResize(position: .right, directions: .all)
+            case .bottomLeft: return .frameResize(position: .bottomLeft, directions: .all)
+            case .bottomRight: return .frameResize(position: .bottomRight, directions: .all)
+            }
+        }
+
+        // 面板是不搶焦點的 panel，不一定是 key window → 用 activeAlways 的 tracking area 換游標
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach(removeTrackingArea)
+            addTrackingArea(NSTrackingArea(
+                rect: .zero,
+                options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
+                owner: self))
+        }
+
+        override func mouseEntered(with event: NSEvent) { cursor.set() }
+        override func mouseMoved(with event: NSEvent) { cursor.set() }
+        override func mouseExited(with event: NSEvent) { if !dragging { NSCursor.arrow.set() } }
+
+        override func mouseDown(with event: NSEvent) {
+            startFrame = window?.frame ?? .zero
+            startMouse = NSEvent.mouseLocation
+            dragging = true
+            cursor.set()
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            let p = NSEvent.mouseLocation
+            let dx = p.x - startMouse.x
+            // 角落往下拉也算放大：換算成等比例的寬度變化，取動得多的那個方向
+            let down = (startMouse.y - p.y) * startFrame.width / max(startFrame.height, 1)
+            let delta: CGFloat
+            switch position {
+            case .right: delta = dx
+            case .left: delta = -dx
+            case .bottomRight: delta = abs(dx) >= abs(down) ? dx : down
+            case .bottomLeft: delta = abs(dx) >= abs(down) ? -dx : down
+            }
+            AppContainer.shared.pomodoroPanel.resize(
+                from: startFrame, widthDelta: delta,
+                keepRightEdge: position == .left || position == .bottomLeft)
+            cursor.set()
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            dragging = false
+            AppContainer.shared.pomodoroPanel.endResize()
+        }
     }
 }
 
@@ -166,12 +263,52 @@ struct PomodoroPanelView: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
         .padding(8)
+        // 縮放把手：左右兩條（從透明邊距一路蓋到卡片邊緣）、下方兩角（滑過面板時顯示握把）
+        .overlay(alignment: .leading) { edgeHandle(.left) }
+        .overlay(alignment: .trailing) { edgeHandle(.right) }
+        .overlay(alignment: .bottomLeading) { cornerHandle(.bottomLeft) }
+        .overlay(alignment: .bottomTrailing) { cornerHandle(.bottomRight) }
         // 寬度聽視窗的，高度用內容自己需要的（視窗再跟著調）
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGSize.self, of: { $0.size }) { size in
             width = size.width
             onSize(size)
         }
+    }
+}
+
+extension PomodoroPanelView {
+    /// 透明邊距要有一點點不透明，點擊才不會穿到後面的視窗
+    private static let grabFill = Color.black.opacity(0.02)
+
+    fileprivate func edgeHandle(_ position: PanelResizeHandle.Position) -> some View {
+        PanelResizeHandle(position: position)
+            .background(Self.grabFill)
+            .frame(width: 16)
+            .padding(.vertical, 30)
+    }
+
+    fileprivate func cornerHandle(_ position: PanelResizeHandle.Position) -> some View {
+        let isLeft = position == .bottomLeft
+        return PanelResizeHandle(position: position)
+            .background(Self.grabFill)
+            .frame(width: 30, height: 30)
+            .overlay(alignment: isLeft ? .bottomLeading : .bottomTrailing) {
+                // 握把：兩條斜線，跟著卡片圓角往內縮
+                Path { p in
+                    for offset in [0.0, 5.0] {
+                        p.move(to: CGPoint(x: 10, y: offset))
+                        p.addLine(to: CGPoint(x: offset, y: 10))
+                    }
+                }
+                .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .frame(width: 10, height: 10)
+                .scaleEffect(x: isLeft ? -1 : 1)
+                .padding(isLeft ? .leading : .trailing, 16)
+                .padding(.bottom, 16)
+                .opacity(hovering ? 1 : 0)
+                .allowsHitTesting(false)
+            }
     }
 }
 
