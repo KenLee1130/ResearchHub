@@ -95,7 +95,8 @@ struct DayTimelineView: View {
                             .padding(.vertical, 8)
                     }
                 }
-                if isWide, !unscheduled.isEmpty {
+                // 欄寬只要不是只剩色塊的窄版就顯示（原本要 ≥ 200pt，欄稍微窄一點清單就整個不見）
+                if !isNarrow, !unscheduled.isEmpty {
                     Divider()
                     unscheduledList
                 }
@@ -236,10 +237,21 @@ struct DayTimelineView: View {
         .onDrop(of: [.utf8PlainText, .plainText], delegate: TimelineDropDelegate(
             layout: layout,
             dropStart: $dropStart,
-            performDrop: { start in
-                guard let todo = dragging else { return false }
-                dragging = nil
-                onSchedule(todo, start)
+            performDrop: { start, providers in
+                if let todo = dragging {
+                    dragging = nil
+                    onSchedule(todo, start)
+                    return true
+                }
+                // 從日記編輯器直接拖一行（或選起來的字）進來：用文字對回當天還沒排時段的待辦
+                guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) })
+                else { return false }
+                let candidates = unscheduled
+                _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                    guard let text = object as? String,
+                          let todo = Self.matchTodo(text, in: candidates) else { return }
+                    DispatchQueue.main.async { onSchedule(todo, start) }
+                }
                 return true
             }))
     }
@@ -501,6 +513,17 @@ struct DayTimelineView: View {
         .frame(maxHeight: 160)
     }
 
+    /// 拖進來的文字（`- [ ] 整理 code`、或只選了「整理 code」）對回哪一個待辦
+    nonisolated static func matchTodo(_ raw: String, in todos: [TodoLine]) -> TodoLine? {
+        let line = raw.split(whereSeparator: \.isNewline).first.map(String.init) ?? raw
+        let text = line
+            .replacingOccurrences(of: #"^\s*[-*+]\s*\[.\]\s*"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+        return todos.first { $0.meta.cleanText == text }
+            ?? todos.first { $0.meta.cleanText.hasPrefix(text) || text.hasPrefix($0.meta.cleanText) }
+    }
+
     // MARK: - 文字
 
     private static let clock: DateFormatter = {
@@ -527,7 +550,7 @@ struct DayTimelineView: View {
 private struct TimelineDropDelegate: DropDelegate {
     let layout: DayTimelineLayout
     @Binding var dropStart: Date?
-    let performDrop: (Date) -> Bool
+    let performDrop: (Date, [NSItemProvider]) -> Bool
 
     func validateDrop(info: DropInfo) -> Bool {
         info.hasItemsConforming(to: [.utf8PlainText, .plainText])
@@ -549,7 +572,7 @@ private struct TimelineDropDelegate: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         let start = layout.date(at: info.location.y)
         dropStart = nil
-        return performDrop(start)
+        return performDrop(start, info.itemProviders(for: [.utf8PlainText, .plainText]))
     }
 }
 #endif

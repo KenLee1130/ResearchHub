@@ -246,4 +246,15 @@ final class DayTimelineTests: XCTestCase {
         XCTAssertNil(FileSystemStore.retimingPlannedLine(
             from: event("沒有這行", at(9), at(10)), to: event("沒有這行", at(11), at(12)), in: text, calendar: calendar))
     }
+
+    // MARK: - 從日記編輯器拖文字進時間軸
+
+    func testDraggedEditorTextMatchesTodo() {
+        let todos = LibraryIndex.parse("- [ ] 整理 code\n- [ ] 寫報告 @est(2h)\n")
+        XCTAssertEqual(DayTimelineView.matchTodo("- [ ] 整理 code", in: todos)?.meta.cleanText, "整理 code")
+        XCTAssertEqual(DayTimelineView.matchTodo("寫報告", in: todos)?.meta.cleanText, "寫報告")
+        XCTAssertEqual(DayTimelineView.matchTodo("寫報告 @est(2h)\n下一行", in: todos)?.meta.cleanText, "寫報告")
+        XCTAssertNil(DayTimelineView.matchTodo("完全不相干", in: todos))
+        XCTAssertNil(DayTimelineView.matchTodo("  ", in: todos))
+    }
 }
