@@ -124,7 +124,7 @@ extension CalendarEvent {
     }
 
     /// `day`（取當天）是不是某一次的第一天。
-    func isOccurrenceStart(_ day: Date, calendar: Calendar) -> Bool {
+    public func isOccurrenceStart(_ day: Date, calendar: Calendar) -> Bool {
         let first = calendar.startOfDay(for: start)
         let day = calendar.startOfDay(for: day)
         guard day >= first else { return false }
