@@ -1117,6 +1117,26 @@
       }
     },
     "再休息一下": {},
+    "現在在做什麼…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What are you working on now…"
+          }
+        }
+      }
+    },
+    "收起": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse"
+          }
+        }
+      }
+    },
     "再記一件事…": {
       "localizations": {
         "en": {

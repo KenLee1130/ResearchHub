@@ -9,7 +9,7 @@ import AppKit
 
 @MainActor
 final class PomodoroPanelController: NSObject, NSWindowDelegate {
-    private var panel: NSPanel?
+    private var panel: FloatingPanel?
     private var hosting: NSHostingController<AnyView>?
     private static let widthKey = "pomodoro.panelWidth"
     private static let widthRange: ClosedRange<CGFloat> = 240...960
@@ -30,7 +30,7 @@ final class PomodoroPanelController: NSObject, NSWindowDelegate {
         // .resizable：拉邊角縮放（高度跟著寬度，見 windowWillResize）
         // .nonactivatingPanel 一定要在 init 就給：建好之後才改 styleMask，AppKit 不會真的生效，
         // 點面板上的按鈕會把整個 app（主視窗）叫到前面。
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
+        let panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
                             styleMask: [.nonactivatingPanel, .borderless, .resizable],
                             backing: .buffered, defer: false)
         panel.contentViewController = hosting
@@ -58,6 +58,11 @@ final class PomodoroPanelController: NSObject, NSWindowDelegate {
 
     func close() {
         panel?.close()
+    }
+
+    /// 要在面板裡打字：只讓面板變 key（nonactivating，不會把 app／主視窗叫出來）
+    func focusForTyping() {
+        panel?.makeKey()
     }
 
     /// 這個寬度下內容要多高
@@ -109,6 +114,26 @@ final class PomodoroPanelController: NSObject, NSWindowDelegate {
         guard let panel else { return }
         UserDefaults.standard.set(Double(panel.frame.width), forKey: Self.widthKey)
         fitHeight()
+    }
+}
+
+/// 無邊框視窗預設不能變 key → 面板裡的文字欄打不了字。
+/// 允許變 key（.nonactivatingPanel 讓它變 key 時不啟動 app），但永遠不當 main window。
+final class FloatingPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+/// 在浮動面板裡：計畫列不用 popover（popover 是另一個視窗，打字時會啟動整個 app、把主視窗叫出來），
+/// 直接在面板裡展開編輯。
+private struct PomodoroInPanelKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var pomodoroInPanel: Bool {
+        get { self[PomodoroInPanelKey.self] }
+        set { self[PomodoroInPanelKey.self] = newValue }
     }
 }
 
@@ -229,8 +254,8 @@ struct PomodoroPanelView: View {
                 PomodoroModePicker()
                     .frame(width: 170)
             }
-            PomodoroPlanRow()
-                .frame(maxWidth: 200 * scale)
+            PomodoroPlanRow(rowMaxWidth: 200 * scale)
+                .environment(\.pomodoroInPanel, true)
             PomodoroControls(spacing: 18 * scale, iconFont: .system(size: 17 * scale), showsPanelButton: false)
             if !pomodoro.isFlowMode {
                 HStack(spacing: 4) {
@@ -552,66 +577,110 @@ struct PomodoroSceneMenu: View {
 /// 無限模式計時中：點一下是「記下新的一件事」，右邊的清單鈕看／改這段記過的所有事。
 struct PomodoroPlanRow: View {
     @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(\.pomodoroInPanel) private var inPanel
+    /// 計畫列本身的最大寬度（面板裡展開的清單不受限）
+    var rowMaxWidth: CGFloat? = nil
     @State private var editing = false
     @State private var showingItems = false
     @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
 
     private var plan: String { pomodoro.flow?.plan ?? pomodoro.currentPlan }
     private var flowMode: Bool { pomodoro.isFlowMode }
     /// 無限模式正在跑：計畫列改成一條一條記
     private var recording: Bool { pomodoro.flow != nil }
 
+    /// 側欄用 popover；面板裡改成就地展開（見 `pomodoroInPanel`）
+    private var popoverEditing: Binding<Bool> {
+        Binding(get: { editing && !inPanel }, set: { editing = $0 })
+    }
+    private var popoverItems: Binding<Bool> {
+        Binding(get: { showingItems && !inPanel }, set: { showingItems = $0 })
+    }
+
     var body: some View {
         if pomodoro.phase == .work || pomodoro.flow != nil {
-            HStack(spacing: 4) {
-                Button {
-                    draft = recording ? "" : plan
-                    editing = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "target").font(.caption2)
-                        Group {
-                            if plan.isEmpty {
-                                Text(flowMode ? "這段要做什麼？" : "這顆要做什麼？")
-                            } else {
-                                Text(plan)
-                            }
+            VStack(spacing: 8) {
+                Group {
+                    if inPanel && editing { inlineEditor } else { row }
+                }
+                .frame(maxWidth: rowMaxWidth)
+                if inPanel && showingItems && recording {
+                    FlowItemsEditor(width: nil) { showingItems = false }
+                        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+                }
+            }
+            .onChange(of: recording) { _, now in if !now { showingItems = false } }
+        }
+    }
+
+    private var row: some View {
+        HStack(spacing: 4) {
+            Button {
+                draft = recording ? "" : plan
+                editing = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "target").font(.caption2)
+                    Group {
+                        if plan.isEmpty {
+                            Text(flowMode ? "這段要做什麼？" : "這顆要做什麼？")
+                        } else {
+                            Text(plan)
                         }
-                            .font(.caption2)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                        Spacer(minLength: 0)
                     }
-                    .foregroundStyle(plan.isEmpty ? .tertiary : .secondary)
+                        .font(.caption2)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(plan.isEmpty ? .tertiary : .secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(recording ? "記下現在在做的事" : "")
+            .popover(isPresented: popoverEditing) { editor }
+
+            if recording {
+                Button {
+                    showingItems.toggle()
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "list.bullet")
+                        let count = pomodoro.flow?.items.count ?? 0
+                        if count > 1 { Text("\(count)").monospacedDigit() }
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(inPanel && showingItems ? Color.accentColor : .secondary)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(recording ? "記下現在在做的事" : "")
-                .popover(isPresented: $editing) { editor }
-
-                if recording {
-                    Button {
-                        showingItems = true
-                    } label: {
-                        HStack(spacing: 2) {
-                            Image(systemName: "list.bullet")
-                            let count = pomodoro.flow?.items.count ?? 0
-                            if count > 1 { Text("\(count)").monospacedDigit() }
-                        }
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("這段記下的事：看、修改、刪除")
-                    .popover(isPresented: $showingItems, arrowEdge: .top) {
-                        FlowItemsEditor()
-                            .environment(pomodoro)
-                    }
+                .help("這段記下的事：看、修改、刪除")
+                .popover(isPresented: popoverItems, arrowEdge: .top) {
+                    FlowItemsEditor()
+                        .environment(pomodoro)
                 }
             }
+        }
+    }
+
+    /// 面板裡：計畫列原地變成輸入欄。Enter 記下、Esc 取消。
+    private var inlineEditor: some View {
+        HStack(spacing: 6) {
+            TextField(recording ? "現在在做什麼…" : "例如：推導 crossing equation", text: $draft)
+                .textFieldStyle(.roundedBorder)
+                .font(.caption)
+                .focused($fieldFocused)
+                .onSubmit(commit)
+                .onExitCommand { editing = false }
+            Button(recording ? "記下" : "完成", action: commit)
+                .controlSize(.small)
+        }
+        .onAppear {
+            AppContainer.shared.pomodoroPanel.focusForTyping()
+            DispatchQueue.main.async { fieldFocused = true }
         }
     }
 
@@ -646,13 +715,29 @@ struct PomodoroPlanRow: View {
 /// 無限模式這段記下的事：時間＋文字，可直接改、可刪、可再加一件。
 struct FlowItemsEditor: View {
     @Environment(PomodoroModel.self) private var pomodoro
+    /// popover 固定寬；面板裡展開時 nil（跟著面板）
+    var width: CGFloat? = 320
+    /// 面板裡展開時：標題右邊的收起鈕
+    var onClose: (() -> Void)? = nil
     @State private var newText = ""
 
     private var items: [FlowItem] { pomodoro.flow?.items ?? [] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("這段記下的事").font(.headline)
+            HStack {
+                Text("這段記下的事").font(.headline)
+                Spacer(minLength: 0)
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "chevron.up")
+                            .foregroundStyle(.secondary)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("收起")
+                }
+            }
             if items.isEmpty {
                 Text("還沒記任何事")
                     .font(.callout)
@@ -675,8 +760,9 @@ struct FlowItemsEditor: View {
                     .disabled(newText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(14)
-        .frame(width: 320)
+        .padding(onClose == nil ? 14 : 10)
+        .frame(width: width)
+        .onExitCommand { onClose?() }
     }
 
     private func row(_ item: FlowItem) -> some View {
