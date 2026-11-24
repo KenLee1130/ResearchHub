@@ -9,12 +9,12 @@
         "packageRef" : {
           "identity" : "hubcore",
           "kind" : "fileSystem",
-          "location" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore",
+          "location" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore",
           "name" : "HubCore"
         },
         "state" : {
           "name" : "fileSystem",
-          "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore"
+          "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore"
         },
         "subpath" : "hubcore"
       }

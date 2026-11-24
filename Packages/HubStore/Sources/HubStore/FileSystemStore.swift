@@ -457,6 +457,8 @@ public final class FileSystemStore {
         } else {
             lines[item.lineIndex] = line.replacingOccurrences(of: "- [ ]", with: "- [x]")
         }
+        // 子項全勾 → 母項跟著勾（反過來也是）
+        lines = TodoTree.syncingParentChecks(lines, changed: item.lineIndex)
         try? lines.joined(separator: "\n")
             .write(to: item.noteURL, atomically: true, encoding: .utf8)
         noteLocalWrite(item.noteURL)
@@ -638,12 +640,17 @@ public final class FileSystemStore {
         } else {
             return nil
         }
-        let body = todoBody(of: lines[index].trimmingCharacters(in: .whitespaces)) ?? ""
-        let extras = markers(in: body, excluding: "est")
-        var newLine = plannedLine(for: event)
-        if !extras.isEmpty { newLine += " " + extras.joined(separator: " ") }
-        lines.remove(at: index)
-        return insertingPlannedLines([newLine], into: lines.joined(separator: "\n"))
+        // 子項（有縮排）：原地加時段（規則 2）；母項底下的直屬子項因此全排了 → 整組搬（規則 3）
+        if TodoTree.indent(lines[index]) > 0 {
+            lines[index] = retimedPlannedLine(lines[index], to: event)
+            return normalizingPlan(lines).joined(separator: "\n")
+        }
+        // 頂層：連同底下的子項整組搬進規劃段（規則 1）
+        let end = TodoTree.subtreeEnd(of: index, in: lines)
+        var block = Array(lines[index...end])
+        block[0] = retimedPlannedLine(lines[index], to: event)
+        lines = TodoTree.removing(index...end, from: lines)
+        return insertingPlannedLines(block, into: lines.joined(separator: "\n"))
     }
 
     /// 這句待辦已經排了時段（「10:00–12:00 …」開頭）。時間軸用來挑出還沒排的。
@@ -715,18 +722,23 @@ public final class FileSystemStore {
 
         if oldDay == newDay {
             lines[i] = newLine
-            lines = Self.sortingPlannedSection(lines)
+            lines = Self.normalizingPlan(lines)
             try? lines.joined(separator: "\n").write(to: oldURL, atomically: true, encoding: .utf8)
             noteLocalWrite(oldURL)
             return
         }
-        // 換天：舊的那天拿掉（規劃段空了就連 --- 一起收掉），新的那天插進規劃段
-        lines.remove(at: i)
+        // 換天：舊的那天拿掉（規劃段空了就連 --- 一起收掉），新的那天插進規劃段。
+        // 頂層的母項連子項整組搬；子項換天就只搬它自己（變成那天的一般時段行）
+        let isChild = TodoTree.indent(oldLine) > 0
+        let end = isChild ? i : TodoTree.subtreeEnd(of: i, in: lines)
+        var block = Array(lines[i...end])
+        block[0] = isChild ? newLine.trimmingCharacters(in: .whitespaces) : newLine
+        lines = TodoTree.removing(i...end, from: lines)
         try? Self.removingEmptyPlannedSection(lines).joined(separator: "\n")
             .write(to: oldURL, atomically: true, encoding: .utf8)
         guard let newURL = journalURL(for: newDay) else { return }
         let target = Self.safeRead(newURL) ?? ""
-        let updated = Self.insertingPlannedLines([newLine], into: target)
+        let updated = Self.insertingPlannedLines(block, into: target)
         try? fm.createDirectory(at: newURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? updated.write(to: newURL, atomically: true, encoding: .utf8)
         noteLocalWrite(oldURL)
@@ -744,23 +756,26 @@ public final class FileSystemStore {
         let newLine = retimedPlannedLine(lines[i], to: new)
         guard newLine != lines[i] else { return nil }
         lines[i] = newLine
-        return sortingPlannedSection(lines).joined(separator: "\n")
+        return normalizingPlan(lines).joined(separator: "\n")
     }
 
     /// 標題（剝掉前面的時段後）等於事件標題的那一行待辦
     private static func plannedLineIndex(title: String, in lines: [String]) -> Int? {
         let title = title.trimmingCharacters(in: .whitespaces)
         return lines.firstIndex { line in
-            guard let body = todoBody(of: line) else { return false }
+            guard let body = todoBody(of: line.trimmingCharacters(in: .whitespaces)) else { return false }
             return strippingTimeRange(TodoMeta.parse(body).cleanText) == title
         }
     }
 
     /// 原本的勾選狀態 + 新時間與標題 + 重算的 @est + 原本其他標記
+    /// 子項保留原本的縮排。
     private static func retimedPlannedLine(_ oldLine: String, to event: CalendarEvent) -> String {
-        let checkbox = String(oldLine.prefix(6))                      // "- [x] "
-        let extras = todoBody(of: oldLine).map { markers(in: $0, excluding: "est") } ?? []
-        var newLine = plannedLine(for: event).replacingOccurrences(of: "- [ ] ", with: checkbox)
+        let lead = String(oldLine.prefix(while: { $0 == " " || $0 == "\t" }))
+        let trimmed = String(oldLine.dropFirst(lead.count))
+        let checkbox = String(trimmed.prefix(6))                      // "- [x] "
+        let extras = todoBody(of: trimmed).map { markers(in: $0, excluding: "est") } ?? []
+        var newLine = lead + plannedLine(for: event).replacingOccurrences(of: "- [ ] ", with: checkbox)
         if !extras.isEmpty { newLine += " " + extras.joined(separator: " ") }
         return newLine
     }
@@ -824,21 +839,60 @@ public final class FileSystemStore {
         return rule
     }
 
-    /// 有規劃段就把新行接進去（再照時間排好）；沒有就在檔首建一段並用 `---` 隔開。同一行已存在就不重複。
+    /// 有規劃段就把新行接進去（再照時間排好）；沒有就在檔首建一段並用 `---` 隔開。同一行已存在就不重複
+    /// （只比頂層那行；子項的文字重複是正常的）。
     static func insertingPlannedLines(_ lines: [String], into content: String) -> String {
-        var all = content.components(separatedBy: "\n")
+        let all = content.components(separatedBy: "\n")
+        guard let inserted = insertingBlock(lines, into: all) else { return content }
+        return normalizingPlan(inserted).joined(separator: "\n")
+    }
+
+    /// 把一段行接到規劃段最後（不排序）；沒有新東西回 nil。
+    private static func insertingBlock(_ lines: [String], into all: [String]) -> [String]? {
         if let rule = plannedSectionRule(in: all) {
             let existing = Set(all[..<rule])
-            let fresh = lines.filter { !existing.contains($0) }
-            guard !fresh.isEmpty else { return content }
+            let fresh = lines.filter { !$0.hasPrefix("- [") || !existing.contains($0) }
+            guard fresh.contains(where: { $0.hasPrefix("- [") }) else { return nil }
+            var out = all
             var insertAt = rule
-            while insertAt > 0, all[insertAt - 1].trimmingCharacters(in: .whitespaces).isEmpty { insertAt -= 1 }
-            all.insert(contentsOf: fresh, at: insertAt)
-            return sortingPlannedSection(all).joined(separator: "\n")
+            while insertAt > 0, TodoTree.isBlank(out[insertAt - 1]) { insertAt -= 1 }
+            // 規劃段是「每行之間空一行」的寫法：新的一組前面也空一行
+            out.insert(contentsOf: (isSpaced(Array(all[..<insertAt])) ? [""] : []) + fresh, at: insertAt)
+            return out
         }
-        let head = lines.joined(separator: "\n")
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? head + "\n\n---\n" : head + "\n\n---\n\n" + content
+        let rest = all.drop(while: TodoTree.isBlank)
+        let body = rest.allSatisfy(TodoTree.isBlank) ? [] : [""] + Array(rest)
+        return lines + ["", "---"] + (body.isEmpty ? [""] : body)
+    }
+
+    /// 規劃段外面、符合規則 1／3 的待辦組（有子項，且母項排了時段或直屬子項全排了）搬進規劃段，再照時間排。
+    /// 沒有子項的單行時段待辦照舊留在原地（日記任何地方都能打時段）。
+    static func normalizingPlan(_ lines: [String]) -> [String] {
+        var all = lines
+        var guardCount = 0
+        while guardCount < 50 {
+            guardCount += 1
+            let sectionEnd = plannedSectionRule(in: all) ?? -1
+            guard let i = all.indices.first(where: { i in
+                i > sectionEnd && all[i].hasPrefix("- [") && !all[i].hasPrefix("- [-]") && {
+                    let kids = TodoTree.children(of: i, in: all)
+                    return !kids.isEmpty && (TodoTree.isTimed(all[i]) || kids.allSatisfy { TodoTree.isTimed(all[$0]) })
+                }()
+            }) else { break }
+            let end = TodoTree.subtreeEnd(of: i, in: all)
+            let block = Array(all[i...end])
+            let rest = TodoTree.removing(i...end, from: all)
+            guard let moved = insertingBlock(block, into: rest) else { break }
+            all = moved
+        }
+        return sortingPlannedSection(all)
+    }
+
+    /// 這段待辦行之間有空行（使用者的寫法是每行之間空一行）
+    private static func isSpaced(_ lines: [String]) -> Bool {
+        guard let first = lines.firstIndex(where: { !TodoTree.isBlank($0) }),
+              let last = lines.lastIndex(where: { !TodoTree.isBlank($0) }), first < last else { return false }
+        return lines[first...last].contains(where: TodoTree.isBlank)
     }
 
     /// 規劃段照開始時間排（沒有時段的全天項目排最前，彼此保持原順序）。
@@ -856,18 +910,22 @@ public final class FileSystemStore {
             if line.hasPrefix("- [") { units.append([line]) } else { units[units.count - 1].append(line) }
         }
         func isBlank(_ s: String) -> Bool { s.trimmingCharacters(in: .whitespaces).isEmpty }
-        let spaced = units.dropLast().contains { $0.last.map(isBlank) ?? false }
+        let spaced = isSpaced(Array(head[firstTodo...lastContent]))
         let trimmedUnits = units.map { unit -> [String] in
             var u = unit
             while u.count > 1, let last = u.last, isBlank(last) { u.removeLast() }
             return u
         }
-        func startMinutes(_ unit: [String]) -> Int {
-            guard let body = todoBody(of: unit[0]) else { return -1 }
+        func lineStart(_ line: String) -> Int? {
+            guard let body = todoBody(of: line.trimmingCharacters(in: .whitespaces)) else { return nil }
             let text = TodoMeta.parse(body).cleanText.trimmingCharacters(in: .whitespaces)
-            guard let r = text.range(of: #"^\d{1,2}:\d{2}"#, options: .regularExpression) else { return -1 }
+            guard let r = text.range(of: #"^\d{1,2}:\d{2}"#, options: .regularExpression) else { return nil }
             let parts = text[r].split(separator: ":")
             return (Int(parts[0]) ?? 0) * 60 + (Int(parts[1]) ?? 0)
+        }
+        /// 母項自己的時段；母項沒排就看最早的子項（規則 3 的整組）；都沒有排最前
+        func startMinutes(_ unit: [String]) -> Int {
+            lineStart(unit[0]) ?? unit.dropFirst().compactMap(lineStart).min() ?? -1
         }
         let keyed = trimmedUnits.enumerated().map { (offset: $0.offset, key: startMinutes($0.element), unit: $0.element) }
         let sorted = keyed.sorted { ($0.key, $0.offset) < ($1.key, $1.offset) }

@@ -220,7 +220,8 @@ struct JournalView: View {
     /// store 寫的蓋掉：事件建了、待辦卻還留在「還沒排時段」，再拖一次就多一個重複的事件。
     /// 那一行找不到（剛被改掉）就不建事件。
     private func scheduleTodo(_ todo: TodoLine, at start: Date) {
-        let minutes = todo.meta.estMinutes ?? 60
+        // 母項整組排：自己的 @est，沒有就子項加總
+        let minutes = TodoTree.estimatedMinutes(of: todo, in: dayTodoLines)
         let dayStart = calendar.startOfDay(for: selectedDay)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
         let end = min(start.addingTimeInterval(Double(minutes) * 60), dayEnd)

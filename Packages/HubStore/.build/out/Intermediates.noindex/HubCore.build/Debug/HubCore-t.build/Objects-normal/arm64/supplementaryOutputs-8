@@ -1,0 +1,23 @@
+{
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/PaperText.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperText.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperText.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperText.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperText.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PaperText.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/PlanScheduler.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PlanScheduler.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PlanScheduler.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PlanScheduler.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PlanScheduler.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/PlanScheduler.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/SearchEngine.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/SearchEngine.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/SearchEngine.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/SearchEngine.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/SearchEngine.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/SearchEngine.swiftdeps"
+  }
+}

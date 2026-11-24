@@ -1,0 +1,12 @@
+Target dependency graph (5 targets)
+Target 'AllExcludingTests' in project 'Aggregate'
+➜ Explicit dependency on target 'HubStore-product' in project 'HubStore'
+➜ Explicit dependency on target 'HubStore' in project 'HubStore'
+Target 'HubStore-product' in project 'HubStore'
+➜ Explicit dependency on target 'HubStore' in project 'HubStore'
+➜ Explicit dependency on target 'HubCore-product' in project 'HubCore'
+Target 'HubStore' in project 'HubStore'
+➜ Explicit dependency on target 'HubCore-product' in project 'HubCore'
+Target 'HubCore-product' in project 'HubCore'
+➜ Explicit dependency on target 'HubCore' in project 'HubCore'
+Target 'HubCore' in project 'HubCore' (no dependencies)

@@ -70,10 +70,11 @@ struct DayTimelineView: View {
         DayTimelineLayout.Rules(defaultStartHour: defaultStartHour, defaultEndHour: defaultEndHour)
     }
 
-    /// 還沒排時段、也還沒做完的待辦
-    private var unscheduled: [TodoLine] {
-        todoLines.filter { !$0.done && !FileSystemStore.hasTimeRange($0.meta.cleanText) }
+    /// 還沒排時段、也還沒做完的待辦（帶層級；整組已排的不列，見 `TodoTree.unscheduled`）
+    private var unscheduledRows: [(todo: TodoLine, depth: Int, childCount: Int)] {
+        TodoTree.unscheduled(todoLines)
     }
+    private var unscheduled: [TodoLine] { unscheduledRows.map(\.todo) }
 
     var body: some View {
         // 每分鐘重繪：現在線、過去壓暗、空檔「還剩」都跟著走
@@ -217,7 +218,7 @@ struct DayTimelineView: View {
 
             // 拖放預覽
             if let start = dropStart, let todo = dragging {
-                let minutes = todo.meta.estMinutes ?? 60
+                let minutes = TodoTree.estimatedMinutes(of: todo, in: todoLines)
                 let end = min(start.addingTimeInterval(Double(minutes) * 60), layout.dayEnd)
                 dropPreview(todo, start: start, end: end)
                     .frame(width: blockArea - 2, height: max(layout.y(for: end) - layout.y(for: start) - 2, 8))
@@ -482,7 +483,8 @@ struct DayTimelineView: View {
             Text("還沒排時段")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            ForEach(unscheduled, id: \.lineIndex) { todo in
+            ForEach(unscheduledRows, id: \.todo.lineIndex) { row in
+                let todo = row.todo
                 HStack(spacing: 6) {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 9))
@@ -491,17 +493,26 @@ struct DayTimelineView: View {
                         .font(.caption)
                         .lineLimit(1)
                     Spacer(minLength: 0)
-                    if let est = todo.meta.estMinutes {
-                        Text(Self.hoursText(est))
+                    if row.childCount > 0 {
+                        // 母項：拖它＝整組排一塊
+                        Text("\(row.childCount) 項")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if row.childCount > 0 || todo.meta.estMinutes != nil {
+                        Text(Self.hoursText(TodoTree.estimatedMinutes(of: todo, in: todoLines)))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
+                .padding(.leading, CGFloat(min(row.depth, 3)) * 14)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary.opacity(0.5)))
                 .contentShape(Rectangle())
-                .help("拖到上面的時間軸排時段（長度用 @est，沒有就 1 小時）")
+                .help(row.childCount > 0
+                      ? "拖到上面的時間軸，整組排一塊（長度用 @est，沒有就子項加總）"
+                      : "拖到上面的時間軸排時段（長度用 @est，沒有就 1 小時）")
                 .onDrag {
                     dragging = todo
                     return NSItemProvider(object: todo.meta.cleanText as NSString)

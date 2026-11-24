@@ -1571,6 +1571,61 @@
   });
   // ---- ArrowShortcuts END ----
 
+  // ---- ParentAutoCheck ----
+  // 子待辦全部勾完 → 母項自動勾；之後有子項被取消（或多了一個沒勾的子項）→ 母項跟著取消。
+  // 只看「這次變化」：前後兩份文件的母項一一對應（數量一樣）才比對，
+  // 所以使用者自己把母項取消、或正在打字新增結構時都不會被硬改回去。
+  const ParentAutoCheck = Extension.create({
+    name: "parentAutoCheck",
+    addProseMirrorPlugins() {
+      const parents = doc => {
+        const out = [];
+        doc.descendants((node, pos) => {
+          if (node.type.name !== "taskItem") return true;
+          let total = 0, done = 0;
+          node.forEach(child => {
+            if (child.type.name !== "taskList") return;
+            child.forEach(item => {
+              if (item.type.name !== "taskItem") return;
+              total += 1;
+              if (item.attrs.checked) done += 1;
+            });
+          });
+          if (total > 0) out.push({ pos, node, all: done === total });
+          return true;
+        });
+        return out;
+      };
+      return [new Plugin({
+        key: new PluginKey("parentAutoCheck"),
+        appendTransaction(trs, oldState, newState) {
+          if (!trs.some(tr => tr.docChanged)) return null;
+          // 換一天／外部同步進來（setMarkdown → setContent）不算使用者勾選，不動它
+          if (trs.some(tr => tr.getMeta("preventUpdate"))) return null;
+          let loading = false;
+          try { loading = applying; } catch (e) { loading = true; }
+          if (loading) return null;
+          const before = parents(oldState.doc), after = parents(newState.doc);
+          if (before.length !== after.length) return null;
+          let tr = null;
+          after.forEach((p, i) => {
+            const was = before[i];
+            // 同一個母項（位置、文字都沒變）才比；打字、刪子項時結構在變，不出手
+            if (was.pos !== p.pos || was.node.textContent !== p.node.textContent) return;
+            let want = null;
+            if (p.all && !was.all && !p.node.attrs.checked) want = true;
+            else if (!p.all && was.all && p.node.attrs.checked) want = false;
+            if (want === null) return;
+            tr = tr || newState.tr;
+            tr.setNodeMarkup(p.pos, undefined, Object.assign({}, p.node.attrs, { checked: want }));
+          });
+          return tr;
+        }
+      })];
+    }
+  });
+  // ---- ParentAutoCheck END ----
+
   // tiptap 內建的待辦 node view 換內容時只改 checkbox 的 `checked`「屬性」；
   // 方塊被點過之後瀏覽器就只認 `checked`「特性」，屬性怎麼改畫面都不動——
   // 於是在某天勾了一項、切到別天（同位置的 node view 被沿用），方塊還停在打勾。
@@ -1607,6 +1662,7 @@
       ExitListOnBackspace,
       TaskList,
       SyncedTaskItem.configure({ nested: true }),
+      ParentAutoCheck,
       TaskFold,
       TaskToggleShortcut,
       JoinAdjacentLists,

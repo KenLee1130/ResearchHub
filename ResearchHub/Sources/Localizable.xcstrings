@@ -1137,6 +1137,26 @@
         }
       }
     },
+    "%lld 項": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld items"
+          }
+        }
+      }
+    },
+    "拖到上面的時間軸，整組排一塊（長度用 @est，沒有就子項加總）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag onto the timeline above to schedule the whole group as one block (length from @est, or the sub-items added up)"
+          }
+        }
+      }
+    },
     "再記一件事…": {
       "localizations": {
         "en": {

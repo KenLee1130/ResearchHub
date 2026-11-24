@@ -1,0 +1,23 @@
+{
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore/FileSystemStore.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileSystemStore.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore/FileWatcher.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/FileWatcher.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore/GeneralTodoStore.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/GeneralTodoStore.swiftdeps"
+  }
+}

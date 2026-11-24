@@ -1,23 +1,23 @@
 {
-  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/AppCommand.swift" : {
-    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.swiftconstvalues",
-    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.d",
-    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.dia",
-    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.o",
-    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.swiftdeps"
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/AppCommand.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppCommand.swiftdeps"
   },
-  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/AppTab.swift" : {
-    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.swiftconstvalues",
-    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.d",
-    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.dia",
-    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.o",
-    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.swiftdeps"
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/AppTab.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/AppTab.swiftdeps"
   },
-  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/CalendarEvent.swift" : {
-    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.swiftconstvalues",
-    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.d",
-    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.dia",
-    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.o",
-    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.swiftdeps"
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/CalendarEvent.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/CalendarEvent.swiftdeps"
   }
 }
