@@ -164,6 +164,11 @@ struct PlanDraft {
             var e = event
             let custom = (titles[event.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if !custom.isEmpty { e.title = custom }
+            // 規劃是為了目標日：段落設了重複就重複到最後一天（目標日或前一天）為止，不無限重複下去
+            if var rule = e.repeatRule, rule.until == nil {
+                rule.until = draft.lastDay()
+                e.repeatRule = rule
+            }
             return e
         }
     }
@@ -374,6 +379,7 @@ struct PlanSessionRow: View {
                     .pickerStyle(.menu)
                     .labelsHidden()
                     .fixedSize()
+                    .help("重複到目標日為止")
                     if let conflict {
                         Label("與「\(conflict.title)」重疊", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
@@ -396,7 +402,7 @@ struct PlanSessionRow: View {
 
     private var minimumEnd: Date { event.start.addingTimeInterval(15 * 60) }
 
-    /// 每段各自的重複：不重複／每天／每週／每月／每年（間隔 1、不設結束日；細節在事件編輯器改）
+    /// 每段各自的重複：不重複／每天／每週／每月／每年（間隔 1；加入行事曆時重複到目標日為止，見 `finalize`）
     private var repeatBinding: Binding<EventRepeat.Frequency?> {
         Binding(
             get: { event.repeatRule?.frequency },
