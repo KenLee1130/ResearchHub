@@ -112,7 +112,7 @@ final class PDFExporter: NSObject, WKNavigationDelegate {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
         panel.nameFieldStringValue = "\(suggestedName).pdf"
-        panel.begin { response in
+        FilePanel.present(panel) { response in
             guard response == .OK, let url = panel.url else { return }
             try? data.write(to: url)
         }

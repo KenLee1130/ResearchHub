@@ -799,7 +799,7 @@ struct PapersView: View {
         panel.canChooseFiles = false
         panel.message = L("選擇 Zotero 資料夾（預設位置是家目錄下的 Zotero）")
         panel.prompt = L("授權")
-        panel.begin { response in
+        FilePanel.present(panel) { response in
             guard response == .OK, let url = panel.url else { return }
             zotero.setZoteroDir(url)
             if let item = selected {

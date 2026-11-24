@@ -156,24 +156,28 @@ struct RootView: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.prompt = "上傳"
-        guard panel.runModal() == .OK else { return }
-        store.importItems(panel.urls, into: directory(near: node))
-        noteTree = store.noteTree()
+        FilePanel.present(panel) { response in
+            guard response == .OK else { return }
+            store.importItems(panel.urls, into: directory(near: node))
+            noteTree = store.noteTree()
+        }
     }
 
     private func download(_ node: TreeNode) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = node.url.lastPathComponent
         panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, let dest = panel.url else { return }
-        do {
-            if FileManager.default.fileExists(atPath: dest.path) {
-                try FileManager.default.removeItem(at: dest)
+        FilePanel.present(panel) { response in
+            guard response == .OK, let dest = panel.url else { return }
+            do {
+                if FileManager.default.fileExists(atPath: dest.path) {
+                    try FileManager.default.removeItem(at: dest)
+                }
+                // iCloud 裡的檔案可能帶「隱藏」旗標，複製會一起帶過去 → 拿掉，否則 Finder 看不到
+                try FileExport.copyVisible(node.url, to: dest)
+            } catch {
+                store.errorMessage = error.localizedDescription
             }
-            // iCloud 裡的檔案可能帶「隱藏」旗標，複製會一起帶過去 → 拿掉，否則 Finder 看不到
-            try FileExport.copyVisible(node.url, to: dest)
-        } catch {
-            store.errorMessage = error.localizedDescription
         }
     }
 
