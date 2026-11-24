@@ -715,6 +715,7 @@ public final class FileSystemStore {
 
         if oldDay == newDay {
             lines[i] = newLine
+            lines = Self.sortingPlannedSection(lines)
             try? lines.joined(separator: "\n").write(to: oldURL, atomically: true, encoding: .utf8)
             noteLocalWrite(oldURL)
             return
@@ -743,7 +744,7 @@ public final class FileSystemStore {
         let newLine = retimedPlannedLine(lines[i], to: new)
         guard newLine != lines[i] else { return nil }
         lines[i] = newLine
-        return lines.joined(separator: "\n")
+        return sortingPlannedSection(lines).joined(separator: "\n")
     }
 
     /// 標題（剝掉前面的時段後）等於事件標題的那一行待辦
@@ -811,25 +812,73 @@ public final class FileSystemStore {
         return String(t[r.upperBound...]).trimmingCharacters(in: .whitespaces)
     }
 
-    /// 日記最上面的「規劃」段：從檔首到第一條 `---` 之間全是待辦行（或空行）。
-    /// 有這一段就把新行接在它最後一行後面；沒有就在檔首建一段並用 `---` 隔開。
+    /// 日記最上面的「規劃」段：檔首到第一條 `---`，第一個非空行是待辦，
+    /// 其餘是待辦行、縮排的子行（待辦底下的補充說明）或空行。回傳那條 `---` 的行號，沒有這一段回 nil。
+    static func plannedSectionRule(in all: [String]) -> Int? {
+        guard let rule = all.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }) else { return nil }
+        let head = all[..<rule]
+        guard let first = head.first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
+              first.hasPrefix("- ["),
+              head.allSatisfy({ $0.hasPrefix("- [") || $0.first?.isWhitespace == true
+                  || $0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return nil }
+        return rule
+    }
+
+    /// 有規劃段就把新行接進去（再照時間排好）；沒有就在檔首建一段並用 `---` 隔開。同一行已存在就不重複。
     static func insertingPlannedLines(_ lines: [String], into content: String) -> String {
         var all = content.components(separatedBy: "\n")
-        // 找既有的規劃段
-        if let rule = all.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }),
-           all[..<rule].allSatisfy({ $0.hasPrefix("- [") || $0.trimmingCharacters(in: .whitespaces).isEmpty }),
-           all[..<rule].contains(where: { $0.hasPrefix("- [") }) {
+        if let rule = plannedSectionRule(in: all) {
             let existing = Set(all[..<rule])
             let fresh = lines.filter { !existing.contains($0) }
             guard !fresh.isEmpty else { return content }
             var insertAt = rule
             while insertAt > 0, all[insertAt - 1].trimmingCharacters(in: .whitespaces).isEmpty { insertAt -= 1 }
             all.insert(contentsOf: fresh, at: insertAt)
-            return all.joined(separator: "\n")
+            return sortingPlannedSection(all).joined(separator: "\n")
         }
         let head = lines.joined(separator: "\n")
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? head + "\n\n---\n" : head + "\n\n---\n\n" + content
+    }
+
+    /// 規劃段照開始時間排（沒有時段的全天項目排最前，彼此保持原順序）。
+    /// 每一項帶著它底下縮排的子行一起搬；項目之間原本有空行就每項隔一個空行。已經排好就原樣回傳。
+    static func sortingPlannedSection(_ all: [String]) -> [String] {
+        guard let rule = plannedSectionRule(in: all) else { return all }
+        let head = Array(all[..<rule])
+        guard let firstTodo = head.firstIndex(where: { $0.hasPrefix("- [") }) else { return all }
+        var lastContent = rule - 1
+        while lastContent > firstTodo, head[lastContent].trimmingCharacters(in: .whitespaces).isEmpty { lastContent -= 1 }
+
+        // 切成一項一項：待辦行 + 底下直到下一個待辦行的內容
+        var units: [[String]] = []
+        for line in head[firstTodo...lastContent] {
+            if line.hasPrefix("- [") { units.append([line]) } else { units[units.count - 1].append(line) }
+        }
+        func isBlank(_ s: String) -> Bool { s.trimmingCharacters(in: .whitespaces).isEmpty }
+        let spaced = units.dropLast().contains { $0.last.map(isBlank) ?? false }
+        let trimmedUnits = units.map { unit -> [String] in
+            var u = unit
+            while u.count > 1, let last = u.last, isBlank(last) { u.removeLast() }
+            return u
+        }
+        func startMinutes(_ unit: [String]) -> Int {
+            guard let body = todoBody(of: unit[0]) else { return -1 }
+            let text = TodoMeta.parse(body).cleanText.trimmingCharacters(in: .whitespaces)
+            guard let r = text.range(of: #"^\d{1,2}:\d{2}"#, options: .regularExpression) else { return -1 }
+            let parts = text[r].split(separator: ":")
+            return (Int(parts[0]) ?? 0) * 60 + (Int(parts[1]) ?? 0)
+        }
+        let keyed = trimmedUnits.enumerated().map { (offset: $0.offset, key: startMinutes($0.element), unit: $0.element) }
+        let sorted = keyed.sorted { ($0.key, $0.offset) < ($1.key, $1.offset) }
+        guard sorted.map(\.offset) != keyed.map(\.offset) else { return all }
+
+        var body: [String] = []
+        for (i, item) in sorted.enumerated() {
+            if i > 0, spaced { body.append("") }
+            body.append(contentsOf: item.unit)
+        }
+        return Array(head[..<firstTodo]) + body + Array(head[(lastContent + 1)...]) + Array(all[rule...])
     }
 
     public func appendTodoLine(_ text: String, on date: Date) {
