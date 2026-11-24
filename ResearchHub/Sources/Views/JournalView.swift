@@ -840,7 +840,7 @@ struct JournalView: View {
         panel.allowedContentTypes = [.init(filenameExtension: "ics") ?? .data]
         panel.nameFieldStringValue = "ResearchHub.ics"
         let ics = eventStore.icsString()
-        panel.begin { response in
+        FilePanel.present(panel) { response in
             guard response == .OK, let url = panel.url else { return }
             try? ics.write(to: url, atomically: true, encoding: .utf8)
         }

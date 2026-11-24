@@ -758,14 +758,17 @@ struct LatexProjectView: View {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = projectURL.lastPathComponent + ".pdf"
         panel.allowedContentTypes = [.pdf]
-        guard panel.runModal() == .OK, let dest = panel.url else { return }
-        try? FileManager.default.removeItem(at: dest)
-        do {
-            // 寫成全新的檔案，不用 copyItem：編譯檔放在 .researchhub/ 裡被 iCloud 標成「隱藏」，
-            // 複製會連隱藏旗標、舊的製作／修改日期一起帶過去 → Finder 根本看不到匯出的 PDF。
-            try FileExport.writeFreshCopy(of: pdfURL, to: dest)
-        } catch {
-            exportError = error.localizedDescription
+        let source = pdfURL
+        FilePanel.present(panel) { response in
+            guard response == .OK, let dest = panel.url else { return }
+            try? FileManager.default.removeItem(at: dest)
+            do {
+                // 寫成全新的檔案，不用 copyItem：編譯檔放在 .researchhub/ 裡被 iCloud 標成「隱藏」，
+                // 複製會連隱藏旗標、舊的製作／修改日期一起帶過去 → Finder 根本看不到匯出的 PDF。
+                try FileExport.writeFreshCopy(of: source, to: dest)
+            } catch {
+                exportError = error.localizedDescription
+            }
         }
     }
 
@@ -773,7 +776,13 @@ struct LatexProjectView: View {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = projectURL.lastPathComponent + ".zip"
         panel.allowedContentTypes = [.zip]
-        guard panel.runModal() == .OK, let dest = panel.url else { return }
+        FilePanel.present(panel) { response in
+            guard response == .OK, let dest = panel.url else { return }
+            zipProject(to: dest)
+        }
+    }
+
+    private func zipProject(to dest: URL) {
         // 小幫手碰不到 iCloud（見 LatexStaging），所以先把專案鏡射到容器裡再打包，
         // 打好的 zip 由 app 自己搬到使用者選的位置。
         let scratch: URL
