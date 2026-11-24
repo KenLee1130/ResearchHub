@@ -21,6 +21,16 @@
         }
       }
     },
+    "%@ · 點一下換場景，右鍵選擇或關掉動畫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Click for the next scene; right-click to pick one or turn animation off"
+          }
+        }
+      }
+    },
     "%@ 事件": {
       "localizations": {
         "en": {
@@ -1107,6 +1117,56 @@
       }
     },
     "再休息一下": {},
+    "現在在做什麼…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What are you working on now…"
+          }
+        }
+      }
+    },
+    "收起": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse"
+          }
+        }
+      }
+    },
+    "%lld 項": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld items"
+          }
+        }
+      }
+    },
+    "拖到上面的時間軸，整組排一塊（長度用 @est，沒有就子項加總）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag onto the timeline above to schedule the whole group as one block (length from @est, or the sub-items added up)"
+          }
+        }
+      }
+    },
+    "再記一件事…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note another thing…"
+          }
+        }
+      }
+    },
     "分隔線": {
       "localizations": {
         "en": {
@@ -1123,6 +1183,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove every session scheduled by the “%@” plan"
+          }
+        }
+      }
+    },
+    "刪掉這一件": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this item"
           }
         }
       }
@@ -1263,6 +1333,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add session"
+          }
+        }
+      }
+    },
+    "加入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
           }
         }
       }
@@ -1479,6 +1559,16 @@
         }
       }
     },
+    "壁爐邊看書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading by the fireplace"
+          }
+        }
+      }
+    },
     "外觀": {
       "localizations": {
         "en": {
@@ -1495,6 +1585,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "External tools can open this app via researchhub://note?path=… or researchhub://journal?date=YYYY-MM-DD; the data contract lives in .hub/README.md inside your library folder."
+          }
+        }
+      }
+    },
+    "夜窗檯燈": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desk lamp at a night window"
+          }
+        }
+      }
+    },
+    "夜車喝茶": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tea on the night train"
+          }
+        }
+      }
+    },
+    "大雨夜景": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heavy rain over the city"
           }
         }
       }
@@ -1549,7 +1669,16 @@
         }
       }
     },
-    "寫一句就好": {},
+    "寫一句就好": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One line is enough"
+          }
+        }
+      }
+    },
     "專注 %@": {
       "localizations": {
         "en": {
@@ -1618,6 +1747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Less than a minute of work, so this stretch isn't logged."
+          }
+        }
+      }
+    },
+    "工作時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work time"
           }
         }
       }
@@ -1924,6 +2063,16 @@
         }
       }
     },
+    "戴耳機讀書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Studying with headphones"
+          }
+        }
+      }
+    },
     "手動放棄": {
       "localizations": {
         "en": {
@@ -2175,6 +2324,16 @@
         }
       }
     },
+    "放棄這一段（不記錄）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard this stretch (not logged)"
+          }
+        }
+      }
+    },
     "放棄這一段？": {
       "localizations": {
         "en": {
@@ -2352,6 +2511,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New tag name"
+          }
+        }
+      }
+    },
+    "日出看海的貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cat watching the sunrise"
           }
         }
       }
@@ -2641,6 +2810,16 @@
         }
       }
     },
+    "會記成新的一件事；之前記的在右邊的清單裡改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved as a new item; edit earlier ones in the list on the right."
+          }
+        }
+      }
+    },
     "會議": {
       "extractionState": "stale",
       "localizations": {
@@ -2810,6 +2989,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "View mode"
+          }
+        }
+      }
+    },
+    "檯燈下睡貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cat asleep under the lamp"
+          }
+        }
+      }
+    },
+    "檯燈與筆電": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lamp and laptop"
           }
         }
       }
@@ -3105,6 +3304,16 @@
         }
       }
     },
+    "無限模式：一直計時到按「結束」，暫停與螢幕鎖定、睡眠的時間記成非工作時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Endless mode: counts up until you press Finish. Time paused, locked or asleep counts as non-work."
+          }
+        }
+      }
+    },
     "照計畫完成": {
       "localizations": {
         "en": {
@@ -3121,6 +3330,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Campfire and kettle"
+          }
+        }
+      }
+    },
+    "現在在做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What are you doing now?"
           }
         }
       }
@@ -3338,6 +3557,16 @@
         }
       }
     },
+    "窗邊看書與貓": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading by the window with a cat"
+          }
+        }
+      }
+    },
     "第 %lld / %lld 顆 · 今日 %lld": {
       "localizations": {
         "en": {
@@ -3456,6 +3685,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tracks are saved when this session ends"
+          }
+        }
+      }
+    },
+    "結束這一段，記下工作時間": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish this stretch and log the work time"
           }
         }
       }
@@ -3821,6 +4060,26 @@
         }
       }
     },
+    "記下": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note it"
+          }
+        }
+      }
+    },
+    "記下現在在做的事": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note what you're doing now"
+          }
+        }
+      }
+    },
     "記帳": {
       "localizations": {
         "en": {
@@ -4092,12 +4351,52 @@
         }
       }
     },
+    "這段要做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What is this stretch for?"
+          }
+        }
+      }
+    },
     "這段要做什麼…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "What's this stretch for…"
+          }
+        }
+      }
+    },
+    "這段要做什麼？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What’s this stretch for?"
+          }
+        }
+      }
+    },
+    "這段記下的事": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noted in this stretch"
+          }
+        }
+      }
+    },
+    "這段記下的事：看、修改、刪除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Things noted in this stretch: view, edit, delete"
           }
         }
       }
@@ -4414,6 +4713,16 @@
         }
       }
     },
+    "還沒記任何事": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing noted yet"
+          }
+        }
+      }
+    },
     "還沒連結 Spotify": {
       "localizations": {
         "en": {
@@ -4687,12 +4996,32 @@
         }
       }
     },
+    "雨夜咖啡店": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rainy-night café"
+          }
+        }
+      }
+    },
     "雨夜寫作業": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Rainy night homework"
+          }
+        }
+      }
+    },
+    "雨夜撐傘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Umbrella on a rainy night"
           }
         }
       }
@@ -4707,12 +5036,52 @@
         }
       }
     },
+    "雨夜筆電": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laptop on a rainy night"
+          }
+        }
+      }
+    },
+    "雨天小木屋": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cabin on a rainy day"
+          }
+        }
+      }
+    },
+    "雨窗邊的書": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book by a rainy window"
+          }
+        }
+      }
+    },
     "非工作": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Non-work"
+          }
+        }
+      }
+    },
+    "非工作時間（暫停、螢幕鎖定或睡眠）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non-work time (paused, screen locked or asleep)"
           }
         }
       }
@@ -4824,6 +5193,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "High priority"
+          }
+        }
+      }
+    },
+    "黃昏寫字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Writing at sunset"
           }
         }
       }

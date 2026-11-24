@@ -32,7 +32,7 @@
   {
     "isFramework" : false,
     "moduleName" : "HubCore",
-    "modulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/Products\/Debug\/HubCore.swiftmodule\/arm64-apple-macos.swiftmodule"
+    "modulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/Products\/Debug\/HubCore.swiftmodule\/arm64-apple-macos.swiftmodule"
   },
   {
     "isFramework" : false,
@@ -116,266 +116,266 @@
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CFNetwork.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/CFNetwork-EK5NX0LF8V7HIVT6B51J497UE.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/CFNetwork-7S1RALJWRPF35T6CEF88LJ36P.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CFNetwork"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreFoundation.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/CoreFoundation-SJQZGL9YE04IZE6AUCNIIO8I.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/CoreFoundation-B4TBP2BQE2D0SUFUY9REGBG5R.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreFoundation"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreServices.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/CoreServices-DB34DR0GR72OOCO1LVGSSTQAR.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/CoreServices-1QB5MNHI1PTKWFJFWIF19TWZ2.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "CoreServices"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/Darwin.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Darwin-DYT80MLK1EDWRR1B25NEEAG3M.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Darwin-8RWGD9PEF7LL0WSLZM2ZJQDGF.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Darwin"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DiskArbitration.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/DiskArbitration-8KXGP3JPE6YXAFGZBVYGVXN49.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/DiskArbitration-4JNNM9NU3L6MQTVVN40IN3XFY.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "DiskArbitration"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/dispatch.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Dispatch-19UDZIECFP5BO5DL5AYRZG0E5.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Dispatch-CKMKRS8DKF9DJ1SPVUJTGIR93.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Dispatch"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Foundation.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Foundation-3O95WIT81ROIOG6WSYM9JASMH.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Foundation-716DKD5AO0E16CRQXO9X74MU6.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Foundation"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/IOKit.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/IOKit-9GES8EL7SLS2KOZMYOWRIL8WD.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/IOKit-CF2M58O8A4PSMYCW6MYE7691J.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "IOKit"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/LocalAuthentication.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/LocalAuthentication-17BHFCY1OAS7Q3Q231SWN3VRC.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/LocalAuthentication-21M0TJMRORHQJ44J1ID6YONBO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "LocalAuthentication"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinBasic.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/MachO-5C6HNOQ6A7TT6GRHIH2JZUA2S.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/MachO-7XRO65BN1JV4VERJU2S1XF9VL.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "MachO"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/OSLog.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/OSLog-5BSMWWQEV9XQDSYZ6HW0WJ2U7.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/OSLog-5VUIELYBQ3W09C3QF9I5QAS3H.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "OSLog"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/ObjectiveC.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/ObjectiveC-19BARLT688TJ5PPEPVPG7RTZ8.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/ObjectiveC-3W5ASI7LNMB11381INYRGBFSC.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ObjectiveC"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Security.framework\/Modules\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Security-AGOWB9K49P28CUHB802V39YRZ.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/Security-DX4MZXBC2OF9PMN563YR9VG5P.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "Security"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftShims-1ILRHIYHHJ43H4A3RQGWHK2G5.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftShims-E436S4DA6C651IYK4EQKP73NL.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "SwiftShims"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/xpc.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/XPC-51A5GVCZ4ZTAVUYGYN1H3F90T.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/XPC-ADZ116TQ9YGFRVGQLFB2W3SAY.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "XPC"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_AvailabilityInternal-E99BOCH6YOJ6GB5TWR0Z3N78.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_AvailabilityInternal-8Q9Z4DN2WE45XHUV64U2UD56H.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_AvailabilityInternal"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_float-EDN5XE32ZN4T9XCSO2ZTVP0UN.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_float-3LRAQZUR56330D2AKHNV16FXK.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_float"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_inttypes-BYDVAA1365K94TCWSV3K2NJUO.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_inttypes-9YAV7T3LIIP4LQQ29J4EN1RSQ.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_inttypes"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_limits-1NGNIQI83FMWB251S1LJ7D5X1.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_limits-B556MBQCZJ20586VMZXPY1F0G.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_limits"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdarg-AYRW1R54YZWFY8GJKTQ7A6MLA.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdarg-ASFT1HH1N3UQBLXY0FTFIOK12.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdarg"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdatomic-1KI83AH8IKVUIQXE5L1BLKVW9.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdatomic-1D5U88UR3S6KTO63GUP9DHBTP.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdatomic"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdbool-9R9K8GUUYBHZ0XIRKG3K7UWXB.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdbool-DVVIG91IMKDEHKYN5XJD6SVSO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdbool"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stddef-12PN56RN50W0YQXXBDRU09GOZ.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stddef-5DT46RRAS7IZUBTBZWCBN5HDO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stddef"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdint-5FTBF8NELWON02ECG98FZYWZW.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdint-BA89UCHN2IX0PXYH9VOIQ5K1G.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_Builtin_stdint"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation1-BKDBFRH8RBJ9W7YEQ0E56D7XY.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation1-4EM934AATZTXVM5Q2E286XZSO.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_DarwinFoundation1"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation2-37DNW1C1KFPSWH6AW38RYJG8F.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation2-ECXIK5GE95K3AKOXQ0O8B76U4.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_DarwinFoundation2"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation3.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation3-F1JEJ6T5H0Q37WDJ6AY3C67CJ.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation3-445F3O0MSW2ZLNZO8XSK7K7Z6.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_DarwinFoundation3"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_SwiftConcurrencyShims-9L0C5M3EGXHH9YNDH9HLQBV5S.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/_SwiftConcurrencyShims-DC347FL5S0BPMLIP966CAL2WQ.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "_SwiftConcurrencyShims"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/launch.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/launch-C6T1A4RW8O7JYOMLOEH9NOOZ6.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/launch-DVEXJYLS2KENAQ5C4NA7KW83M.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "launch"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libDER\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/libDER-58HWJDG5K901BPUFWPD0PTF48.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/libDER-BKPEKPVYDU0ZUCE5DUBZBZRZ4.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "libDER"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libkern.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/libkern-6RXWLMSEAF2HG1VXLG87AP12B.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/libkern-EHYY6U84JNH5NYC67XHROP1ID.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "libkern"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/os-6TD1BVFRXX0WYE0EXQXSUE2U8.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/os-AFYYWDHY74773O628NRZSSNM2.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "os"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/os_object-5JESZX13UCTM9F7YS2N77ZZQH.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/os_object-ABU7TPNARRD0PJ48JWAZALL4M.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "os_object"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/os_workgroup-5DX1EN2S3CIGTX8T7A8JQ5AS1.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/os_workgroup-AW1U3PT9A7F2E6QS7QCB0S1QH.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "os_workgroup"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/ptrauth-4YN1VCVNR83EG3TL8RYXM1P04.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/ptrauth-1YT2BVPJ82XXVDNLAMNSJIW5I.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ptrauth"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/ptrcheck-7NHN72Y4MA0UG9EI4WIFKTN8N.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/ptrcheck-2EWSEUNPQO4ZMI83UXK8R49XU.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "ptrcheck"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/c_standard_library.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/string_h-DK3K1T7P0CZC210T4GL5NMSL.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/string_h-ALQD2NUILT3O072S2L5JGGUN5.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "string_h"
   },
   {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
-    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/admiring-greider-307f0c\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/sys_types-BDFCIZPV1WADY807S3BY10G3I.pcm",
+    "clangModulePath" : "\/Users\/kenlee\/Desktop\/projects\/ResearchHub\/.claude\/worktrees\/dev-app-and-tests-5d17d4\/Packages\/HubStore\/.build\/out\/SDKExplicitPrecompiledModules\/sys_types-4I7QZ9AEHDDV2ZRB7ZD7VH0H0.pcm",
     "isBridgingHeaderDependency" : false,
     "isFramework" : false,
     "moduleName" : "sys_types"

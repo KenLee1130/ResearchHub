@@ -1,0 +1,23 @@
+{
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore/JournalEventSync.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalEventSync.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore/JournalReviewScan.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/JournalReviewScan.swiftdeps"
+  },
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore/LatexHistory.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubStore.build/Debug/HubStore-t.build/Objects-normal/arm64/LatexHistory.swiftdeps"
+  }
+}

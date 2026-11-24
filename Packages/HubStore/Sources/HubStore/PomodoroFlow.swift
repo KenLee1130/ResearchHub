@@ -28,12 +28,71 @@ public struct FlowTimer: Codable, Equatable, Sendable {
     public var offScreen = false
     /// 使用者按了暫停
     public var paused = false
-    /// 開始前寫的「這段要做什麼」
-    public var plan: String
+    /// 這段記下的事（開始前寫的計畫是第一件；做到一半換事情就再記一件）
+    public var items: [FlowItem] = []
 
     public init(startedAt: Date, plan: String = "") {
         self.startedAt = startedAt
-        self.plan = plan
+        let text = plan.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty { items = [FlowItem(at: startedAt, text: text)] }
+    }
+
+    /// 現在在做的事（最後記的那件）
+    public var plan: String { items.last?.text ?? "" }
+
+    /// 寫進紀錄的「計畫」：每件一行（空的略過）
+    public var planSummary: String {
+        items.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
+
+    /// 記下新的一件事。空字串、或跟現在這件一樣就不記，回傳 false。
+    @discardableResult
+    public mutating func record(_ text: String, at now: Date) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, t != plan else { return false }
+        items.append(FlowItem(at: max(now, startedAt), text: t))
+        return true
+    }
+
+    /// 改某一件的文字（打字中的空字串先留著，結束時才略過）
+    public mutating func editItem(id: UUID, text: String) {
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return }
+        items[i].text = text
+    }
+
+    public mutating func removeItem(id: UUID) {
+        items.removeAll { $0.id == id }
+    }
+
+    // 舊版存的是單一字串 `plan`（重啟續跑的快照）：讀得進來，轉成第一件
+    private enum CodingKeys: String, CodingKey {
+        case startedAt, awaySpans, awaySince, offScreen, paused, items, plan
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        awaySpans = try c.decodeIfPresent([PomodoroSpan].self, forKey: .awaySpans) ?? []
+        awaySince = try c.decodeIfPresent(Date.self, forKey: .awaySince)
+        offScreen = try c.decodeIfPresent(Bool.self, forKey: .offScreen) ?? false
+        paused = try c.decodeIfPresent(Bool.self, forKey: .paused) ?? false
+        if let items = try c.decodeIfPresent([FlowItem].self, forKey: .items) {
+            self.items = items
+        } else if let plan = try c.decodeIfPresent(String.self, forKey: .plan), !plan.isEmpty {
+            items = [FlowItem(at: startedAt, text: plan)]
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(startedAt, forKey: .startedAt)
+        try c.encode(awaySpans, forKey: .awaySpans)
+        try c.encodeIfPresent(awaySince, forKey: .awaySince)
+        try c.encode(offScreen, forKey: .offScreen)
+        try c.encode(paused, forKey: .paused)
+        try c.encode(items, forKey: .items)
     }
 
     public var isAway: Bool { offScreen || paused }
@@ -84,6 +143,20 @@ public struct FlowTimer: Codable, Equatable, Sendable {
     }
 }
 
+/// 無限模式中記下的一件事。
+public struct FlowItem: Codable, Equatable, Sendable, Identifiable {
+    public var id: UUID
+    /// 記下的時刻
+    public var at: Date
+    public var text: String
+
+    public init(id: UUID = UUID(), at: Date, text: String) {
+        self.id = id
+        self.at = at
+        self.text = text
+    }
+}
+
 /// 無限模式結束時給使用者看的總結。
 public struct FlowSummary: Identifiable, Equatable, Sendable {
     public var id: Date { endedAt }
@@ -94,6 +167,8 @@ public struct FlowSummary: Identifiable, Equatable, Sendable {
     public let plan: String
     /// 寫進 pomodoro.json 的那筆（工作不到一分鐘就不記，nil）
     public let sessionID: UUID?
+    /// 這段記下的事（空的已略過）
+    public var items: [FlowItem] = []
 
     public var totalSeconds: TimeInterval { endedAt.timeIntervalSince(startedAt) }
 }

@@ -31,7 +31,6 @@ struct JournalView: View {
     /// 事件編輯 sheet
     @State private var eventSheet: EventSheetConfig?
     /// 「規劃」：一個目標拆成多段時段
-    @State private var showPlanSheet = false
     /// 日記檔變動的計數：讓月曆上的刪除線（勾掉的規劃待辦）跟著更新
     @State private var journalRevision = 0
     /// 編輯器裡「還沒存檔」的日記文字（打勾當下就有），給月曆刪除線與時間條用，不等 0.8 秒的自動存檔
@@ -62,8 +61,8 @@ struct JournalView: View {
         AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent
     }
 
-    /// 星期列：固定用數字 1–7（週一=1 … 週日=7），不分語言、不會有英文重複字母的歧義。
-    private let weekdaySymbols = ["1", "2", "3", "4", "5", "6", "7"]
+    /// 星期列：固定用英文縮寫（使用者指定，不分介面語言），字小一點免得窄欄擠。
+    private let weekdaySymbols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     /// 月曆 7 欄版面（星期列與日期格共用同一組欄定義）。
     private let weekColumns = Array(repeating: GridItem(.flexible()), count: 7)
@@ -119,9 +118,6 @@ struct JournalView: View {
         }
         .sheet(item: $eventSheet) { config in
             EventEditorSheet(draft: config.draft, isNew: config.isNew, unscheduleLine: unscheduleLine)
-        }
-        .sheet(isPresented: $showPlanSheet) {
-            PlanSheet(draft: PlanDraft.initial(near: selectedDay, tag: eventStore.tags.first))
         }
         .pageCommands(commands) { cmd in
             // ⌘F：時間軸模式——跨所有日記找，上下鍵在天與天之間跳（第 4 節）
@@ -220,7 +216,8 @@ struct JournalView: View {
     /// store 寫的蓋掉：事件建了、待辦卻還留在「還沒排時段」，再拖一次就多一個重複的事件。
     /// 那一行找不到（剛被改掉）就不建事件。
     private func scheduleTodo(_ todo: TodoLine, at start: Date) {
-        let minutes = todo.meta.estMinutes ?? 60
+        // 母項整組排：自己的 @est，沒有就子項加總
+        let minutes = TodoTree.estimatedMinutes(of: todo, in: dayTodoLines)
         let dayStart = calendar.startOfDay(for: selectedDay)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
         let end = min(start.addingTimeInterval(Double(minutes) * 60), dayEnd)
@@ -340,8 +337,10 @@ struct JournalView: View {
             // 星期標題自成一個 grid，不與日期格混在同一個 LazyVGrid。
             LazyVGrid(columns: weekColumns, spacing: 6) {
                 ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, s in
-                    Text(s)
-                        .font(.caption2)
+                    Text(verbatim: s)
+                        .font(.system(size: 9, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -386,7 +385,10 @@ struct JournalView: View {
                 .foregroundStyle(.secondary)
                 .help("匯出全部事件為 .ics（可匯入系統行事曆／Google 日曆）")
                 Button {
-                    showPlanSheet = true
+                    AppContainer.shared.planWindow.show(
+                        draft: PlanDraft.initial(near: selectedDay, tag: eventStore.tags.first),
+                        eventStore: eventStore, store: store, pomodoro: pomodoro,
+                        locale: locale, over: NSApp.keyWindow)
                 } label: {
                     Image(systemName: "plus")
                         .padding(4)

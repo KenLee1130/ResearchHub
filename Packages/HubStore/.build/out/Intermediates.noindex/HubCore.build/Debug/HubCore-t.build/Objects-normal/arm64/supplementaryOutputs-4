@@ -1,23 +1,23 @@
 {
-  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/LatexBibliography.swift" : {
-    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.swiftconstvalues",
-    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.d",
-    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.dia",
-    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.o",
-    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.swiftdeps"
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/LatexBibliography.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexBibliography.swiftdeps"
   },
-  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/LatexCommandCatalog.swift" : {
-    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.swiftconstvalues",
-    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.d",
-    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.dia",
-    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.o",
-    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.swiftdeps"
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/LatexCommandCatalog.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexCommandCatalog.swiftdeps"
   },
-  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore/LatexFormat.swift" : {
-    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.swiftconstvalues",
-    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.d",
-    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.dia",
-    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.o",
-    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.swiftdeps"
+  "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore/LatexFormat.swift" : {
+    "const-values" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.swiftconstvalues",
+    "dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.d",
+    "diagnostics" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.dia",
+    "object" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.o",
+    "swift-dependencies" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/.build/out/Intermediates.noindex/HubCore.build/Debug/HubCore-t.build/Objects-normal/arm64/LatexFormat.swiftdeps"
   }
 }

@@ -246,4 +246,71 @@ final class DayTimelineTests: XCTestCase {
         XCTAssertNil(FileSystemStore.retimingPlannedLine(
             from: event("沒有這行", at(9), at(10)), to: event("沒有這行", at(11), at(12)), in: text, calendar: calendar))
     }
+
+    // MARK: - 從日記編輯器拖文字進時間軸
+
+    func testDraggedEditorTextMatchesTodo() {
+        let todos = LibraryIndex.parse("- [ ] 整理 code\n- [ ] 寫報告 @est(2h)\n")
+        XCTAssertEqual(DayTimelineView.matchTodo("- [ ] 整理 code", in: todos)?.meta.cleanText, "整理 code")
+        XCTAssertEqual(DayTimelineView.matchTodo("寫報告", in: todos)?.meta.cleanText, "寫報告")
+        XCTAssertEqual(DayTimelineView.matchTodo("寫報告 @est(2h)\n下一行", in: todos)?.meta.cleanText, "寫報告")
+        XCTAssertNil(DayTimelineView.matchTodo("完全不相干", in: todos))
+        XCTAssertNil(DayTimelineView.matchTodo("  ", in: todos))
+    }
+
+    // MARK: - 規劃段照時間排
+
+    /// 使用者的實際格式：項目之間空一行、第一項底下有縮排的補充說明
+    func testSchedulingIntoThePlannedSectionKeepsItInTimeOrder() {
+        let content = """
+        - [x] 09:30–10:00 分 QIC 工作 @est(30m) @pomo(2)
+
+          讓 claude 來整理
+
+          發給楊同學
+
+        - [ ] 14:30–15:30 專討 @est(1h)
+
+        - [ ] 16:30–18:30 古電 @est(2h)
+
+        ---
+
+        - [ ] 整理待辦事項
+        - [ ] 整理 code
+        """
+        let todo = todoLine("整理待辦事項", index: 12)
+        let updated = FileSystemStore.schedulingTodo(todo, as: event("整理待辦事項", at(10, 15), at(11, 15)), in: content)
+        XCTAssertEqual(updated, """
+        - [x] 09:30–10:00 分 QIC 工作 @est(30m) @pomo(2)
+
+          讓 claude 來整理
+
+          發給楊同學
+
+        - [ ] 10:15–11:15 整理待辦事項 @est(1h)
+
+        - [ ] 14:30–15:30 專討 @est(1h)
+
+        - [ ] 16:30–18:30 古電 @est(2h)
+
+        ---
+
+        - [ ] 整理 code
+        """)
+    }
+
+    func testRetimingReordersThePlannedSection() throws {
+        let text = "- [ ] 09:00–10:00 甲 @est(1h)\n- [ ] 11:00–12:00 乙 @est(1h)\n\n---\n\n- [ ] 別的\n"
+        let updated = try XCTUnwrap(FileSystemStore.retimingPlannedLine(
+            from: event("甲", at(9), at(10)), to: event("甲", at(13), at(14)), in: text, calendar: calendar))
+        XCTAssertEqual(updated, "- [ ] 11:00–12:00 乙 @est(1h)\n- [ ] 13:00–14:00 甲 @est(1h)\n\n---\n\n- [ ] 別的\n",
+                       "沒空行的寫法也維持沒空行")
+    }
+
+    func testSortingLeavesSortedOrUntimedSectionsAlone() {
+        let sorted = ["- [ ] 全天的事", "- [ ] 08:00–09:00 早", "- [ ] 9:30–10:00 晚一點", "", "---", "- [ ] 21:00–22:00 下面的不算"]
+        XCTAssertEqual(FileSystemStore.sortingPlannedSection(sorted), sorted, "沒時段的排最前；已排好不動")
+        let noSection = ["# 標題", "- [ ] 10:00–11:00 乙", "- [ ] 09:00–10:00 甲", "---"]
+        XCTAssertEqual(FileSystemStore.sortingPlannedSection(noSection), noSection, "檔首不是待辦就不是規劃段")
+    }
 }

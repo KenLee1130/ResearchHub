@@ -1,16 +1,16 @@
 [
   {
     "contents" : {
-      "guid" : "Workspace:/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore",
+      "guid" : "Workspace:/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore",
       "name" : "HubStore",
-      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore",
+      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore",
       "projects" : [
-        "00e517639b98518ed58f5cc8000311ae2383397087d5ceffac067681532b7f1f",
-        "c10b6c69e1ee2fa38b1d9ea29b7c8ccb7ff6ec666b1ee896898af1d83f6f6a28",
-        "a9dd3e954e013150f06b4e44122067ed99816c93d3ce9fc76621adb92b2c9d96"
+        "1599f1d86666ce9931feae99490e1bad72d51e5bbccdc4a260989cbe9aa70c7c",
+        "fb84266c67eea2e0793cf1b4a4800a7e2e6a49b1712575e3b8ba8f3de5fb5851",
+        "40bd66466c31f9e25841046ae49877aedeba3358a642aed33fcd8f410d3adcd3"
       ]
     },
-    "signature" : "4be1a77de48f59b4c275ad4565124c06619ec6866a18a43b06536ac56db1906d",
+    "signature" : "5be52f70dc358b7b1fb89ba4b85ba09419ac302d6f7b1e99caa07ba0d08cb19c",
     "type" : "workspace"
   },
   {
@@ -408,6 +408,14 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:hubcore::MAINGROUP::REF_2::REF_24",
+                "name" : "SpotifyListening.swift",
+                "path" : "SpotifyListening.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_2::REF_25",
                 "name" : "TodoSyntax.swift",
                 "path" : "TodoSyntax.swift",
                 "sourceTree" : "<group>",
@@ -415,7 +423,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_2::REF_25",
+                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_2::REF_26",
                 "name" : "ZoteroClient.swift",
                 "path" : "ZoteroClient.swift",
                 "sourceTree" : "<group>",
@@ -423,7 +431,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_2::REF_26",
+                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_2::REF_27",
                 "name" : "ZoteroItem.swift",
                 "path" : "ZoteroItem.swift",
                 "sourceTree" : "<group>",
@@ -431,8 +439,8 @@
               }
             ],
             "guid" : "PACKAGE:hubcore::MAINGROUP::REF_2",
-            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore",
-            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore",
+            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore",
+            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -633,6 +641,14 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:hubcore::MAINGROUP::REF_3::REF_24",
+                "name" : "SpotifyListening.swift",
+                "path" : "SpotifyListening.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_3::REF_25",
                 "name" : "TodoSyntax.swift",
                 "path" : "TodoSyntax.swift",
                 "sourceTree" : "<group>",
@@ -640,7 +656,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_3::REF_25",
+                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_3::REF_26",
                 "name" : "ZoteroClient.swift",
                 "path" : "ZoteroClient.swift",
                 "sourceTree" : "<group>",
@@ -648,7 +664,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_3::REF_26",
+                "guid" : "PACKAGE:hubcore::MAINGROUP::REF_3::REF_27",
                 "name" : "ZoteroItem.swift",
                 "path" : "ZoteroItem.swift",
                 "sourceTree" : "<group>",
@@ -656,8 +672,8 @@
               }
             ],
             "guid" : "PACKAGE:hubcore::MAINGROUP::REF_3",
-            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore",
-            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Sources/HubCore",
+            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore",
+            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Sources/HubCore",
             "sourceTree" : "<absolute>",
             "type" : "group"
           }
@@ -669,18 +685,18 @@
         "type" : "group"
       },
       "guid" : "PACKAGE:hubcore",
-      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Package.swift",
-      "projectDirectory" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore",
+      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Package.swift",
+      "projectDirectory" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore",
       "projectIsPackage" : "true",
       "projectName" : "HubCore",
       "targets" : [
         "5cdb5e2a81f65126b8c8556fab39eb662f83263919c6d5df71abbb2a8de8fc97",
-        "8300ca8bc53793cb082690219ebf525d2615bdfc2718ea346da37ffb374a509e",
-        "40500fb6d2a533a5602afcb1aa1b2cab2e5728fcde0823f327ae3576a215f7c8",
+        "05a60a86c5e2e4974e55e9a7c9c7b1a10adff3cc6ef6d38327008cb305caff1f",
+        "0702b8d0a15197d0706400a66ec597a437f3d1d25becb2c668dc1d085820f0ce",
         "48f218840b7b6e76bb0a63bbd8799302240f1bfa7346c589ae444c98eae691cc"
       ]
     },
-    "signature" : "00e517639b98518ed58f5cc8000311ae2383397087d5ceffac067681532b7f1f",
+    "signature" : "1599f1d86666ce9931feae99490e1bad72d51e5bbccdc4a260989cbe9aa70c7c",
     "type" : "project"
   },
   {
@@ -1112,6 +1128,15 @@
 
               ],
               "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:hubcore::MAINGROUP::REF_2::REF_27",
+              "guid" : "PACKAGE-TARGET:HubCore::BUILDPHASE_0::27",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:HubCore::BUILDPHASE_0",
@@ -1138,7 +1163,7 @@
       "productTypeIdentifier" : "org.swift.product-type.library.static",
       "type" : "standard"
     },
-    "signature" : "8300ca8bc53793cb082690219ebf525d2615bdfc2718ea346da37ffb374a509e",
+    "signature" : "05a60a86c5e2e4974e55e9a7c9c7b1a10adff3cc6ef6d38327008cb305caff1f",
     "type" : "target"
   },
   {
@@ -1551,6 +1576,15 @@
 
               ],
               "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:hubcore::MAINGROUP::REF_3::REF_27",
+              "guid" : "PACKAGE-TARGET:HubCore-33BC19DD734FA52F-dynamic::BUILDPHASE_0::27",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:HubCore-33BC19DD734FA52F-dynamic::BUILDPHASE_0",
@@ -1576,7 +1610,7 @@
       "productTypeIdentifier" : "com.apple.product-type.library.dynamic",
       "type" : "standard"
     },
-    "signature" : "40500fb6d2a533a5602afcb1aa1b2cab2e5728fcde0823f327ae3576a215f7c8",
+    "signature" : "0702b8d0a15197d0706400a66ec597a437f3d1d25becb2c668dc1d085820f0ce",
     "type" : "target"
   },
   {
@@ -1910,6 +1944,14 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_17",
+                "name" : "PomodoroFlow.swift",
+                "path" : "PomodoroFlow.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_18",
                 "name" : "PomodoroModel.swift",
                 "path" : "PomodoroModel.swift",
                 "sourceTree" : "<group>",
@@ -1917,7 +1959,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_18",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_19",
                 "name" : "ReadingGate.swift",
                 "path" : "ReadingGate.swift",
                 "sourceTree" : "<group>",
@@ -1925,7 +1967,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_19",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_20",
                 "name" : "RootBookmark.swift",
                 "path" : "RootBookmark.swift",
                 "sourceTree" : "<group>",
@@ -1933,7 +1975,15 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_20",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_21",
+                "name" : "TodoTree.swift",
+                "path" : "TodoTree.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_22",
                 "name" : "ZoteroStore.swift",
                 "path" : "ZoteroStore.swift",
                 "sourceTree" : "<group>",
@@ -1941,8 +1991,8 @@
               }
             ],
             "guid" : "PACKAGE:hubstore::MAINGROUP::REF_2",
-            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore",
-            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore",
+            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore",
+            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -2087,6 +2137,14 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_17",
+                "name" : "PomodoroFlow.swift",
+                "path" : "PomodoroFlow.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_18",
                 "name" : "PomodoroModel.swift",
                 "path" : "PomodoroModel.swift",
                 "sourceTree" : "<group>",
@@ -2094,7 +2152,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_18",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_19",
                 "name" : "ReadingGate.swift",
                 "path" : "ReadingGate.swift",
                 "sourceTree" : "<group>",
@@ -2102,7 +2160,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_19",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_20",
                 "name" : "RootBookmark.swift",
                 "path" : "RootBookmark.swift",
                 "sourceTree" : "<group>",
@@ -2110,7 +2168,15 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_20",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_21",
+                "name" : "TodoTree.swift",
+                "path" : "TodoTree.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_22",
                 "name" : "ZoteroStore.swift",
                 "path" : "ZoteroStore.swift",
                 "sourceTree" : "<group>",
@@ -2118,8 +2184,8 @@
               }
             ],
             "guid" : "PACKAGE:hubstore::MAINGROUP::REF_3",
-            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore",
-            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Sources/HubStore",
+            "name" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore",
+            "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Sources/HubStore",
             "sourceTree" : "<absolute>",
             "type" : "group"
           }
@@ -2131,18 +2197,18 @@
         "type" : "group"
       },
       "guid" : "PACKAGE:hubstore",
-      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore/Package.swift",
-      "projectDirectory" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubStore",
+      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore/Package.swift",
+      "projectDirectory" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubStore",
       "projectIsPackage" : "true",
       "projectName" : "HubStore",
       "targets" : [
         "475cafef79e06a44f882f53fb93d76eea199f45179d062e82d4dabbc78c6e8ca",
-        "4384d2362b705ed0b7c3e86725eb140a325b0a97996a91cf2d4dcf5e257dc8b5",
-        "a42e50217f74c9a5d70a2757a05aaebced6a878725a6ec6ff48319aaf8649b1f",
+        "3e6142d9ce98360bac56f0ffe6bc01664be7b725caad28805f5ab0f0e9deb7ce",
+        "8fea715c0fb12a657e8dc1fa5d2ce8a2b822184bff5d6a3734dd73f0e75ffdd5",
         "fd3da6b81bd90e92c7f5bd9beb1a8c2396b2482bec43a901789f7b2f5f1ad1ff"
       ]
     },
-    "signature" : "c10b6c69e1ee2fa38b1d9ea29b7c8ccb7ff6ec666b1ee896898af1d83f6f6a28",
+    "signature" : "fb84266c67eea2e0793cf1b4a4800a7e2e6a49b1712575e3b8ba8f3de5fb5851",
     "type" : "project"
   },
   {
@@ -2561,6 +2627,24 @@
 
               ],
               "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_21",
+              "guid" : "PACKAGE-TARGET:HubStore::BUILDPHASE_0::21",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:hubstore::MAINGROUP::REF_2::REF_22",
+              "guid" : "PACKAGE-TARGET:HubStore::BUILDPHASE_0::22",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:HubStore::BUILDPHASE_0",
@@ -2592,7 +2676,7 @@
       "productTypeIdentifier" : "org.swift.product-type.library.static",
       "type" : "standard"
     },
-    "signature" : "4384d2362b705ed0b7c3e86725eb140a325b0a97996a91cf2d4dcf5e257dc8b5",
+    "signature" : "3e6142d9ce98360bac56f0ffe6bc01664be7b725caad28805f5ab0f0e9deb7ce",
     "type" : "target"
   },
   {
@@ -2951,6 +3035,24 @@
 
               ],
               "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_21",
+              "guid" : "PACKAGE-TARGET:HubStore--55DFCFE25BE5F0CC-dynamic::BUILDPHASE_0::21",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:hubstore::MAINGROUP::REF_3::REF_22",
+              "guid" : "PACKAGE-TARGET:HubStore--55DFCFE25BE5F0CC-dynamic::BUILDPHASE_0::22",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:HubStore--55DFCFE25BE5F0CC-dynamic::BUILDPHASE_0",
@@ -2994,7 +3096,7 @@
       "productTypeIdentifier" : "com.apple.product-type.library.dynamic",
       "type" : "standard"
     },
-    "signature" : "a42e50217f74c9a5d70a2757a05aaebced6a878725a6ec6ff48319aaf8649b1f",
+    "signature" : "8fea715c0fb12a657e8dc1fa5d2ce8a2b822184bff5d6a3734dd73f0e75ffdd5",
     "type" : "target"
   },
   {
@@ -3050,8 +3152,8 @@
         "type" : "group"
       },
       "guid" : "AGGREGATE",
-      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore/Package.swift",
-      "projectDirectory" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/admiring-greider-307f0c/Packages/HubCore",
+      "path" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore/Package.swift",
+      "projectDirectory" : "/Users/kenlee/Desktop/projects/ResearchHub/.claude/worktrees/dev-app-and-tests-5d17d4/Packages/HubCore",
       "projectIsPackage" : "true",
       "projectName" : "Aggregate",
       "targets" : [
@@ -3059,7 +3161,7 @@
         "baf9c9cebf6023b03d9428e2e71128b931aa535724d1333deea8be955da8ced3"
       ]
     },
-    "signature" : "a9dd3e954e013150f06b4e44122067ed99816c93d3ce9fc76621adb92b2c9d96",
+    "signature" : "40bd66466c31f9e25841046ae49877aedeba3358a642aed33fcd8f410d3adcd3",
     "type" : "project"
   },
   {

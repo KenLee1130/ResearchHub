@@ -70,10 +70,11 @@ struct DayTimelineView: View {
         DayTimelineLayout.Rules(defaultStartHour: defaultStartHour, defaultEndHour: defaultEndHour)
     }
 
-    /// 還沒排時段、也還沒做完的待辦
-    private var unscheduled: [TodoLine] {
-        todoLines.filter { !$0.done && !FileSystemStore.hasTimeRange($0.meta.cleanText) }
+    /// 還沒排時段、也還沒做完的待辦（帶層級；整組已排的不列，見 `TodoTree.unscheduled`）
+    private var unscheduledRows: [(todo: TodoLine, depth: Int, childCount: Int)] {
+        TodoTree.unscheduled(todoLines)
     }
+    private var unscheduled: [TodoLine] { unscheduledRows.map(\.todo) }
 
     var body: some View {
         // 每分鐘重繪：現在線、過去壓暗、空檔「還剩」都跟著走
@@ -95,7 +96,8 @@ struct DayTimelineView: View {
                             .padding(.vertical, 8)
                     }
                 }
-                if isWide, !unscheduled.isEmpty {
+                // 欄寬只要不是只剩色塊的窄版就顯示（原本要 ≥ 200pt，欄稍微窄一點清單就整個不見）
+                if !isNarrow, !unscheduled.isEmpty {
                     Divider()
                     unscheduledList
                 }
@@ -216,7 +218,7 @@ struct DayTimelineView: View {
 
             // 拖放預覽
             if let start = dropStart, let todo = dragging {
-                let minutes = todo.meta.estMinutes ?? 60
+                let minutes = TodoTree.estimatedMinutes(of: todo, in: todoLines)
                 let end = min(start.addingTimeInterval(Double(minutes) * 60), layout.dayEnd)
                 dropPreview(todo, start: start, end: end)
                     .frame(width: blockArea - 2, height: max(layout.y(for: end) - layout.y(for: start) - 2, 8))
@@ -236,10 +238,21 @@ struct DayTimelineView: View {
         .onDrop(of: [.utf8PlainText, .plainText], delegate: TimelineDropDelegate(
             layout: layout,
             dropStart: $dropStart,
-            performDrop: { start in
-                guard let todo = dragging else { return false }
-                dragging = nil
-                onSchedule(todo, start)
+            performDrop: { start, providers in
+                if let todo = dragging {
+                    dragging = nil
+                    onSchedule(todo, start)
+                    return true
+                }
+                // 從日記編輯器直接拖一行（或選起來的字）進來：用文字對回當天還沒排時段的待辦
+                guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) })
+                else { return false }
+                let candidates = unscheduled
+                _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                    guard let text = object as? String,
+                          let todo = Self.matchTodo(text, in: candidates) else { return }
+                    DispatchQueue.main.async { onSchedule(todo, start) }
+                }
                 return true
             }))
     }
@@ -470,7 +483,8 @@ struct DayTimelineView: View {
             Text("還沒排時段")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            ForEach(unscheduled, id: \.lineIndex) { todo in
+            ForEach(unscheduledRows, id: \.todo.lineIndex) { row in
+                let todo = row.todo
                 HStack(spacing: 6) {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 9))
@@ -479,17 +493,26 @@ struct DayTimelineView: View {
                         .font(.caption)
                         .lineLimit(1)
                     Spacer(minLength: 0)
-                    if let est = todo.meta.estMinutes {
-                        Text(Self.hoursText(est))
+                    if row.childCount > 0 {
+                        // 母項：拖它＝整組排一塊
+                        Text("\(row.childCount) 項")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if row.childCount > 0 || todo.meta.estMinutes != nil {
+                        Text(Self.hoursText(TodoTree.estimatedMinutes(of: todo, in: todoLines)))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
+                .padding(.leading, CGFloat(min(row.depth, 3)) * 14)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary.opacity(0.5)))
                 .contentShape(Rectangle())
-                .help("拖到上面的時間軸排時段（長度用 @est，沒有就 1 小時）")
+                .help(row.childCount > 0
+                      ? "拖到上面的時間軸，整組排一塊（長度用 @est，沒有就子項加總）"
+                      : "拖到上面的時間軸排時段（長度用 @est，沒有就 1 小時）")
                 .onDrag {
                     dragging = todo
                     return NSItemProvider(object: todo.meta.cleanText as NSString)
@@ -499,6 +522,17 @@ struct DayTimelineView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxHeight: 160)
+    }
+
+    /// 拖進來的文字（`- [ ] 整理 code`、或只選了「整理 code」）對回哪一個待辦
+    nonisolated static func matchTodo(_ raw: String, in todos: [TodoLine]) -> TodoLine? {
+        let line = raw.split(whereSeparator: \.isNewline).first.map(String.init) ?? raw
+        let text = line
+            .replacingOccurrences(of: #"^\s*[-*+]\s*\[.\]\s*"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+        return todos.first { $0.meta.cleanText == text }
+            ?? todos.first { $0.meta.cleanText.hasPrefix(text) || text.hasPrefix($0.meta.cleanText) }
     }
 
     // MARK: - 文字
@@ -527,7 +561,7 @@ struct DayTimelineView: View {
 private struct TimelineDropDelegate: DropDelegate {
     let layout: DayTimelineLayout
     @Binding var dropStart: Date?
-    let performDrop: (Date) -> Bool
+    let performDrop: (Date, [NSItemProvider]) -> Bool
 
     func validateDrop(info: DropInfo) -> Bool {
         info.hasItemsConforming(to: [.utf8PlainText, .plainText])
@@ -549,7 +583,7 @@ private struct TimelineDropDelegate: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         let start = layout.date(at: info.location.y)
         dropStart = nil
-        return performDrop(start)
+        return performDrop(start, info.itemProviders(for: [.utf8PlainText, .plainText]))
     }
 }
 #endif

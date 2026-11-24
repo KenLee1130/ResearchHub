@@ -33,9 +33,36 @@ final class PomodoroFlowTests: XCTestCase {
 
     func testFlowSurvivesCodableRoundTrip() throws {
         var f = FlowTimer(startedAt: at(0), plan: "x")
+        f.record("y", at: at(3))
         f.setOffScreen(true, at: at(5))
         let data = try JSONEncoder().encode(f)
         XCTAssertEqual(try JSONDecoder().decode(FlowTimer.self, from: data), f)
+    }
+
+    func testRecordingSeveralThingsKeepsThemInOrder() {
+        var f = FlowTimer(startedAt: at(0), plan: "讀 CFT")
+        XCTAssertTrue(f.record("推 crossing equation", at: at(30)))
+        XCTAssertFalse(f.record("推 crossing equation", at: at(31)))   // 跟現在這件一樣：不重複
+        XCTAssertFalse(f.record("  ", at: at(32)))
+        XCTAssertTrue(f.record("回信", at: at(50)))
+        XCTAssertEqual(f.items.map(\.text), ["讀 CFT", "推 crossing equation", "回信"])
+        XCTAssertEqual(f.items.map(\.at), [at(0), at(30), at(50)])
+        XCTAssertEqual(f.plan, "回信")
+
+        f.editItem(id: f.items[1].id, text: "推 crossing")
+        f.editItem(id: f.items[2].id, text: "")                          // 打字中清空：結束時略過
+        XCTAssertEqual(f.planSummary, "讀 CFT\n推 crossing")
+        f.removeItem(id: f.items[0].id)
+        XCTAssertEqual(f.items.count, 2)
+    }
+
+    func testOldSnapshotWithSinglePlanStillDecodes() throws {
+        let json = #"{"startedAt":"2027-01-15T08:00:00Z","awaySpans":[],"offScreen":false,"paused":true,"plan":"讀 CFT"}"#
+        let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
+        let f = try d.decode(FlowTimer.self, from: Data(json.utf8))
+        XCTAssertEqual(f.items.map(\.text), ["讀 CFT"])
+        XCTAssertEqual(f.items.first?.at, f.startedAt)
+        XCTAssertTrue(f.paused)
     }
 
     func testComplementClipsAndMergesHoles() {

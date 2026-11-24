@@ -34,9 +34,65 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		5CE0000000000000000000A1 /* Exceptions for "ResearchHub" folder in "ResearchHub" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/PomodoroScenes/PomodoroScenes-CREDITS.md,
+				Resources/PomodoroScenes/pomo-scene-bedread.mp4,
+				Resources/PomodoroScenes/pomo-scene-fireplacecat.mp4,
+				Resources/PomodoroScenes/pomo-scene-kettlecamp.mp4,
+				Resources/PomodoroScenes/pomo-scene-lakecamp.mp4,
+				Resources/PomodoroScenes/pomo-scene-nightdesk.mp4,
+				Resources/PomodoroScenes/pomo-scene-raincat.mp4,
+				Resources/PomodoroScenes/pomo-scene-study.mp4,
+				Resources/PomodoroScenes/pomo-scene-sunsettrain.mp4,
+				Resources/PomodoroScenes/pomo-scene-traincat.mp4,
+				Resources/PomodoroScenes/pomo-scene-windowview.mp4,
+			);
+			target = 73B5158E2FDA6DC200E2640B /* ResearchHub */;
+		};
+		5CE0000000000000000000A2 /* Exceptions for "ResearchHub" folder in "ResearchHubMobile" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/PomodoroScenesWide/PomodoroScenesWide-CREDITS.md,
+				Resources/PomodoroScenesWide/pomo-wide-bedread.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-desklamp.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-fireplacecat.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-fireread.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-headphones.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-heavyrain.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-kettlecamp.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-lakecamp.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-lampcat.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-lamplaptop.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-nightdesk.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-nighttrain.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-rainbook.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-raincabin.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-raincafe.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-raincat.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-rainlaptop.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-readcat.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-study.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-sunrisecat.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-sunsettrain.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-sunsetwrite.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-traincat.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-umbrella.mp4,
+				Resources/PomodoroScenesWide/pomo-wide-windowview.mp4,
+			);
+			target = AA00000000000000000000A5 /* ResearchHubMobile */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		73B515912FDA6DC200E2640B /* ResearchHub */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5CE0000000000000000000A1 /* Exceptions for "ResearchHub" folder in "ResearchHub" target */,
+				5CE0000000000000000000A2 /* Exceptions for "ResearchHub" folder in "ResearchHubMobile" target */,
+			);
 			path = ResearchHub;
 			sourceTree = "<group>";
 		};

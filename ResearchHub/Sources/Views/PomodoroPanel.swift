@@ -8,20 +8,34 @@ import AppKit
 // MARK: - 浮動面板（置頂於所有 app 之上的玻璃小窗）
 
 @MainActor
-final class PomodoroPanelController {
-    private var panel: NSPanel?
+final class PomodoroPanelController: NSObject, NSWindowDelegate {
+    private var panel: FloatingPanel?
+    private var hosting: NSHostingController<AnyView>?
+    private static let widthKey = "pomodoro.panelWidth"
+    private static let widthRange: ClosedRange<CGFloat> = 240...960
 
     func toggle(pomodoro: PomodoroModel) {
         if let panel, panel.isVisible {
             panel.close()
             return
         }
-        let hosting = NSHostingController(
-            rootView: PomodoroPanelView().environment(pomodoro))
-        let panel = NSPanel(contentViewController: hosting)
+        let hosting = NSHostingController(rootView: AnyView(
+            PomodoroPanelView { [weak self] _ in self?.fitHeight() }
+                .environment(pomodoro)))
+        // 視窗大小全由這裡決定（寬度＝使用者拉的、高度＝內容需要的）。
+        // 不讓 SwiftUI 自動調視窗：sizingOptions = .preferredContentSize 會在無邊框面板上無限遞迴當掉。
+        hosting.sizingOptions = []
         // 無邊框：關閉鈕做在面板內，避免透明標題列的點擊穿透問題。
         // 不用 .utilityWindow —— 它會在 app 失焦時自動把面板藏起來,正是「切桌面後消失」的元兇。
-        panel.styleMask = [.nonactivatingPanel, .borderless]
+        // .resizable：拉邊角縮放（高度跟著寬度，見 windowWillResize）
+        // .nonactivatingPanel 一定要在 init 就給：建好之後才改 styleMask，AppKit 不會真的生效，
+        // 點面板上的按鈕會把整個 app（主視窗）叫到前面。
+        let panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
+                            styleMask: [.nonactivatingPanel, .borderless, .resizable],
+                            backing: .buffered, defer: false)
+        panel.contentViewController = hosting
+        // 點按鈕、影片不搶鍵盤焦點；只有要打字（計畫欄）時才變 key window
+        panel.becomesKeyOnlyIfNeeded = true
         panel.level = .floating
         // 出現在所有桌面、跟著 Space 不動、全螢幕也在;切換桌面/切到別的 app 都不消失。
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
@@ -31,12 +45,180 @@ final class PomodoroPanelController {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.isReleasedWhenClosed = false
+        panel.delegate = self
         self.panel = panel
+        self.hosting = hosting
+
+        let saved = CGFloat(UserDefaults.standard.double(forKey: Self.widthKey))
+        let width = saved > 0 ? saved.clamped(to: Self.widthRange) : 300
+        panel.setContentSize(NSSize(width: width, height: contentHeight(forWidth: width)))
+        panel.center()
         panel.orderFrontRegardless()
     }
 
     func close() {
         panel?.close()
+    }
+
+    /// 要在面板裡打字：只讓面板變 key（nonactivating，不會把 app／主視窗叫出來）
+    func focusForTyping() {
+        panel?.makeKey()
+    }
+
+    /// 這個寬度下內容要多高
+    private func contentHeight(forWidth width: CGFloat) -> CGFloat {
+        guard let hosting else { return 200 }
+        return ceil(hosting.sizeThatFits(in: CGSize(width: width, height: 10_000)).height)
+    }
+
+    /// 內容變了（計時中多出影片、切到無限模式…）：高度跟著改，頂端不動。
+    private func fitHeight() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let panel = self.panel, !panel.inLiveResize else { return }
+            var frame = panel.frame
+            let height = self.contentHeight(forWidth: frame.width)
+            guard height > 0, abs(frame.height - height) > 1 else { return }
+            frame.origin.y += frame.height - height
+            frame.size.height = height
+            panel.setFrame(frame, display: true, animate: false)
+        }
+    }
+
+    // MARK: NSWindowDelegate
+
+    /// 使用者拉邊角：寬度照拉的，高度剛好包住內容（影片 16:9 跟著放大）
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let width = frameSize.width.clamped(to: Self.widthRange)
+        return NSSize(width: width, height: contentHeight(forWidth: width))
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        endResize()
+    }
+
+    // MARK: 自訂縮放把手（系統的無邊框視窗邊緣只有 1–2 pt、又在透明邊距外，太難抓）
+
+    var frame: NSRect? { panel?.frame }
+
+    /// 拖把手時：寬度 = 開始時的寬度 + delta，高度跟著內容；頂端不動，往左拉時右邊不動
+    func resize(from start: NSRect, widthDelta: CGFloat, keepRightEdge: Bool) {
+        guard let panel else { return }
+        let width = (start.width + widthDelta).clamped(to: Self.widthRange)
+        let height = contentHeight(forWidth: width)
+        let frame = NSRect(x: keepRightEdge ? start.maxX - width : start.minX,
+                           y: start.maxY - height, width: width, height: height)
+        panel.setFrame(frame, display: true, animate: false)
+    }
+
+    func endResize() {
+        guard let panel else { return }
+        UserDefaults.standard.set(Double(panel.frame.width), forKey: Self.widthKey)
+        fitHeight()
+    }
+}
+
+/// 無邊框視窗預設不能變 key → 面板裡的文字欄打不了字。
+/// 允許變 key（.nonactivatingPanel 讓它變 key 時不啟動 app），但永遠不當 main window。
+final class FloatingPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+/// 在浮動面板裡：計畫列不用 popover（popover 是另一個視窗，打字時會啟動整個 app、把主視窗叫出來），
+/// 直接在面板裡展開編輯。
+private struct PomodoroInPanelKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var pomodoroInPanel: Bool {
+        get { self[PomodoroInPanelKey.self] }
+        set { self[PomodoroInPanelKey.self] = newValue }
+    }
+}
+
+/// 浮動面板的縮放把手：左右兩邊、下方兩角。滑過去游標變縮放箭頭，拖了改寬度（高度跟著內容）。
+struct PanelResizeHandle: NSViewRepresentable {
+    enum Position { case left, right, bottomLeft, bottomRight }
+    let position: Position
+
+    func makeNSView(context: Context) -> HandleView {
+        let view = HandleView()
+        view.position = position
+        return view
+    }
+
+    func updateNSView(_ view: HandleView, context: Context) {
+        view.position = position
+    }
+
+    final class HandleView: NSView {
+        var position: Position = .right
+        private var startFrame: NSRect = .zero
+        private var startMouse: NSPoint = .zero
+        private var dragging = false
+
+        override var mouseDownCanMoveWindow: Bool { false }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        private var cursor: NSCursor {
+            switch position {
+            case .left: return .frameResize(position: .left, directions: .all)
+            case .right: return .frameResize(position: .right, directions: .all)
+            case .bottomLeft: return .frameResize(position: .bottomLeft, directions: .all)
+            case .bottomRight: return .frameResize(position: .bottomRight, directions: .all)
+            }
+        }
+
+        // 面板是不搶焦點的 panel，不一定是 key window → 用 activeAlways 的 tracking area 換游標
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach(removeTrackingArea)
+            addTrackingArea(NSTrackingArea(
+                rect: .zero,
+                options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
+                owner: self))
+        }
+
+        override func mouseEntered(with event: NSEvent) { cursor.set() }
+        override func mouseMoved(with event: NSEvent) { cursor.set() }
+        override func mouseExited(with event: NSEvent) { if !dragging { NSCursor.arrow.set() } }
+
+        override func mouseDown(with event: NSEvent) {
+            startFrame = window?.frame ?? .zero
+            startMouse = NSEvent.mouseLocation
+            dragging = true
+            cursor.set()
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            let p = NSEvent.mouseLocation
+            let dx = p.x - startMouse.x
+            // 角落往下拉也算放大：換算成等比例的寬度變化，取動得多的那個方向
+            let down = (startMouse.y - p.y) * startFrame.width / max(startFrame.height, 1)
+            let delta: CGFloat
+            switch position {
+            case .right: delta = dx
+            case .left: delta = -dx
+            case .bottomRight: delta = abs(dx) >= abs(down) ? dx : down
+            case .bottomLeft: delta = abs(dx) >= abs(down) ? -dx : down
+            }
+            AppContainer.shared.pomodoroPanel.resize(
+                from: startFrame, widthDelta: delta,
+                keepRightEdge: position == .left || position == .bottomLeft)
+            cursor.set()
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            dragging = false
+            AppContainer.shared.pomodoroPanel.endResize()
+        }
+    }
+}
+
+private extension CGFloat {
+    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }
 
@@ -55,51 +237,46 @@ struct WindowDragArea: NSViewRepresentable {
 struct PomodoroPanelView: View {
     @Environment(PomodoroModel.self) private var pomodoro
     @State private var hovering = false
+    /// 面板寬度（使用者拉的）：數字跟著放大
+    @State private var width: CGFloat = 300
+    /// 內容大小變了（給面板視窗調整高度）
+    var onSize: (CGSize) -> Void = { _ in }
+
+    private var clockSize: CGFloat { Swift.min(Swift.max(width * 0.15, 36), 120) }
+    private var scale: CGFloat { Swift.min(Swift.max(width / 300, 1), 2.2) }
 
     var body: some View {
-        VStack(spacing: 8) {
-            PomodoroCountdownText(clock: pomodoro.clock)
-                .font(.system(size: 36, weight: .medium, design: .monospaced))
-            Text(pomodoro.phase.label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            PomodoroPlanRow()
-                .frame(maxWidth: 200)
-            HStack(spacing: 18) {
-                Button {
-                    pomodoro.toggle()
-                } label: {
-                    Image(systemName: pomodoro.isRunning ? "pause.fill" : "play.fill")
-                        .font(.title3)
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                Button {
-                    pomodoro.reset()
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.title3)
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
+        VStack(spacing: 8 * scale) {
+            PomodoroSceneStrip(cornerRadius: 10 + 4 * scale)
+            PomodoroClockText(size: clockSize)
+            PomodoroStatusLine()
+            if pomodoro.canPickMode {
+                PomodoroModePicker()
+                    .frame(width: 170)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            HStack(spacing: 4) {
-                ForEach(0..<pomodoro.cycleLength, id: \.self) { i in
-                    Capsule()
-                        .fill(i < pomodoro.cyclePosition
-                              ? Color.accentColor : Color.primary.opacity(0.15))
-                        .frame(height: 4)
+            PomodoroPlanRow(rowMaxWidth: 200 * scale)
+                .environment(\.pomodoroInPanel, true)
+            PomodoroControls(spacing: 18 * scale, iconFont: .system(size: 17 * scale), showsPanelButton: false)
+            if !pomodoro.isFlowMode {
+                HStack(spacing: 4) {
+                    ForEach(0..<pomodoro.cycleLength, id: \.self) { i in
+                        Capsule()
+                            .fill(i < pomodoro.cyclePosition
+                                  ? Color.accentColor : Color.primary.opacity(0.15))
+                            .frame(height: 4)
+                    }
                 }
+                .frame(width: 120 * scale)
             }
-            .frame(width: 120)
         }
+        .frame(maxWidth: .infinity)
         .padding(22)
         // 面板內容全是 SwiftUI，NSHostingView 會吃掉滑鼠，isMovableByWindowBackground 不會生效 →
         // 背景鋪一層：按下就請視窗跟著拖。按鈕、計畫欄蓋在上面，照樣能點。
         .background(WindowDragArea())
         .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .contextMenu { PomodoroSceneMenu() }
+        .animation(.spring(response: 0.45, dampingFraction: 0.86), value: pomodoro.isActive)
         .overlay(alignment: .topTrailing) {
             // 滑過面板時顯示關閉鈕
             Button {
@@ -117,30 +294,339 @@ struct PomodoroPanelView: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
         .padding(8)
+        // 縮放把手：左右兩條（從透明邊距一路蓋到卡片邊緣）、下方兩角（滑過面板時顯示握把）
+        .overlay(alignment: .leading) { edgeHandle(.left) }
+        .overlay(alignment: .trailing) { edgeHandle(.right) }
+        .overlay(alignment: .bottomLeading) { cornerHandle(.bottomLeft) }
+        .overlay(alignment: .bottomTrailing) { cornerHandle(.bottomRight) }
+        // 寬度聽視窗的，高度用內容自己需要的（視窗再跟著調）
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGSize.self, of: { $0.size }) { size in
+            width = size.width
+            onSize(size)
+        }
+    }
+}
+
+extension PomodoroPanelView {
+    /// 透明邊距要有一點點不透明，點擊才不會穿到後面的視窗
+    private static let grabFill = Color.black.opacity(0.02)
+
+    fileprivate func edgeHandle(_ position: PanelResizeHandle.Position) -> some View {
+        PanelResizeHandle(position: position)
+            .background(Self.grabFill)
+            .frame(width: 16)
+            .padding(.vertical, 30)
+    }
+
+    fileprivate func cornerHandle(_ position: PanelResizeHandle.Position) -> some View {
+        let isLeft = position == .bottomLeft
+        return PanelResizeHandle(position: position)
+            .background(Self.grabFill)
+            .frame(width: 30, height: 30)
+            .overlay(alignment: isLeft ? .bottomLeading : .bottomTrailing) {
+                // 握把：兩條斜線，跟著卡片圓角往內縮
+                Path { p in
+                    for offset in [0.0, 5.0] {
+                        p.move(to: CGPoint(x: 10, y: offset))
+                        p.addLine(to: CGPoint(x: offset, y: 10))
+                    }
+                }
+                .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .frame(width: 10, height: 10)
+                .scaleEffect(x: isLeft ? -1 : 1)
+                .padding(isLeft ? .leading : .trailing, 16)
+                .padding(.bottom, 16)
+                .opacity(hovering ? 1 : 0)
+                .allowsHitTesting(false)
+            }
+    }
+}
+
+// MARK: - 共用小元件（側欄、浮動面板）
+
+/// 大數字：蕃茄鐘是倒數，無限模式是開始到現在的總時間
+struct PomodoroClockText: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let flow = pomodoro.flow {
+                // 只有這個小元件每秒重畫，不會牽動整個側欄
+                TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                    Text(verbatim: PomodoroFormat.clock(flow.totalSeconds(at: ctx.date)))
+                }
+            } else if pomodoro.isFlowMode {
+                Text(verbatim: "00:00")
+            } else {
+                PomodoroCountdownText(clock: pomodoro.clock)
+            }
+        }
+        .font(.system(size: size, weight: .medium, design: .monospaced))
+        .monospacedDigit()
+    }
+}
+
+/// 數字底下那行：蕃茄鐘顯示階段；無限模式顯示工作／離開各多久
+struct PomodoroStatusLine: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+
+    var body: some View {
+        if let flow = pomodoro.flow {
+            TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                HStack(spacing: 8) {
+                    Label(PomodoroFormat.clock(flow.workSeconds(at: ctx.date)), systemImage: "brain.head.profile")
+                        .foregroundStyle(.red)
+                        .help("工作時間")
+                    Label(PomodoroFormat.clock(flow.awaySeconds(at: ctx.date)), systemImage: "cup.and.saucer")
+                        .foregroundStyle(.secondary)
+                        .help("非工作時間（暫停、螢幕鎖定或睡眠）")
+                    if flow.paused {
+                        Text("暫停中")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .labelStyle(.titleAndIcon)
+                .font(.caption.monospacedDigit())
+            }
+        } else if pomodoro.isFlowMode {
+            Text("正向計時")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Text(LocalizedStringKey(pomodoro.phase.label))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// 蕃茄鐘／無限模式切換（還沒開始時才出現）
+struct PomodoroModePicker: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+
+    var body: some View {
+        Picker("模式", selection: Bindable(pomodoro).mode) {
+            ForEach(PomodoroModel.Mode.allCases) { m in
+                Text(LocalizedStringKey(m.label)).tag(m)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .controlSize(.small)
+        .help("無限模式：一直計時到按「結束」，暫停與螢幕鎖定、睡眠的時間記成非工作時間")
+    }
+}
+
+/// 開始／暫停＋其他按鈕。無限模式開著時是「放棄、暫停、結束」。
+struct PomodoroControls: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+    let spacing: CGFloat
+    var iconFont: Font = .body
+    /// 側欄才有「開浮動面板」
+    var showsPanelButton = true
+    @State private var confirmDiscard = false
+
+    private var ticking: Bool { pomodoro.isTicking }
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            iconButton(ticking ? "pause.fill" : "play.fill", help: ticking ? "暫停" : "開始") {
+                pomodoro.toggle()
+            }
+            if pomodoro.flow != nil {
+                iconButton("stop.fill", help: "結束這一段，記下工作時間") {
+                    pomodoro.stopFlow()
+                }
+                .foregroundStyle(.red)
+                iconButton("xmark", help: "放棄這一段（不記錄）") {
+                    confirmDiscard = true
+                }
+            } else {
+                iconButton("arrow.counterclockwise", help: "重設目前這顆；右鍵可將整個循環歸零") {
+                    pomodoro.reset()
+                }
+                .contextMenu {
+                    Button("整個循環歸零") { pomodoro.resetCycle() }
+                }
+            }
+            if showsPanelButton {
+                iconButton("arrow.up.right.square", help: "浮動面板（置頂於其他視窗）") {
+                    AppContainer.shared.pomodoroPanel.toggle(pomodoro: pomodoro)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .confirmationDialog("放棄這一段？", isPresented: $confirmDiscard) {
+            Button("放棄，不記錄", role: .destructive) { pomodoro.reset() }
+        } message: {
+            Text("已經記的時間會全部丟掉。要留下紀錄請按「結束」。")
+        }
+    }
+
+    private func iconButton(_ symbol: String, help: LocalizedStringKey,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(iconFont)
+                .padding(5)
+                .contentShape(Rectangle())
+        }
+        .help(help)
+    }
+}
+
+// MARK: - 計時中的動畫（跟手機同一批影片）
+
+extension PomodoroModel {
+    /// 正在走（倒數中，或無限模式沒暫停）
+    var isTicking: Bool { isRunning || (flow.map { !$0.paused } ?? false) }
+}
+
+/// 浮動面板的場景：開始計時時挑一次，點影片換下一個（面板關掉再開也接著同一個）。
+@MainActor
+@Observable
+final class PomodoroSceneState {
+    private(set) var scene: PomodoroScene = .study
+    @ObservationIgnored private var picked = false
+
+    /// 計時開始時挑一次（側欄、面板都會呼叫，只算一次）；停了就等下一段再挑
+    func update(active: Bool, choice: String) {
+        guard active else { picked = false; return }
+        guard !picked else { return }
+        picked = true
+        pick(choice)
+    }
+
+    func pick(_ choice: String) {
+        if let fixed = PomodoroScene(rawValue: choice) {
+            scene = fixed
+        } else if choice != "off" {
+            scene = .random(excluding: scene)
+        }
+    }
+
+    func next() { scene = scene.next }
+}
+
+/// 計時中才出現的 16:9 影片；暫停就定格。待命時不佔空間。
+struct PomodoroSceneStrip: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+    @AppStorage("pomodoro.scene") private var choice = "random"
+    var cornerRadius: CGFloat = 8
+    private var state: PomodoroSceneState { AppContainer.shared.pomodoroScene }
+
+    var body: some View {
+        Group {
+            if pomodoro.isActive && choice != "off" {
+                Color.clear
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    // 浮動面板量大小時高度沒有提議值：不鎖住的話影片會被壓成 0 高
+                    .fixedSize(horizontal: false, vertical: true)
+                    .overlay {
+                        PomodoroSceneView(scene: state.scene, paused: !pomodoro.isTicking)
+                            .id(state.scene)
+                            .transition(.opacity)
+                    }
+                    .overlay {
+                        if !pomodoro.isTicking {
+                            Color.black.opacity(0.25)
+                            Image(systemName: "pause.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.35)) { state.next() }
+                    }
+                    .help(Text("\(Text(state.scene.title)) · 點一下換場景，右鍵選擇或關掉動畫"))
+                    .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity),
+                                            removal: .opacity))
+            }
+        }
+        .onChange(of: pomodoro.isActive, initial: true) { _, active in
+            state.update(active: active, choice: choice)
+        }
+        .onChange(of: choice) { state.pick(choice) }
+    }
+}
+
+/// 右鍵選單：選場景／隨機／不要動畫（Mac 自己記，不跟手機同步）
+struct PomodoroSceneMenu: View {
+    @AppStorage("pomodoro.scene") private var choice = "random"
+
+    var body: some View {
+        Picker("動畫", selection: $choice) {
+            Label("隨機", systemImage: "shuffle").tag("random")
+            ForEach(PomodoroScene.available) { s in
+                Label(s.title, systemImage: s.symbol).tag(s.rawValue)
+            }
+            Label("不要動畫", systemImage: "eye.slash").tag("off")
+        }
     }
 }
 
 // MARK: - 「這顆要做什麼」計畫列（計時器上顯示 / 點擊編輯）
 
-/// work 階段顯示目前這顆的計畫;點一下用 popover 編輯。其他階段不顯示。
+/// work 階段（或無限模式）顯示目前的計畫；點一下用 popover 編輯。休息階段不顯示。
+/// 無限模式計時中：點一下是「記下新的一件事」，右邊的清單鈕看／改這段記過的所有事。
 struct PomodoroPlanRow: View {
     @Environment(PomodoroModel.self) private var pomodoro
+    @Environment(\.pomodoroInPanel) private var inPanel
+    /// 計畫列本身的最大寬度（面板裡展開的清單不受限）
+    var rowMaxWidth: CGFloat? = nil
     @State private var editing = false
+    @State private var showingItems = false
     @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
+
+    private var plan: String { pomodoro.flow?.plan ?? pomodoro.currentPlan }
+    private var flowMode: Bool { pomodoro.isFlowMode }
+    /// 無限模式正在跑：計畫列改成一條一條記
+    private var recording: Bool { pomodoro.flow != nil }
+
+    /// 側欄用 popover；面板裡改成就地展開（見 `pomodoroInPanel`）
+    private var popoverEditing: Binding<Bool> {
+        Binding(get: { editing && !inPanel }, set: { editing = $0 })
+    }
+    private var popoverItems: Binding<Bool> {
+        Binding(get: { showingItems && !inPanel }, set: { showingItems = $0 })
+    }
 
     var body: some View {
-        if pomodoro.phase == .work {
+        if pomodoro.phase == .work || pomodoro.flow != nil {
+            VStack(spacing: 8) {
+                Group {
+                    if inPanel && editing { inlineEditor } else { row }
+                }
+                .frame(maxWidth: rowMaxWidth)
+                if inPanel && showingItems && recording {
+                    FlowItemsEditor(width: nil) { showingItems = false }
+                        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+                }
+            }
+            .onChange(of: recording) { _, now in if !now { showingItems = false } }
+        }
+    }
+
+    private var row: some View {
+        HStack(spacing: 4) {
             Button {
-                draft = pomodoro.currentPlan
+                draft = recording ? "" : plan
                 editing = true
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "target").font(.caption2)
                     Group {
-                        if pomodoro.currentPlan.isEmpty {
-                            Text("這顆要做什麼？")
+                        if plan.isEmpty {
+                            Text(flowMode ? "這段要做什麼？" : "這顆要做什麼？")
                         } else {
-                            Text(pomodoro.currentPlan)
+                            Text(plan)
                         }
                     }
                         .font(.caption2)
@@ -148,32 +634,169 @@ struct PomodoroPlanRow: View {
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
                 }
-                .foregroundStyle(pomodoro.currentPlan.isEmpty ? .tertiary : .secondary)
+                .foregroundStyle(plan.isEmpty ? .tertiary : .secondary)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .popover(isPresented: $editing) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("這顆蕃茄鐘要做什麼").font(.headline)
-                    TextField("例如：推導 crossing equation", text: $draft, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                        .frame(width: 260)
-                        .onSubmit(commit)
-                    HStack {
-                        Spacer()
-                        Button("完成", action: commit).keyboardShortcut(.defaultAction)
+            .help(recording ? "記下現在在做的事" : "")
+            .popover(isPresented: popoverEditing) { editor }
+
+            if recording {
+                Button {
+                    showingItems.toggle()
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "list.bullet")
+                        let count = pomodoro.flow?.items.count ?? 0
+                        if count > 1 { Text("\(count)").monospacedDigit() }
                     }
+                    .font(.caption2)
+                    .foregroundStyle(inPanel && showingItems ? Color.accentColor : .secondary)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .contentShape(Rectangle())
                 }
-                .padding(14)
+                .buttonStyle(.plain)
+                .help("這段記下的事：看、修改、刪除")
+                .popover(isPresented: popoverItems, arrowEdge: .top) {
+                    FlowItemsEditor()
+                        .environment(pomodoro)
+                }
             }
         }
     }
 
+    /// 面板裡：計畫列原地變成輸入欄。Enter 記下、Esc 取消。
+    private var inlineEditor: some View {
+        HStack(spacing: 6) {
+            TextField(recording ? "現在在做什麼…" : "例如：推導 crossing equation", text: $draft)
+                .textFieldStyle(.roundedBorder)
+                .font(.caption)
+                .focused($fieldFocused)
+                .onSubmit(commit)
+                .onExitCommand { editing = false }
+            Button(recording ? "記下" : "完成", action: commit)
+                .controlSize(.small)
+        }
+        .onAppear {
+            AppContainer.shared.pomodoroPanel.focusForTyping()
+            DispatchQueue.main.async { fieldFocused = true }
+        }
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(recording ? "現在在做什麼" : (flowMode ? "這段要做什麼" : "這顆蕃茄鐘要做什麼"))
+                .font(.headline)
+            TextField("例如：推導 crossing equation", text: $draft, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(2...4)
+                .frame(width: 260)
+                .onSubmit(commit)
+            if recording {
+                Text("會記成新的一件事；之前記的在右邊的清單裡改。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Button(recording ? "記下" : "完成", action: commit).keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(14)
+    }
+
     private func commit() {
-        pomodoro.currentPlan = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        pomodoro.updatePlan(draft)
         editing = false
     }
+}
+
+/// 無限模式這段記下的事：時間＋文字，可直接改、可刪、可再加一件。
+struct FlowItemsEditor: View {
+    @Environment(PomodoroModel.self) private var pomodoro
+    /// popover 固定寬；面板裡展開時 nil（跟著面板）
+    var width: CGFloat? = 320
+    /// 面板裡展開時：標題右邊的收起鈕
+    var onClose: (() -> Void)? = nil
+    @State private var newText = ""
+
+    private var items: [FlowItem] { pomodoro.flow?.items ?? [] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("這段記下的事").font(.headline)
+                Spacer(minLength: 0)
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "chevron.up")
+                            .foregroundStyle(.secondary)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("收起")
+                }
+            }
+            if items.isEmpty {
+                Text("還沒記任何事")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(items) { item in row(item) }
+                    }
+                }
+                .frame(maxHeight: 260)
+                .fixedSize(horizontal: false, vertical: items.count <= 6)
+            }
+            Divider()
+            HStack(spacing: 6) {
+                TextField("再記一件事…", text: $newText)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(add)
+                Button("加入", action: add)
+                    .disabled(newText.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(onClose == nil ? 14 : 10)
+        .frame(width: width)
+        .onExitCommand { onClose?() }
+    }
+
+    private func row(_ item: FlowItem) -> some View {
+        HStack(spacing: 6) {
+            Text(Self.time.string(from: item.at))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 38, alignment: .leading)
+            TextField("", text: Binding(
+                get: { item.text },
+                set: { pomodoro.updateFlowItem(id: item.id, text: $0) }))
+                .textFieldStyle(.roundedBorder)
+            Button {
+                pomodoro.removeFlowItem(id: item.id)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("刪掉這一件")
+        }
+    }
+
+    private func add() {
+        pomodoro.updatePlan(newText)
+        newText = ""
+    }
+
+    private static let time: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
 }
 
 // MARK: - Sidebar mini view
@@ -183,59 +806,38 @@ struct PomodoroMiniView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            PomodoroCountdownText(clock: pomodoro.clock)
-                .font(.system(size: 20, weight: .medium, design: .monospaced))
-            Text(LocalizedStringKey(pomodoro.phase.label))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            PomodoroClockText(size: 20)
+            PomodoroStatusLine()
+
+            if pomodoro.canPickMode {
+                PomodoroModePicker()
+                    .padding(.horizontal, 12)
+            }
 
             PomodoroPlanRow()
 
-            HStack(spacing: 14) {
-                Button {
-                    pomodoro.toggle()
-                } label: {
-                    Image(systemName: pomodoro.isRunning ? "pause.fill" : "play.fill")
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                Button {
-                    pomodoro.reset()
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                .help("重設目前這顆；右鍵可將整個循環歸零")
-                .contextMenu {
-                    Button("整個循環歸零") { pomodoro.resetCycle() }
-                }
-                Button {
-                    AppContainer.shared.pomodoroPanel.toggle(pomodoro: pomodoro)
-                } label: {
-                    Image(systemName: "arrow.up.right.square")
-                        .padding(5)
-                        .contentShape(Rectangle())
-                }
-                .help("浮動面板（置頂於其他視窗）")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            PomodoroControls(spacing: 14)
 
-            // 循環進度條
-            HStack(spacing: 3) {
-                ForEach(0..<pomodoro.cycleLength, id: \.self) { i in
-                    Capsule()
-                        .fill(segmentColor(i))
-                        .frame(height: 4)
+            if pomodoro.isFlowMode {
+                Text("今日 \(pomodoro.todayCount) 顆")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            } else {
+                // 循環進度條
+                HStack(spacing: 3) {
+                    ForEach(0..<pomodoro.cycleLength, id: \.self) { i in
+                        Capsule()
+                            .fill(segmentColor(i))
+                            .frame(height: 4)
+                    }
                 }
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 2)
+                .padding(.horizontal, 12)
+                .padding(.top, 2)
 
-            Text("第 \(min(pomodoro.cyclePosition + 1, pomodoro.cycleLength)) / \(pomodoro.cycleLength) 顆 · 今日 \(pomodoro.todayCount)")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                Text("第 \(min(pomodoro.cyclePosition + 1, pomodoro.cycleLength)) / \(pomodoro.cycleLength) 顆 · 今日 \(pomodoro.todayCount)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
@@ -250,6 +852,50 @@ struct PomodoroMiniView: View {
             return .accentColor.opacity(0.4)
         }
         return .primary.opacity(0.15)
+    }
+}
+
+// MARK: - 無限模式：螢幕鎖定／睡眠記成非工作時間
+
+/// iPhone 是「離開蕃茄鐘那頁」就算離開；Mac 上本來就是開著別的 app 工作，
+/// 所以改成：螢幕鎖定、螢幕保護程式、螢幕／電腦睡眠、切換使用者 → 非工作時間，回來接著記。
+@MainActor
+final class FlowAwayWatcher {
+    private weak var pomodoro: PomodoroModel?
+    private var reasons: Set<String> = []
+    private var tokens: [(NotificationCenter, NSObjectProtocol)] = []
+
+    func start(_ pomodoro: PomodoroModel) {
+        guard self.pomodoro == nil else { return }
+        self.pomodoro = pomodoro
+        // 剛開 app 一定在螢幕前（上次關 app 時若正鎖著，旗標別卡住）
+        pomodoro.setFlowOffScreen(false)
+
+        let ws = NSWorkspace.shared.notificationCenter
+        watch(ws, NSWorkspace.willSleepNotification, "sleep", away: true)
+        watch(ws, NSWorkspace.didWakeNotification, "sleep", away: false)
+        watch(ws, NSWorkspace.screensDidSleepNotification, "screen", away: true)
+        watch(ws, NSWorkspace.screensDidWakeNotification, "screen", away: false)
+        watch(ws, NSWorkspace.sessionDidResignActiveNotification, "session", away: true)
+        watch(ws, NSWorkspace.sessionDidBecomeActiveNotification, "session", away: false)
+        let dc = DistributedNotificationCenter.default()
+        watch(dc, .init("com.apple.screenIsLocked"), "lock", away: true)
+        watch(dc, .init("com.apple.screenIsUnlocked"), "lock", away: false)
+        watch(dc, .init("com.apple.screensaver.didstart"), "saver", away: true)
+        watch(dc, .init("com.apple.screensaver.didstop"), "saver", away: false)
+    }
+
+    private func watch(_ center: NotificationCenter, _ name: Notification.Name, _ reason: String, away: Bool) {
+        let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.set(reason, away: away) }
+        }
+        tokens.append((center, token))
+    }
+
+    private func set(_ reason: String, away: Bool) {
+        if away { reasons.insert(reason) } else { reasons.remove(reason) }
+        // 醒來／解鎖時順序不一定，全部都回來才算回到螢幕前
+        pomodoro?.setFlowOffScreen(!reasons.isEmpty)
     }
 }
 #endif

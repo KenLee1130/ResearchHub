@@ -471,7 +471,7 @@ public final class PomodoroModel {
             return
         }
         if isRunning { pause(); return }
-        if mode == .flow && !hasStartedPhase && phase == .work {
+        if mode == .flow && phase == .work {
             startFlow()
         } else {
             start()
@@ -540,9 +540,50 @@ public final class PomodoroModel {
     /// 開始正向計時（沒有倒數、沒有推播），一直記到 `stopFlow()`。
     public func startFlow() {
         guard flow == nil, !isRunning else { return }
+        // 暫停到一半的那顆蕃茄鐘作廢（切到無限模式並按開始＝改用正向計時）
+        if hasStartedPhase && phase == .work {
+            hasStartedPhase = false
+            activeStartedAt = nil
+            remaining = duration(of: .work)
+        }
         flow = FlowTimer(startedAt: .now, plan: currentPlan.trimmingCharacters(in: .whitespacesAndNewlines))
         saveTimerState()
     }
+
+    /// 改「這顆／這段要做什麼」。無限模式開著時是「記下新的一件事」（跟現在這件一樣就不重複記）。
+    public func updatePlan(_ plan: String) {
+        let trimmed = plan.trimmingCharacters(in: .whitespacesAndNewlines)
+        currentPlan = trimmed
+        if var f = flow, f.record(trimmed, at: .now) {
+            flow = f
+        }
+        saveTimerState()
+    }
+
+    /// 無限模式：改某一件記下的事
+    public func updateFlowItem(id: UUID, text: String) {
+        guard var f = flow else { return }
+        f.editItem(id: id, text: text)
+        flow = f
+        saveTimerState()
+    }
+
+    /// 無限模式：刪掉某一件記下的事
+    public func removeFlowItem(id: UUID) {
+        guard var f = flow else { return }
+        f.removeItem(id: id)
+        flow = f
+        saveTimerState()
+    }
+
+    /// 無限模式（沒在計時時看 `mode`、開著就是 `flow`）：畫面依此顯示正向計時。
+    public var isFlowMode: Bool {
+        flow != nil || (!isRunning && mode == .flow && phase == .work)
+    }
+
+    /// 可以切蕃茄鐘／無限模式：沒在計時、在 work 階段（暫停到一半的那顆也可以切；
+    /// 切去無限模式按開始才會丟掉那顆，切回來還在）。
+    public var canPickMode: Bool { flow == nil && !isRunning && phase == .work }
 
     /// 畫面離開／回到蕃茄鐘（切分頁、回桌面、鎖屏）。只有無限模式在意。
     public func setFlowOffScreen(_ off: Bool) {
@@ -564,7 +605,7 @@ public final class PomodoroModel {
         if work >= 60 {
             let s = PomodoroSession(
                 date: now, minutes: max(1, Int((work / 60).rounded())),
-                plan: f.plan, done: "", startedAt: f.startedAt,
+                plan: f.planSummary, done: "", startedAt: f.startedAt,
                 kind: PomodoroLiveState.Kind.flow.rawValue,
                 awaySpans: f.awaySpans.isEmpty ? nil : f.awaySpans)
             loadSessions()
@@ -575,7 +616,10 @@ public final class PomodoroModel {
             sessionID = s.id
         }
         let summary = FlowSummary(startedAt: f.startedAt, endedAt: now, workSeconds: work,
-                                  awaySeconds: away, plan: f.plan, sessionID: sessionID)
+                                  awaySeconds: away,
+                                  plan: f.planSummary.replacingOccurrences(of: "\n", with: "、"),
+                                  sessionID: sessionID,
+                                  items: f.items.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty })
         flow = nil
         currentPlan = ""
         flowSummary = summary

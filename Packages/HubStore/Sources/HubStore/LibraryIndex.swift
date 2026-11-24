@@ -10,6 +10,8 @@ public nonisolated struct TodoLine: Sendable {
     public let meta: TodoMeta
     /// TodoMeta.dedupKey 要跑兩次 regex，播種時每行都會問，所以先算好
     public let dedupKey: String
+    /// 行首縮排寬度（子待辦 > 0；見 `TodoTree`）
+    public var indent: Int = 0
 }
 
 /// 整個資料夾的待辦索引：每個 .md 檔解析一次，結果留在記憶體裡，
@@ -97,7 +99,7 @@ public nonisolated final class LibraryIndex: @unchecked Sendable {
             guard !text.isEmpty else { continue }
             let meta = TodoMeta.parse(text)
             result.append(TodoLine(lineIndex: i, text: text, done: done,
-                                   meta: meta, dedupKey: meta.dedupKey))
+                                   meta: meta, dedupKey: meta.dedupKey, indent: TodoTree.indent(line)))
         }
         return result
     }
