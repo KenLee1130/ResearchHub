@@ -204,4 +204,46 @@ final class DayTimelineTests: XCTestCase {
         XCTAssertFalse(FileSystemStore.hasTimeRange("期末考前安排"))
         XCTAssertFalse(FileSystemStore.hasTimeRange("10:00 開會"))
     }
+
+    // MARK: - 拖色塊改時間
+
+    func testMovingABlockKeepsItsLengthSnapsAndStaysInRange() throws {
+        let layout = make([event("找意賠", at(9), at(10))])   // 44 pt／小時
+        let block = try XCTUnwrap(layout.blocks.first)
+        let moved = try XCTUnwrap(layout.moving(block, by: 66))
+        XCTAssertEqual(moved.start, at(10, 30))
+        XCTAssertEqual(moved.end, at(11, 30))
+        XCTAssertNil(layout.moving(block, by: 5), "不到半格：對齊回原位 = 沒動")
+        XCTAssertEqual(layout.moving(block, by: -500)?.start, at(8), "往上拖到頂")
+        XCTAssertEqual(layout.moving(block, by: 5000)?.end, at(22), "往下拖到底")
+    }
+
+    func testResizingOnlyMovesTheEndAndKeepsAtLeastOneSlot() throws {
+        let layout = make([event("找意賠", at(9), at(10))])
+        let block = try XCTUnwrap(layout.blocks.first)
+        let longer = try XCTUnwrap(layout.resizing(block, by: 44))
+        XCTAssertEqual(longer.start, at(9))
+        XCTAssertEqual(longer.end, at(11))
+        XCTAssertEqual(layout.resizing(block, by: -200)?.end, at(9, 15), "最短一格")
+    }
+
+    func testCrossMidnightBlocksCannotBeDragged() throws {
+        let layout = make([event("夜車", at(23, day: 16), at(1))])
+        let block = try XCTUnwrap(layout.blocks.first)
+        XCTAssertNil(layout.moving(block, by: 44))
+        XCTAssertNil(layout.resizing(block, by: 44))
+    }
+
+    func testRetimingThePlannedLineKeepsCheckboxAndMarkers() throws {
+        let text = "- [x] 09:00–10:00 找意賠 @est(1h) @line(A)\n\n---\n\n- [ ] 別的\n"
+        let old = event("找意賠", at(9), at(10))
+        let updated = try XCTUnwrap(FileSystemStore.retimingPlannedLine(
+            from: old, to: event("找意賠", at(10, 30), at(11, 30)), in: text, calendar: calendar))
+        XCTAssertEqual(updated, "- [x] 10:30–11:30 找意賠 @est(1h) @line(A)\n\n---\n\n- [ ] 別的\n")
+        XCTAssertNil(FileSystemStore.retimingPlannedLine(
+            from: old, to: event("找意賠", at(10, day: 18), at(11, day: 18)), in: text, calendar: calendar),
+            "換天交給 syncPlannedLine")
+        XCTAssertNil(FileSystemStore.retimingPlannedLine(
+            from: event("沒有這行", at(9), at(10)), to: event("沒有這行", at(11), at(12)), in: text, calendar: calendar))
+    }
 }

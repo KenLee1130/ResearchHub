@@ -708,18 +708,9 @@ public final class FileSystemStore {
         let newDay = calendar.startOfDay(for: new.start)
         guard let oldURL = journalURL(for: oldDay), let content = Self.safeRead(oldURL) else { return }
         var lines = content.components(separatedBy: "\n")
-        let oldTitle = old.title.trimmingCharacters(in: .whitespaces)
-        guard let i = lines.firstIndex(where: { line in
-            guard let body = Self.todoBody(of: line) else { return false }
-            return Self.strippingTimeRange(TodoMeta.parse(body).cleanText) == oldTitle
-        }) else { return }
-
-        // 新的那一行：原本的勾選狀態 + 新時間與標題 + 重算的 @est + 原本其他標記
+        guard let i = Self.plannedLineIndex(title: old.title, in: lines) else { return }
         let oldLine = lines[i]
-        let checkbox = String(oldLine.prefix(6))                      // "- [x] "
-        let extras = Self.todoBody(of: oldLine).map { Self.markers(in: $0, excluding: "est") } ?? []
-        var newLine = Self.plannedLine(for: new).replacingOccurrences(of: "- [ ] ", with: checkbox)
-        if !extras.isEmpty { newLine += " " + extras.joined(separator: " ") }
+        let newLine = Self.retimedPlannedLine(oldLine, to: new)
         guard newLine != oldLine || oldDay != newDay else { return }
 
         if oldDay == newDay {
@@ -739,6 +730,38 @@ public final class FileSystemStore {
         try? updated.write(to: newURL, atomically: true, encoding: .utf8)
         noteLocalWrite(oldURL)
         noteLocalWrite(newURL)
+    }
+
+    /// 同一天改時段（時間軸上拖色塊）：日記文字裡對應的規劃行換成新時間——勾選與其他標記保留、@est 重算。
+    /// 給正開在編輯器裡的那天用（改編輯器文字，不跟它的自動存檔搶檔案）。找不到、沒變、換天或重複事件回 nil。
+    public static func retimingPlannedLine(from old: CalendarEvent, to new: CalendarEvent, in text: String,
+                                           calendar: Calendar = .current) -> String? {
+        guard old.repeatRule == nil, new.repeatRule == nil,
+              calendar.isDate(old.start, inSameDayAs: new.start) else { return nil }
+        var lines = text.components(separatedBy: "\n")
+        guard let i = plannedLineIndex(title: old.title, in: lines) else { return nil }
+        let newLine = retimedPlannedLine(lines[i], to: new)
+        guard newLine != lines[i] else { return nil }
+        lines[i] = newLine
+        return lines.joined(separator: "\n")
+    }
+
+    /// 標題（剝掉前面的時段後）等於事件標題的那一行待辦
+    private static func plannedLineIndex(title: String, in lines: [String]) -> Int? {
+        let title = title.trimmingCharacters(in: .whitespaces)
+        return lines.firstIndex { line in
+            guard let body = todoBody(of: line) else { return false }
+            return strippingTimeRange(TodoMeta.parse(body).cleanText) == title
+        }
+    }
+
+    /// 原本的勾選狀態 + 新時間與標題 + 重算的 @est + 原本其他標記
+    private static func retimedPlannedLine(_ oldLine: String, to event: CalendarEvent) -> String {
+        let checkbox = String(oldLine.prefix(6))                      // "- [x] "
+        let extras = todoBody(of: oldLine).map { markers(in: $0, excluding: "est") } ?? []
+        var newLine = plannedLine(for: event).replacingOccurrences(of: "- [ ] ", with: checkbox)
+        if !extras.isEmpty { newLine += " " + extras.joined(separator: " ") }
+        return newLine
     }
 
     /// 刪掉事件 → 當天日記裡對應的那一行拿掉時段（退回「還沒排時段」的待辦）。

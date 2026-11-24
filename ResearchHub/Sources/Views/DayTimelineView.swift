@@ -33,6 +33,8 @@ struct DayTimelineView: View {
     let onOpen: (CalendarEvent) -> Void
     /// 待辦拖到軸上某個時刻（已對齊 15 分鐘）
     let onSchedule: (TodoLine, Date) -> Void
+    /// 色塊拖到新時段（整塊平移或拉底邊，已對齊 15 分鐘）
+    let onRetime: (CalendarEvent, Date, Date) -> Void
 
     @State private var width: CGFloat = 232
     /// 正在從下面清單拖的那一句（`.onDrag` 時記下，`performDrop` 就不必解 NSItemProvider）
@@ -41,6 +43,15 @@ struct DayTimelineView: View {
     @State private var dropStart: Date?
     /// 點開詳情的那條紅線（用開始時刻認，每分鐘重繪也不會跳掉）
     @State private var openFocus: Date?
+    /// 正在拖的色塊：整塊平移或拉底邊，`dy` 是目前拖了幾點
+    @State private var blockDrag: BlockDrag?
+
+    private struct BlockDrag {
+        enum Kind { case move, resize }
+        let id: UUID
+        let kind: Kind
+        var dy: CGFloat
+    }
 
     private let calendar = Calendar.current
 
@@ -188,9 +199,13 @@ struct DayTimelineView: View {
             // 事件色塊
             ForEach(layout.blocks) { block in
                 let colWidth = blockArea / CGFloat(block.columnCount)
-                blockView(block)
-                    .frame(width: max(colWidth - 2, 8), height: max(block.height - 2, 8))
-                    .offset(x: blockLeft + CGFloat(block.column) * colWidth, y: block.y + 1)
+                let preview = dragPreview(block, layout: layout)
+                let y = preview.map { layout.y(for: $0.start) } ?? block.y
+                let height = preview.map { layout.y(for: $0.end) - layout.y(for: $0.start) } ?? block.height
+                blockView(block, layout: layout, range: preview)
+                    .frame(width: max(colWidth - 2, 8), height: max(height - 2, 8))
+                    .offset(x: blockLeft + CGFloat(block.column) * colWidth, y: y + 1)
+                    .zIndex(blockDrag?.id == block.id ? 1 : 0)
             }
 
             // 蕃茄鐘：專注過的時段畫成紅色直線，正在跑的延伸到現在（任一台裝置）
@@ -305,50 +320,106 @@ struct DayTimelineView: View {
 
     // MARK: - 色塊
 
-    private func blockView(_ block: DayTimelineLayout.Block) -> some View {
+    /// 拖曳中的色塊顯示在哪（沒在拖、或拖了等於沒動回 nil）
+    private func dragPreview(_ block: DayTimelineLayout.Block, layout: DayTimelineLayout) -> (start: Date, end: Date)? {
+        guard let drag = blockDrag, drag.id == block.id else { return nil }
+        switch drag.kind {
+        case .move: return layout.moving(block, by: drag.dy)
+        case .resize: return layout.resizing(block, by: drag.dy)
+        }
+    }
+
+    /// 跨日（被裁過）的色塊不能拖
+    private func canDrag(_ block: DayTimelineLayout.Block) -> Bool {
+        block.start == block.event.start && block.end == block.event.end
+    }
+
+    /// 拖整塊或拉底邊。用全域座標算位移：色塊預覽跟著移動，自己的座標系也會跟著跑。
+    private func dragGesture(_ block: DayTimelineLayout.Block, kind: BlockDrag.Kind,
+                             layout: DayTimelineLayout) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .global)
+            .onChanged { value in
+                blockDrag = BlockDrag(id: block.id, kind: kind, dy: value.translation.height)
+            }
+            .onEnded { value in
+                blockDrag = nil
+                let result = kind == .move
+                    ? layout.moving(block, by: value.translation.height)
+                    : layout.resizing(block, by: value.translation.height)
+                if let result { onRetime(block.event, result.start, result.end) }
+            }
+    }
+
+    private func blockView(_ block: DayTimelineLayout.Block, layout: DayTimelineLayout,
+                           range: (start: Date, end: Date)?) -> some View {
         let tag = eventStore.tag(for: block.event.tagID)
         let color = tag?.color ?? .gray
         let done = isDone(block.event)
         let boxes = pomodoroBoxes(for: block)
-        return Button {
-            onOpen(block.event)
-        } label: {
-            HStack(alignment: .top, spacing: 0) {
-                RoundedRectangle(cornerRadius: 1.5).fill(color).frame(width: 3)
-                if !isNarrow {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(block.event.title)
-                            .font(.system(size: isWide ? 12 : 11))
-                            .strikethrough(done)
-                            .foregroundStyle(done ? Color.secondary : Color.primary)
-                            .lineLimit(block.height >= 56 ? 2 : 1)
-                            .opacity(Double(t))
-                        if isWide, block.height >= 36 {
-                            HStack(spacing: 5) {
-                                Text(Self.rangeText(block.start, block.end))
-                                if let boxes {
-                                    pomodoroRow(total: boxes.total, done: boxes.done)
-                                }
-                                if let tag, block.height >= 56 {
-                                    Text(tag.name).foregroundStyle(color)
-                                }
+        let dragging = blockDrag?.id == block.id
+        let shown = range ?? (block.start, block.end)
+        let draggable = canDrag(block)
+        return HStack(alignment: .top, spacing: 0) {
+            RoundedRectangle(cornerRadius: 1.5).fill(color).frame(width: 3)
+            if !isNarrow {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(block.event.title)
+                        .font(.system(size: isWide ? 12 : 11))
+                        .strikethrough(done)
+                        .foregroundStyle(done ? Color.secondary : Color.primary)
+                        .lineLimit(block.height >= 56 ? 2 : 1)
+                        .opacity(Double(t))
+                    if isWide, block.height >= 36 || dragging {
+                        HStack(spacing: 5) {
+                            Text(Self.rangeText(shown.start, shown.end))
+                                .foregroundStyle(dragging ? Color.accentColor : Color.secondary)
+                            if let boxes, !dragging {
+                                pomodoroRow(total: boxes.total, done: boxes.done)
                             }
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            if let tag, block.height >= 56, !dragging {
+                                Text(tag.name).foregroundStyle(color)
+                            }
                         }
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
                 }
-                Spacer(minLength: 0)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(done ? 0.10 : isNarrow ? 0.32 : 0.18)))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
-        .help(Text("\(block.event.title)\n\(Self.rangeText(block.start, block.end))"))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(done ? 0.10 : isNarrow ? 0.32 : 0.18)))
+        .overlay {
+            if dragging {
+                RoundedRectangle(cornerRadius: 6).strokeBorder(color, lineWidth: 1.5)
+            }
+        }
+        .shadow(color: .black.opacity(dragging ? 0.35 : 0), radius: 6, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: 6))
+        .onTapGesture { onOpen(block.event) }
+        .gesture(dragGesture(block, kind: .move, layout: layout), including: draggable ? .all : .subviews)
+        // 底邊拉長／縮短
+        .overlay(alignment: .bottom) {
+            if draggable {
+                Color.clear
+                    .frame(height: 6)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onHover { inside in
+                        if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+                    }
+                    .gesture(dragGesture(block, kind: .resize, layout: layout))
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { onOpen(block.event) }
+        .help(Text(draggable
+                   ? L("\(block.event.title)\n\(Self.rangeText(block.start, block.end))\n拖曳移動、拉底邊改長度")
+                   : L("\(block.event.title)\n\(Self.rangeText(block.start, block.end))")))
     }
 
     /// 這段要幾顆蕃茄（事件長度 ÷ 專注分鐘）、日記那一行已投入幾顆（`@pomo(n)`）

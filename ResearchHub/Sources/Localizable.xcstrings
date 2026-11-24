@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@\n%@\n拖曳移動、拉底邊改長度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@\n%2$@\nDrag to move, drag the bottom edge to resize"
+          }
+        }
+      }
+    },
     "%@ 事件": {
       "localizations": {
         "en": {

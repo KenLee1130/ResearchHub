@@ -171,6 +171,40 @@ public struct DayTimelineLayout: Equatable, Sendable {
         return min(max(hours, 0), Double(endHour - startHour)) * pointsPerHour
     }
 
+    // MARK: - 拖色塊
+
+    /// 色塊整塊往下拖 `dy` 點（往上為負）之後的新時段：長度不變、開始時刻對齊 `snapMinutes`、
+    /// 不跑出軸的範圍。跨日的事件（色塊被裁過）不能拖，回 nil；沒動到也回 nil。
+    public func moving(_ block: Block, by dy: Double, snapMinutes: Int = 15) -> (start: Date, end: Date)? {
+        guard block.start == block.event.start, block.end == block.event.end else { return nil }
+        let duration = block.end.timeIntervalSince(block.start)
+        let rangeStart = day.addingTimeInterval(Double(startHour) * 3600)
+        let rangeEnd = day.addingTimeInterval(Double(endHour) * 3600)
+        guard duration > 0, duration <= rangeEnd.timeIntervalSince(rangeStart) else { return nil }
+        let raw = block.start.addingTimeInterval(dy / pointsPerHour * 3600)
+        var start = snapped(raw, minutes: snapMinutes)
+        start = min(max(start, rangeStart), rangeEnd.addingTimeInterval(-duration))
+        guard start != block.start else { return nil }
+        return (start, start.addingTimeInterval(duration))
+    }
+
+    /// 拉色塊底邊 `dy` 點之後的新時段：只改結束時刻（對齊 `snapMinutes`），至少留一格、不超出範圍。
+    public func resizing(_ block: Block, by dy: Double, snapMinutes: Int = 15) -> (start: Date, end: Date)? {
+        guard block.start == block.event.start, block.end == block.event.end else { return nil }
+        let rangeEnd = day.addingTimeInterval(Double(endHour) * 3600)
+        let raw = block.end.addingTimeInterval(dy / pointsPerHour * 3600)
+        var end = snapped(raw, minutes: snapMinutes)
+        end = min(max(end, block.start.addingTimeInterval(Double(max(snapMinutes, 1)) * 60)), max(rangeEnd, block.end))
+        guard end != block.end else { return nil }
+        return (block.start, end)
+    }
+
+    private func snapped(_ date: Date, minutes: Int) -> Date {
+        let snap = Double(max(minutes, 1)) * 60
+        let seconds = date.timeIntervalSince(day)
+        return day.addingTimeInterval((seconds / snap).rounded() * snap)
+    }
+
     /// 軸上某個位置對應的時刻，對齊到 `snapMinutes`（拖放用），夾在範圍內。
     public func date(at y: Double, snapMinutes: Int = 15) -> Date {
         let snap = Double(max(snapMinutes, 1)) * 60

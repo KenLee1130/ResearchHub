@@ -177,7 +177,29 @@ struct JournalView: View {
             todoLines: dayTodoLines,
             isDone: { isEventDone($0) },
             onOpen: { eventSheet = EventSheetConfig(draft: $0, isNew: false) },
-            onSchedule: scheduleTodo)
+            onSchedule: scheduleTodo,
+            onRetime: retimeEvent)
+    }
+
+    /// 時間軸上拖色塊改了時段：事件改時間，日記裡對應的規劃行跟著改（不然日記 → 行事曆的對齊會把它拉回去）。
+    /// 那天正開在編輯器裡就改編輯器文字，跟 scheduleTodo 同理不跟它的存檔搶檔案。
+    /// 重複事件跟編輯器一樣：改的是整個系列每天的時刻。
+    private func retimeEvent(_ occurrence: CalendarEvent, start: Date, end: Date) {
+        guard let old = eventStore.events.first(where: { $0.id == occurrence.id }) else { return }
+        var draft = occurrence
+        draft.start = start
+        draft.end = end
+        let fixed = eventStore.applyingSeriesDates(draft)
+        eventStore.update(fixed)
+        guard old.repeatRule == nil else { return }
+        if let live = liveJournal, calendar.isDate(live.day, inSameDayAs: start),
+           let replaceText = editor.replaceText {
+            if let updated = FileSystemStore.retimingPlannedLine(from: old, to: fixed, in: live.text) {
+                replaceText(updated)
+            }
+            return
+        }
+        store.syncPlannedLine(from: old, to: fixed)
     }
 
     /// 選中那天日記的待辦行：正在編輯的那天用編輯器裡的文字（零延遲），其他天讀檔。
