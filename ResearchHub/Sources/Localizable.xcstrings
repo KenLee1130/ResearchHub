@@ -369,6 +369,16 @@
         }
       }
     },
+    "Mac 進行中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running on Mac"
+          }
+        }
+      }
+    },
     "PDF 暗色模式": {
       "localizations": {
         "en": {
@@ -455,6 +465,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zotero local API port"
+          }
+        }
+      }
+    },
+    "iPhone 進行中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running on iPhone"
           }
         }
       }
@@ -975,6 +995,16 @@
         }
       }
     },
+    "做了什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you did"
+          }
+        }
+      }
+    },
     "儲存": {
       "localizations": {
         "en": {
@@ -1379,6 +1409,16 @@
         }
       }
     },
+    "在 iPhone 設定連結 Spotify 後，蕃茄鐘結束時會記下這段聽的歌。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Spotify in the iPhone settings and the tracks you played are saved when a Pomodoro ends."
+          }
+        }
+      }
+    },
     "在下方插入區塊": {
       "localizations": {
         "en": {
@@ -1500,6 +1540,16 @@
       }
     },
     "寫一句就好": {},
+    "專注 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focused %@"
+          }
+        }
+      }
+    },
     "專注中": {
       "extractionState": "stale",
       "localizations": {
@@ -2924,6 +2974,16 @@
         }
       }
     },
+    "沒有聽歌紀錄": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No listening history"
+          }
+        }
+      }
+    },
     "浮動面板（置頂於其他視窗）": {
       "localizations": {
         "en": {
@@ -3091,6 +3151,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Notes updated: %@"
+          }
+        }
+      }
+    },
+    "當時的行程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheduled at the time"
           }
         }
       }
@@ -3370,6 +3440,16 @@
         }
       }
     },
+    "結束後會記下這段聽的歌": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tracks are saved when this session ends"
+          }
+        }
+      }
+    },
     "編號清單": {
       "localizations": {
         "en": {
@@ -3461,6 +3541,16 @@
         }
       }
     },
+    "聽的歌": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Music"
+          }
+        }
+      }
+    },
     "腦袋清空了，想到什麼就丟進來": {
       "localizations": {
         "en": {
@@ -3521,12 +3611,12 @@
         }
       }
     },
-    "蕃茄鐘 · %@": {
+    "蕃茄鐘 · %@ · 點一下看詳情": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pomodoro · %@"
+            "value": "Pomodoro · %@ · click for details"
           }
         }
       }
@@ -3561,12 +3651,12 @@
         }
       }
     },
-    "蕃茄鐘進行中 · %@": {
+    "蕃茄鐘進行中 · %@ · 點一下看詳情": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pomodoro in progress · %@"
+            "value": "Pomodoro in progress · %@ · click for details"
           }
         }
       }
@@ -3667,6 +3757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plan: give a goal (midterm, date night) and a target day; the hours are split into sessions on the calendar"
+          }
+        }
+      }
+    },
+    "計畫": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan"
           }
         }
       }
@@ -3968,6 +4068,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Listened to"
+          }
+        }
+      }
+    },
+    "這段沒有寫計畫或完成內容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No plan or notes for this session"
           }
         }
       }
@@ -4486,6 +4596,16 @@
         }
       }
     },
+    "開始時沒寫要做什麼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No plan written at the start"
+          }
+        }
+      }
+    },
     "開工前有計畫": {
       "localizations": {
         "en": {
@@ -4543,6 +4663,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Split"
+          }
+        }
+      }
+    },
+    "離開 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Away %@"
           }
         }
       }
