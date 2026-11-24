@@ -38,6 +38,8 @@ final class AppContainer {
     let flowAwayWatcher = FlowAwayWatcher()
     /// 蕃茄鐘浮動面板動畫目前的場景
     let pomodoroScene = PomodoroSceneState()
+    /// 「規劃時段」可拖曳的獨立視窗
+    let planWindow = PlanWindowController()
     #endif
 
     private init() {

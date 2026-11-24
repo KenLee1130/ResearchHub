@@ -31,7 +31,6 @@ struct JournalView: View {
     /// 事件編輯 sheet
     @State private var eventSheet: EventSheetConfig?
     /// 「規劃」：一個目標拆成多段時段
-    @State private var showPlanSheet = false
     /// 日記檔變動的計數：讓月曆上的刪除線（勾掉的規劃待辦）跟著更新
     @State private var journalRevision = 0
     /// 編輯器裡「還沒存檔」的日記文字（打勾當下就有），給月曆刪除線與時間條用，不等 0.8 秒的自動存檔
@@ -119,9 +118,6 @@ struct JournalView: View {
         }
         .sheet(item: $eventSheet) { config in
             EventEditorSheet(draft: config.draft, isNew: config.isNew, unscheduleLine: unscheduleLine)
-        }
-        .sheet(isPresented: $showPlanSheet) {
-            PlanSheet(draft: PlanDraft.initial(near: selectedDay, tag: eventStore.tags.first))
         }
         .pageCommands(commands) { cmd in
             // ⌘F：時間軸模式——跨所有日記找，上下鍵在天與天之間跳（第 4 節）
@@ -387,7 +383,10 @@ struct JournalView: View {
                 .foregroundStyle(.secondary)
                 .help("匯出全部事件為 .ics（可匯入系統行事曆／Google 日曆）")
                 Button {
-                    showPlanSheet = true
+                    AppContainer.shared.planWindow.show(
+                        draft: PlanDraft.initial(near: selectedDay, tag: eventStore.tags.first),
+                        eventStore: eventStore, store: store, pomodoro: pomodoro,
+                        locale: locale, over: NSApp.keyWindow)
                 } label: {
                     Image(systemName: "plus")
                         .padding(4)
