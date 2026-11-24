@@ -1157,6 +1157,16 @@
         }
       }
     },
+    "重複到目標日為止": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeats until the target date"
+          }
+        }
+      }
+    },
     "再記一件事…": {
       "localizations": {
         "en": {

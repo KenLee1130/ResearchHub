@@ -94,9 +94,21 @@ public enum JournalEventSync {
         var linkedNow = linked.intersection(free.map(\.id))
         var ops: [Op] = []
 
+        // 0. 這天有一次同名的重複事件（規劃排了「每週」的段落也會寫進日記）：那一行已經有事件了，
+        //    不要再建一個不重複的分身。重複事件本身照舊不碰。
+        //    只認標題與時刻都一樣的（時刻不同的照舊當成新的一段）。
+        let comps: (Date) -> Int = { d in
+            let c = calendar.dateComponents([.hour, .minute], from: d)
+            return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+        }
+        let repeating = Set(events.filter {
+            !$0.isAllDay && $0.repeatRule != nil && $0.isOccurrenceStart(dayStart, calendar: calendar)
+        }.map { "\(comps($0.start))-\(comps($0.end)) \(title($0))" })
+        let lines = timedLines(in: text).filter { !repeating.contains($0.key) }
+
         // 1a. 標題與時間都一樣：已經對齊
         var pending: [TimedLine] = []
-        for line in timedLines(in: text) {
+        for line in lines {
             if let i = free.firstIndex(where: { title($0) == line.title && sameTime($0, line) }) {
                 linkedNow.insert(free.remove(at: i).id)
             } else {

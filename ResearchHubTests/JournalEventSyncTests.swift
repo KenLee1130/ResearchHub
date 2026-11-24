@@ -153,4 +153,19 @@ final class JournalEventSyncTests: XCTestCase {
         let after = JournalEventSync.unscheduling(title: "proposal 2/5", in: text)!
         XCTAssertFalse(JournalEventSync.timedLines(in: after).contains { $0.title == "proposal 2/5" })
     }
+
+    /// 回歸：規劃排了「每週」的段落也寫進日記；那天日記一打開就多建一個不重複的分身。
+    func testLineCoveredByARepeatingOccurrenceIsNotDuplicated() {
+        var weekly = event("古電 2/3", 10, 12, day: 11)          // 11/11 起每週，11/18 是其中一次
+        weekly.repeatRule = EventRepeat(frequency: .weekly)
+        XCTAssertEqual(plan("- [ ] 10:00–12:00 古電 2/3 @est(2h)", [weekly]).ops, [])
+
+        var ended = weekly
+        ended.repeatRule = EventRepeat(frequency: .weekly, until: at(0, day: 12))
+        if case .create(let e)? = plan("- [ ] 10:00–12:00 古電 2/3", [ended]).ops.first {
+            XCTAssertEqual(e.title, "古電 2/3", "重複已經結束的日子：照舊建事件")
+        } else {
+            XCTFail("應該建事件")
+        }
+    }
 }
