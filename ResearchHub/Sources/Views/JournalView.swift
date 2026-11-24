@@ -61,8 +61,8 @@ struct JournalView: View {
         AppLanguage(rawValue: language)?.locale ?? .autoupdatingCurrent
     }
 
-    /// 星期列：固定用數字 1–7（週一=1 … 週日=7），不分語言、不會有英文重複字母的歧義。
-    private let weekdaySymbols = ["1", "2", "3", "4", "5", "6", "7"]
+    /// 星期列：固定用英文縮寫（使用者指定，不分介面語言），字小一點免得窄欄擠。
+    private let weekdaySymbols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     /// 月曆 7 欄版面（星期列與日期格共用同一組欄定義）。
     private let weekColumns = Array(repeating: GridItem(.flexible()), count: 7)
@@ -337,8 +337,10 @@ struct JournalView: View {
             // 星期標題自成一個 grid，不與日期格混在同一個 LazyVGrid。
             LazyVGrid(columns: weekColumns, spacing: 6) {
                 ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, s in
-                    Text(s)
-                        .font(.caption2)
+                    Text(verbatim: s)
+                        .font(.system(size: 9, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .foregroundStyle(.secondary)
                 }
             }
