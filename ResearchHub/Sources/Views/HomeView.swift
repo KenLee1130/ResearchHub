@@ -35,6 +35,10 @@ struct HomeView: View {
     @State private var showPlanning = false
     /// 展開顯示全文的一般待辦
     @State private var expandedTodos: Set<UUID> = []
+    /// 正在改文字的一般待辦（雙擊文字或按鉛筆）
+    @State private var editingTodo: UUID?
+    @State private var editDraft = ""
+    @FocusState private var editFocused: Bool
 
     var body: some View {
         Group {
@@ -493,14 +497,28 @@ struct HomeView: View {
             .buttonStyle(.plain)
 
             let expanded = expandedTodos.contains(todo.id)
+            let editing = editingTodo == todo.id
             VStack(alignment: .leading, spacing: 0) {
-                let meta = TodoMeta.parse(todo.text)
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    todoBadges(meta)
-                    Text(meta.cleanText)
+                if editing {
+                    // 原文（含 !high、@due 等標記）直接改：Enter 存、Esc 取消、點別處也存
+                    TextField("", text: $editDraft, axis: .vertical)
+                        .textFieldStyle(.plain)
                         .font(.callout)
-                        .lineLimit(expanded ? nil : 2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .focused($editFocused)
+                        .onSubmit { commitEdit(todo) }
+                        .onExitCommand { cancelEdit() }
+                        .onChange(of: editFocused) { _, focused in
+                            if !focused, editingTodo == todo.id { commitEdit(todo) }
+                        }
+                } else {
+                    let meta = TodoMeta.parse(todo.text)
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        todoBadges(meta)
+                        Text(meta.cleanText)
+                            .font(.callout)
+                            .lineLimit(expanded ? nil : 2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Text(todo.createdAt.formatted(.relative(presentation: .named)))
                     .font(.caption)
@@ -508,8 +526,21 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            // 點文字也能展開/收合
-            .onTapGesture { toggleExpanded(todo) }
+            // 雙擊改文字；單擊展開/收合
+            .onTapGesture(count: 2) { if !editing { startEdit(todo) } }
+            .onTapGesture { if !editing { toggleExpanded(todo) } }
+
+            Button {
+                if editing { commitEdit(todo) } else { startEdit(todo) }
+            } label: {
+                Image(systemName: editing ? "checkmark" : "pencil")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(3)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(editing ? "完成" : "編輯")
 
             // 展開/收合全文
             Button {
@@ -547,6 +578,28 @@ struct HomeView: View {
     private func addGeneralTodo() {
         generalStore.add(newGeneralTodo)
         newGeneralTodo = ""
+    }
+
+    private func startEdit(_ todo: GeneralTodo) {
+        editDraft = todo.text
+        editingTodo = todo.id
+        DispatchQueue.main.async { editFocused = true }
+    }
+
+    /// 清空不算刪除（刪除用垃圾桶按鈕），當作取消。
+    private func commitEdit(_ todo: GeneralTodo) {
+        guard editingTodo == todo.id else { return }
+        // 待辦是一行：貼進來的換行改成空白
+        let text = editDraft.replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        editingTodo = nil
+        if !text.isEmpty, text != todo.text {
+            generalStore.updateText(todo, to: text)
+        }
+    }
+
+    private func cancelEdit() {
+        editingTodo = nil
     }
 
     private func toggleExpanded(_ todo: GeneralTodo) {
