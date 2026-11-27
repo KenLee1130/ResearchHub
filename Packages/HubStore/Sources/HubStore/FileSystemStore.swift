@@ -199,6 +199,7 @@ public final class FileSystemStore {
     | `../Notes/**/*.md` | Notes (plain Markdown, `[[wikilinks]]`, `$…$` math, `\\cite{…}` Zotero keys). `assets/` folders hold images. |
     | `../Pomodoro/pomodoro.json` | Focus sessions: `[{date,minutes,plan,done,startedAt?,kind?,awaySpans?,tracks?}]`. Legacy entries have no `startedAt`, empty plan/done, and a 12:00:00 timestamp — exclude them from time-of-day analytics. `kind:"flow"` = endless (count-up) mode: `minutes` is work time only, `awaySpans` (`[{start,end}]`) are the stretches spent away from the timer or paused. `tracks` = songs played during the session (`"Title — Artist"`, from Spotify). |
     | `../Pomodoro/live-<device>.json` | What each device is focusing on right now (`{device,active,kind,startedAt,awaySpans,awaySince,phaseEndAt,updatedAt}`); the journal timeline draws it as a live red line. Written by the app only — read-only for tools. |
+    | `../Pomodoro/flow.json` | The flow-mode (stopwatch) session shared by Mac and iPhone (`{timer, ended, onScreen, updatedBy, updatedAt}`): start on one device, continue on the other; whoever stops it writes the record. Written by the app only — read-only for tools. |
 
     ## Conventions for AI agents
 

@@ -160,6 +160,14 @@ public final class PomodoroModel {
     /// 其他裝置寫的「正在專注」狀態（時間軸畫進行中的紅線）
     public private(set) var remoteLive: [PomodoroLiveState] = []
 
+    // 無限模式接力（見 SharedFlow）
+    /// 這台在不在螢幕前（沒開無限模式也記著，接手另一台那段時要用）
+    @ObservationIgnored private var localOffScreen = false
+    /// 這段無限模式各裝置在不在螢幕前
+    @ObservationIgnored private var flowScreens: [String: Bool] = [:]
+    /// 最後寫出／套用的共用狀態（內容一樣就不再寫，免得一直觸發 iCloud 上傳）
+    @ObservationIgnored private var lastShared: SharedFlow?
+
     /// 經典倒數在跑、或無限模式開著——畫面用它切到「計時中」版面
     public var isActive: Bool { isRunning || flow != nil || hasStartedPhase }
 
@@ -226,6 +234,7 @@ public final class PomodoroModel {
         defaults.set(d, forKey: CountKey.savedTimer)
         writeFocusState()
         writeLiveState()
+        publishSharedFlow()
     }
 
     /// 把「現在是否在專注」寫進 .hub/focus_state.json，讓手機端的閱讀關卡讀得到
@@ -296,12 +305,17 @@ public final class PomodoroModel {
         // 另一台裝置記了蕃茄鐘（或切回 app）→ 重讀
         loadRemoteLive()
         writeLiveState()
+        lastShared = nil
+        applySharedFlow()
         libraryObserver = librarySync.changes
             .receive(on: RunLoop.main)
             .sink { [weak self] change in
                 guard let self else { return }
                 if change.affects(self.sessionsFileURL) { self.loadSessions() }
-                if change.affects(self.pomodoroFolderURL) { self.loadRemoteLive() }
+                if change.affects(self.pomodoroFolderURL) {
+                    self.loadRemoteLive()
+                    self.applySharedFlow()
+                }
             }
         #if os(macOS)
         writeFocusState()   // Mac 是狀態的來源；開 app 就先落地一次
@@ -547,6 +561,7 @@ public final class PomodoroModel {
             remaining = duration(of: .work)
         }
         flow = FlowTimer(startedAt: .now, plan: currentPlan.trimmingCharacters(in: .whitespacesAndNewlines))
+        flowScreens = [Self.deviceName: !localOffScreen]
         saveTimerState()
     }
 
@@ -586,10 +601,16 @@ public final class PomodoroModel {
     public var canPickMode: Bool { flow == nil && !isRunning && phase == .work }
 
     /// 畫面離開／回到蕃茄鐘（切分頁、回桌面、鎖屏）。只有無限模式在意。
+    /// 接力時另一台也在用：每台各自回報，全部都離開才算非工作時間。
     public func setFlowOffScreen(_ off: Bool) {
-        guard var f = flow, f.offScreen != off else { return }
-        f.setOffScreen(off, at: .now)
-        flow = f
+        localOffScreen = off
+        guard var f = flow else { return }
+        flowScreens[Self.deviceName] = !off
+        let away = !flowScreens.values.contains(true)
+        if f.offScreen != away {
+            f.setOffScreen(away, at: .now)
+            flow = f
+        }
         saveTimerState()
     }
 
@@ -620,11 +641,75 @@ public final class PomodoroModel {
                                   plan: f.planSummary.replacingOccurrences(of: "\n", with: "、"),
                                   sessionID: sessionID,
                                   items: f.items.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty })
+        // 告訴另一台這段結束了（紀錄只由這台寫）
+        writeSharedFlow(SharedFlow(timer: f, ended: true, onScreen: flowScreens,
+                                   updatedBy: Self.deviceName))
         flow = nil
+        flowScreens = [:]
         currentPlan = ""
         flowSummary = summary
         saveTimerState()
         return summary
+    }
+
+    // MARK: - 無限模式接力
+
+    private var sharedFlowURL: URL? {
+        pomodoroFolderURL?.appendingPathComponent("flow.json")
+    }
+
+    /// 這台的無限模式有變就寫進共用檔（內容沒變不寫）。
+    private func publishSharedFlow() {
+        guard let flow else { return }
+        var screens = flowScreens
+        screens[Self.deviceName] = !localOffScreen
+        let next = SharedFlow(timer: flow, onScreen: screens, updatedBy: Self.deviceName)
+        if let lastShared, lastShared.sameContent(as: next) { return }
+        writeSharedFlow(next)
+    }
+
+    private func writeSharedFlow(_ shared: SharedFlow) {
+        lastShared = shared
+        guard let url = sharedFlowURL else { return }
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let data = try? Self.jsonEncoder.encode(shared) {
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    /// 讀共用檔：另一台開了就接手、改了就跟上、結束了就收掉。
+    private func applySharedFlow(now: Date = .now) {
+        guard let url = sharedFlowURL,
+              case .data(let data) = LibraryFileRead.read(url),
+              let shared = try? Self.jsonDecoder.decode(SharedFlow.self, from: data) else { return }
+        let mine = lastShared?.updatedBy == Self.deviceName ? lastShared?.updatedAt : nil
+        let action = FlowRelay.incoming(
+            shared, local: flow, me: Self.deviceName, localOffScreen: localOffScreen,
+            localUpdatedAt: mine, canAdopt: !isRunning && completionPrompt == nil, now: now)
+        switch action {
+        case .none:
+            return
+        case .end:
+            lastShared = shared
+            flow = nil
+            flowScreens = [:]
+            currentPlan = ""
+            loadSessions()   // 另一台寫的那筆紀錄
+            saveTimerState()
+        case .adopt(let timer, let screens):
+            if flow == nil, hasStartedPhase, phase == .work {
+                // 跟 startFlow 一樣：暫停到一半的那顆作廢
+                hasStartedPhase = false
+                activeStartedAt = nil
+                remaining = duration(of: .work)
+            }
+            lastShared = shared
+            flow = timer
+            flowScreens = screens
+            currentPlan = timer.plan
+            saveTimerState()   // 自己的螢幕狀態跟檔裡不同時會寫回去
+        }
     }
 
     /// 剛完成的那筆（一般一顆或無限模式），給完成畫面補資料用。

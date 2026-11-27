@@ -295,7 +295,12 @@ public func pomodoroFocusSpans(day: Date, sessions: [PomodoroSession], live: [Po
             }
         }
     }
+    // 接力中兩台跑的是同一段（同一個開始時刻）：只畫一次，以排在前面的（這台）為準
+    var drawnFlows = Set<Date>()
     for state in live {
+        if state.kind == .flow, state.active, let start = state.startedAt {
+            guard drawnFlows.insert(start).inserted else { continue }
+        }
         let spans = state.workSpans(at: now)
         for (i, span) in spans.enumerated() {
             if let c = span.clipped(from: dayStart, to: dayEnd) {
@@ -306,4 +311,63 @@ public func pomodoroFocusSpans(day: Date, sessions: [PomodoroSession], live: [Po
         }
     }
     return result.sorted { $0.start < $1.start }
+}
+
+// MARK: - 無限模式接力（Mac ↔ iPhone 共用同一段）
+
+/// `Pomodoro/flow.json`：正在跑的那段無限模式，兩台共用。
+/// 一台按開始，另一台打開就接著同一段（同一個開始時刻、同一份記下的事）；
+/// 任一台按結束，寫紀錄的是按的那台，另一台看到 `ended` 就收掉。
+/// 同一段用 `timer.startedAt` 認。
+public struct SharedFlow: Codable, Equatable, Sendable {
+    public var timer: FlowTimer
+    public var ended: Bool
+    /// 各裝置現在在不在螢幕前；全部都離開才算非工作時間
+    public var onScreen: [String: Bool]
+    public var updatedBy: String
+    public var updatedAt: Date
+
+    public init(timer: FlowTimer, ended: Bool = false, onScreen: [String: Bool],
+                updatedBy: String, updatedAt: Date = .now) {
+        self.timer = timer; self.ended = ended; self.onScreen = onScreen
+        self.updatedBy = updatedBy; self.updatedAt = updatedAt
+    }
+
+    /// 比內容（不比誰寫的、何時寫的）：內容一樣就不用再寫檔
+    public func sameContent(as other: SharedFlow) -> Bool {
+        timer == other.timer && ended == other.ended && onScreen == other.onScreen
+    }
+}
+
+public enum FlowRelay {
+    /// 另一台寫來的共用狀態，這台該怎麼做。
+    public enum Action: Equatable, Sendable {
+        case none
+        /// 換成這份（接手另一台的那段，或同一段的最新內容）
+        case adopt(FlowTimer, onScreen: [String: Bool])
+        /// 另一台按了結束
+        case end
+    }
+
+    /// 無限模式超過這麼久沒收尾，當作忘了關，不接手
+    public static let staleAfter: TimeInterval = 16 * 3600
+
+    /// - localUpdatedAt: 這台最後一次改這段的時刻；比它舊的（iCloud 晚到的）不套用，免得蓋回去
+    public static func incoming(_ shared: SharedFlow, local: FlowTimer?, me: String,
+                                localOffScreen: Bool, localUpdatedAt: Date?,
+                                canAdopt: Bool, now: Date) -> Action {
+        guard shared.updatedBy != me else { return .none }
+        let same = local?.startedAt == shared.timer.startedAt
+        if shared.ended { return same ? .end : .none }
+        if same, let mine = localUpdatedAt, shared.updatedAt <= mine { return .none }
+        guard now.timeIntervalSince(shared.timer.startedAt) < staleAfter else { return .none }
+        guard same || (local == nil && canAdopt) else { return .none }
+        var screens = shared.onScreen
+        screens[me] = !localOffScreen
+        var timer = shared.timer
+        let away = !screens.values.contains(true)
+        if timer.offScreen != away { timer.setOffScreen(away, at: now) }
+        if same, timer == local, screens == shared.onScreen { return .none }
+        return .adopt(timer, onScreen: screens)
+    }
 }
